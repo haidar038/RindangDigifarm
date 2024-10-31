@@ -1,0 +1,171 @@
+{% extends 'layout/public_base.html' %} {% block title %}Prakiraan Cuaca{% endblock %} {% block content %}
+<main class="container py-4">
+    <div class="row">
+        <h1 class="mb-3 fw-bold">Prakiraan Cuaca - Ternate</h1>
+        <div class="col-md-8">
+            <div class="card weather-card rounded-4 rounded-4 mb-4 bg-gradient-green text-light">
+                <div class="card-body">
+                    <div class="mb-3">
+                        <p class="fw-bold mb-0">Cuaca Saat Ini</p>
+                        <em class="text-white"><span id="clock">00:00:00</span> WIT</em>
+                    </div>
+                    <div class="row">
+                        <div class="col-lg-4 col-sm-12">
+                            <p class="card-text d-flex justify-content-lg-start justify-content-center" id="currentWeather">--</p>
+                        </div>
+                        <div class="col-lg-8 col-sm-12">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <span class="card-title d-flex flex-column" id="currentTemp"></span>
+                                <div class="text-end">
+                                    <p class="mb-1 small">Jarak Pandang: <span id="visibility">-- km</span></p>
+                                    <p class="mb-1 small">Angin: <span id="wind">-- km/h</span></p>
+                                    <p class="mb-1 small">Kelembaban: <span id="humidity">--%</span></p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <p class="card-text">Kemungkinan Hujan: <span id="chanceOfRain">--%</span></p>
+                </div>
+            </div>
+            <div class="card rounded-4 mb-4">
+                <div class="card-body">
+                    <h3 class="card-title mb-3">Prakiraan Hari Ini</h3>
+                    <div class="row" id="todayForecast"></div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card rounded-4">
+                <div class="card-body">
+                    <h3 class="card-title mb-3">Prakiraan Cuaca 3 Hari</h3>
+                    <div id="threeDayForecast"></div>
+                </div>
+            </div>
+            <div class="mt-4 rounded-4 alert alert-light" role="alert">
+                <h5>Rekomendasi berdasarkan cuaca hari ini</h5>
+                <div class="d-flex g">
+                    <i class="bi bi-exclamation-circle display-6 text-danger me-3"></i>
+                    <small id="agriRecommendation">Memuat rekomendasi...</small>
+                </div>
+            </div>
+        </div>
+    </div>
+</main>
+{% endblock %}
+<!-- Script Block -->
+{% block scripts %}
+<script
+    src="https://cdnjs.cloudflare.com/ajax/libs/axios/1.7.7/axios.min.js"
+    integrity="sha512-DdX/YwF5e41Ok+AI81HI8f5/5UsoxCVT9GKYZRIzpLxb8Twz4ZwPPX+jQMwMhNQ9b5+zDEefc+dcvQoPWGNZ3g=="
+    crossorigin="anonymous"
+    referrerpolicy="no-referrer"
+></script>
+<script>
+    const apiUrl = 'https://api.bmkg.go.id/publik/prakiraan-cuaca?adm2=82.71';
+
+    function formatDateTime(dateTimeStr) {
+        const date = new Date(dateTimeStr);
+        return date.toLocaleTimeString('en-US', { hour: 'numeric', hour12: true });
+    }
+
+    function updateWeatherData(data) {
+        const currentWeather = data.data[0].cuaca[1][0];
+        document.getElementById('currentTemp').innerHTML = `<h1 class="fw-bold display-1">${currentWeather.t}°C</h1><p class="card-text h5" id="currentCondition">${currentWeather.weather_desc}</p>`;
+        document.getElementById('currentWeather').innerHTML = `<img src="${currentWeather.image}" alt="${currentWeather.weather_desc}" style="width: 168px; height: 168px;">`;
+        document.getElementById('chanceOfRain').textContent = `${currentWeather.tcc}%`;
+        //document.getElementById('realFeel').textContent = `${currentWeather.t}°C`;
+        document.getElementById('wind').textContent = `${currentWeather.ws} km/h`;
+        document.getElementById('humidity').textContent = `${currentWeather.hu}%`;
+        document.getElementById('visibility').textContent = currentWeather.vs_text;
+
+        console.log(currentWeather.weather_desc);
+
+        const todayForecast = data.data[0].cuaca[1].slice(0, 6);
+        const todayForecastHtml = todayForecast
+            .map(
+                (forecast) => `
+         <div class="col-2 text-center">
+             <p>${formatDateTime(forecast.local_datetime)}</p>
+             <img src="${forecast.image}" alt="${forecast.weather_desc}" style="width: 30px; height: 30px;">
+             <p>${forecast.t}°C</p>
+             <p>${forecast.weather_desc}</p>
+         </div>
+     `
+            )
+            .join('');
+        document.getElementById('todayForecast').innerHTML = todayForecastHtml;
+
+        const threeDayForecast = [
+            data.data[0].cuaca[0][0], // yesterday
+            data.data[0].cuaca[1][0], // today
+            data.data[0].cuaca[2][0], // tomorrow
+        ];
+        const threeDayForecastHtml = threeDayForecast
+            .map((forecast, index) => {
+                const date = new Date(forecast.local_datetime);
+                const dayName = ['Kemarin', 'Hari Ini', 'Besok'][index];
+                return `
+             <div class="d-flex justify-content-between align-items-center mb-2">
+                 <span>${dayName}</span>
+                 <img src="${forecast.image}" alt="${forecast.weather_desc}" style="width: 30px; height: 30px;">
+                 <span>${forecast.t}°C</span>
+             </div>
+         `;
+            })
+            .join('');
+        document.getElementById('threeDayForecast').innerHTML = threeDayForecastHtml;
+
+        updateAgriRecommendation(currentWeather);
+    }
+
+    function updateAgriRecommendation(weather) {
+        const weatherCondition = weather.weather_desc.toLowerCase();
+        let recommendation = '';
+
+        if (weatherCondition.includes('hujan')) {
+            recommendation = `Karena kondisi hujan dengan suhu <strong>${weather.t}°C</strong>, pertimbangkan untuk melindungi tanaman Anda dari kelembapan yang berlebihan. Pastikan drainase yang baik di ladang Anda dan pantau tanda-tanda penyakit jamur.`;
+        } else if (weatherCondition.includes('cerah') || weatherCondition.includes('berawan')) {
+            recommendation = `Cuaca hari ini dengan suhu <strong>${weather.t}°C</strong> cocok untuk sebagian besar kegiatan pertanian. Ini adalah waktu yang tepat untuk memeriksa tanaman Anda, memberikan pupuk jika diperlukan, dan memastikan pengairan yang memadai.`;
+        } else if (weather.t > 30) {
+            recommendation = `Diperkirakan suhu tinggi mencapai <strong>${weather.t}°C</strong>. Pastikan tanaman Anda disiram dengan baik dan pertimbangkan untuk memberikan naungan bagi tanaman yang sensitif. Pantau tanda-tanda stres panas.`;
+        } else {
+            recommendation = `Kondisi cuaca saat ini sedang dengan suhu <strong>${weather.t}°C</strong>. Lanjutkan dengan pemeliharaan dan pemantauan tanaman secara teratur.`;
+        }
+
+        document.getElementById('agriRecommendation').innerHTML = recommendation;
+    }
+
+    async function fetchWeatherData() {
+        try {
+            const response = await axios.get(apiUrl);
+            updateWeatherData(response.data);
+        } catch (error) {
+            console.error('Error fetching weather data:', error);
+            alert('Failed to fetch weather data. Please try again later.');
+        }
+    }
+
+    function startTime() {
+        const today = new Date();
+        let h = today.getHours();
+        let m = today.getMinutes();
+        let s = today.getSeconds();
+        m = checkTime(m);
+        s = checkTime(s);
+        document.getElementById('clock').innerHTML = h + ':' + m + ':' + s;
+        setTimeout(startTime, 1000);
+    }
+
+    function checkTime(i) {
+        if (i < 10) {
+            i = '0' + i;
+        } // add zero in front of numbers < 10
+        return i;
+    }
+
+    startTime();
+    fetchWeatherData();
+    // Refresh data every 30 minutes
+    setInterval(fetchWeatherData, 30 * 60 * 1000);
+</script>
+{% endblock %}

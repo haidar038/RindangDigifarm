@@ -1,0 +1,53 @@
+{% extends 'layout/public_base.html' %}
+<!-- Content Blocks -->
+{% block content %}
+<div class="container py-4">
+    <div class="row">
+        <a href="{{ url_for('public.rindang_pedia' ) }}" class="link-color-primary fw-bold mb-4">&larr; Kembali</a>
+        <div class="col-12">
+            <h1 class="mb-3">{{ article.judul }}</h1>
+            <img src="{{ url_for('static', filename='uploads/'+article.thumbnail ) }}" alt="Thumbnail" class="img-thumbnail mb-3" />
+            <div class="d-flex flex-column small mb-4">
+                <p class="mb-0 fw-bold text-green">{{ created_by }}</p>
+                <p class="mb-0 opacity-50" id="created_at">{{ article.created_at }}</p>
+            </div>
+            <hr />
+            {{ article.content | safe }}
+        </div>
+    </div>
+</div>
+{% endblock %}
+<!-- Scripts block -->
+{% block scripts %}
+<script>
+    function formatTanggalIndonesia(tanggalString) {
+        const tanggal = new Date(tanggalString);
+
+        if (isNaN(tanggal)) {
+            return 'Tanggal tidak valid';
+        }
+
+        const options = {
+            weekday: 'long',
+            year: 'numeric',
+            month: 'long',
+            day: 'numeric',
+            hour: 'numeric',
+            minute: 'numeric',
+            hour12: false, // Menggunakan format 24 jam
+        };
+
+        const formatter = new Intl.DateTimeFormat('id-ID', options);
+        let tanggalFormatted = formatter.format(tanggal);
+
+        // Menambahkan "Pukul"
+        tanggalFormatted = tanggalFormatted.replace(/(\d{2}:\d{2})$/, 'Pukul $1');
+
+        return tanggalFormatted;
+    }
+
+    const tanggalString = document.getElementById('created_at').innerText;
+    const tanggalIndonesia = formatTanggalIndonesia(tanggalString);
+    document.getElementById('created_at').innerHTML = tanggalIndonesia;
+</script>
+{% endblock %}

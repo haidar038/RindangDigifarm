@@ -1,0 +1,194 @@
+{% extends 'layout/public_base.html' %} {% block title %} Panel Harga Komoditas {% endblock %} {% block content %}
+<main class="container py-4">
+    <div class="row">
+        <div class="col-lg-12 col-12 d-flex flex-column mb-5">
+            <h4><strong>Daftar Harga Eceran Komoditas Per Hari</strong></h4>
+            <p class="mb-4 text-muted"><strong>Ternate, Maluku Utara</strong></p>
+
+            <div class="card card-body rounded-4">
+                <div id="loading" style="display: none" class="text-center my-4">
+                    <h5>Data sedang dimuat, silakan tunggu...</h5>
+                </div>
+                <div class="table-responsive rounded-3" style="display: none" id="dataTable">
+                    <table class="table table-bordered" id="priceTable">
+                        <tr class="table-success text-light">
+                            <th scope="col">Komoditas</th>
+                            <th scope="col" id="date1"></th>
+                            <th scope="col" id="date2"></th>
+                        </tr>
+                        <tr class="bg-light">
+                            <td class="fw-bold">Cabai Rawit Merah</td>
+                            <td id="cabaiRawitMerahPrice1"></td>
+                            <td id="cabaiRawitMerahPrice2"></td>
+                        </tr>
+                        <tr class="bg-light">
+                            <td class="fw-bold">Cabai Merah Keriting</td>
+                            <td id="cabaiMerahKeritingPrice1"></td>
+                            <td id="cabaiMerahKeritingPrice2"></td>
+                        </tr>
+                        <tr class="bg-light">
+                            <td class="fw-bold">Bawang Merah</td>
+                            <td id="bawangMerahPrice1"></td>
+                            <td id="bawangMerahPrice2"></td>
+                        </tr>
+                        <caption class="small text-muted">
+                            *Data terupdate setiap hari
+                        </caption>
+                    </table>
+                </div>
+            </div>
+            <p class="small text-muted mt-2 mb-0">
+                <span class="text-red fw-bold">Sumber :</span>
+                <a target="_blank" href="https://panelharga.badanpangan.go.id/harga-eceran" class="text-muted">
+                    <strong>Badan Pangan Nasional | <em>Panel Harga Pangan</em></strong>
+                </a>
+            </p>
+        </div>
+
+        <div class="col-12">
+            <h4 class="fw-bold mb-3">Statistik Harga Komoditas</h4>
+            <div class="card card-body rounded-4">
+                <div class="mt-4">
+                    <canvas id="priceChart"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+</main>
+{% endblock %}
+<!-- Scripts block -->
+{% block scripts %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script
+    src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.7.1/jquery.min.js"
+    integrity="sha512-v2CJ7UaYy4JwqLDIrZUI/4hqeoQieOmAZNXBeQyjo21dadnwR+8ZaIJVT8EE2iyI61OV8e6M8PP2/4hpQINQ/g=="
+    crossorigin="anonymous"
+    referrerpolicy="no-referrer"
+></script>
+<script>
+    const commodities = ['Cabai Rawit Merah', 'Cabai Merah Keriting', 'Bawang Merah'];
+    const commodityColors = {
+        'Cabai Rawit Merah': 'rgba(255, 99, 132, 0.8)',
+        'Cabai Merah Keriting': 'rgba(54, 162, 235, 0.8)',
+        'Bawang Merah': 'rgba(255, 206, 86, 0.8)',
+    };
+
+    function formatCurrency(priceString) {
+        const priceNumber = parseFloat(priceString.replace(/[^0-9.-]+/g, ''));
+        return new Intl.NumberFormat('id-ID', {
+            style: 'currency',
+            currency: 'IDR',
+            minimumFractionDigits: 0,
+            maximumFractionDigits: 0,
+        }).format(priceNumber);
+    }
+
+    async function fetchPriceData() {
+        const today = new Date();
+        const yesterday = new Date();
+        yesterday.setDate(today.getDate() - 1);
+
+        const startDate = yesterday.toISOString().split('T')[0];
+        const endDate = today.toISOString().split('T')[0];
+        const kabKota = '458'; // replace with actual kab kota
+        const komoditasId = '3'; // replace with actual komoditas ID
+
+        const url = `/api/price-data?kab_kota=${kabKota}&komoditas_id=${komoditasId}&start_date=${startDate}&end_date=${endDate}`;
+
+        document.getElementById('loading').style.display = 'block';
+        document.getElementById('dataTable').style.display = 'none';
+
+        try {
+            const response = await fetch(url, {
+                method: 'GET',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+            });
+
+            if (!response.ok) {
+                throw new Error('Network response was not ok');
+            }
+
+            const data = await response.json();
+            const filteredData = data.data.filter((item) => commodities.includes(item.name));
+            populateTable(filteredData);
+            createChart(filteredData);
+        } catch (error) {
+            console.error('Error fetching data:', error);
+        } finally {
+            document.getElementById('loading').style.display = 'none';
+            document.getElementById('dataTable').style.display = 'block';
+        }
+    }
+
+    function populateTable(data) {
+        const today = new Date();
+        const yesterday = new Date();
+        yesterday.setDate(today.getDate() - 1);
+
+        document.getElementById('date1').innerText = yesterday.toLocaleDateString('id-ID');
+        document.getElementById('date2').innerText = today.toLocaleDateString('id-ID');
+
+        data.forEach((item) => {
+            const yesterdayPrice = item.by_date.find((d) => d.date === yesterday.toISOString().split('T')[0])?.geomean || '';
+            const todayPrice = item.by_date.find((d) => d.date === today.toISOString().split('T')[0])?.geomean || '';
+
+            const formattedYesterdayPrice = yesterdayPrice ? formatCurrency(yesterdayPrice.toString()) : '-';
+            const formattedTodayPrice = todayPrice ? formatCurrency(todayPrice.toString()) : '-';
+
+            if (item.name === 'Cabai Rawit Merah') {
+                document.getElementById('cabaiRawitMerahPrice1').innerText = formattedYesterdayPrice;
+                document.getElementById('cabaiRawitMerahPrice2').innerText = formattedTodayPrice;
+            } else if (item.name === 'Cabai Merah Keriting') {
+                document.getElementById('cabaiMerahKeritingPrice1').innerText = formattedYesterdayPrice;
+                document.getElementById('cabaiMerahKeritingPrice2').innerText = formattedTodayPrice;
+            } else if (item.name === 'Bawang Merah') {
+                document.getElementById('bawangMerahPrice1').innerText = formattedYesterdayPrice;
+                document.getElementById('bawangMerahPrice2').innerText = formattedTodayPrice;
+            }
+        });
+    }
+
+    function createChart(data) {
+        const ctx = document.getElementById('priceChart').getContext('2d');
+        const labels = [new Date(new Date().setDate(new Date().getDate() - 1)).toLocaleDateString('id-ID'), new Date().toLocaleDateString('id-ID')];
+        const datasets = data.map((item) => ({
+            label: item.name,
+            data: item.by_date.map((dateData) => dateData.geomean).reverse(),
+            backgroundColor: commodityColors[item.name],
+        }));
+
+        new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: labels,
+                datasets: datasets,
+            },
+            options: {
+                responsive: true,
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        title: {
+                            display: true,
+                            text: 'Harga (IDR)',
+                        },
+                    },
+                },
+                plugins: {
+                    title: {
+                        display: true,
+                        text: 'Perbandingan Harga Komoditas',
+                    },
+                    legend: {
+                        position: 'bottom',
+                    },
+                },
+            },
+        });
+    }
+
+    window.onload = fetchPriceData;
+</script>
+{% endblock %}

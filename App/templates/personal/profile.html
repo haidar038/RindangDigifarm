@@ -1,0 +1,406 @@
+{% extends 'layout/public_base.html' %} {% block title %}Profil Pengguna{% endblock %} {% block container %}
+<!--  Header End -->
+{% block content %}
+<main class="container py-4">
+    <div class="row">
+        <h1 class="h3 mb-3 fw-bold">Profil Saya</h1>
+        <div class="col-12">
+            <div class="card mb-3">
+                <div class="card-body">
+                    <div class="row">
+                        <div class="d-flex justify-content-between">
+                            <h5 class="fw-bold"><i class="bi bi-image me-2"></i> Foto Profil</h5>
+                            <button type="button" class="btn btn-outline-green btn-sm rounded-pill fw-medium mb-3" onclick="document.getElementById('profilePicInput').click()">
+                                <i class="bi bi-arrow-up-circle-fill me-2"></i> Unggah Foto Baru
+                            </button>
+                        </div>
+                        {% if not current_user.nama_lengkap %}
+                        <div class="alert alert-warning mb-4" role="alert">Silakan lengkapi data diri anda!</div>
+                        {% endif %}
+                        <!-- <h4 class="mb-4"><strong>Profil Pengguna</strong></h4> -->
+                        <div class="col-12">
+                            <div class="d-flex gap-3 flex-column flex-lg-row">
+                                <form
+                                    id="profilePicForm"
+                                    class="d-flex align-items-center gap-3"
+                                    action="{{ url_for('personal.update_profile_picture', id=current_user.id ) }}"
+                                    method="post"
+                                    enctype="multipart/form-data"
+                                    style="display: inline-block"
+                                >
+                                    <div class="p-0 rounded-4">
+                                        <div class="ratio-1x1">
+                                            <input type="file" accept="image/jpg, image/jpeg, image/png" name="profile_pic" id="profilePicInput" style="display: none" />
+                                            <img
+                                                src="{% if current_user.profile_pic %}
+                                                {{ url_for('static', filename='uploads/' + current_user.profile_pic) }}
+                                                {% else %} {{ url_for('static', filename='img/default_avatar.png' ) }} {% endif %}"
+                                                alt="Profile Picture"
+                                                style="width: 96px; aspect-ratio: 1/1"
+                                                class="rounded-4 ratio-1x1 object-fit-contain"
+                                            />
+                                        </div>
+                                    </div>
+                                </form>
+                                <div class="d-flex flex-column justify-content-center">
+                                    <small class="text-muted"><span class="text-red">*</span> Ukuran <strong>800x800px</strong> menjadi rekomendasi</small>
+                                    <small class="text-muted"><span class="text-red">*</span> Hanya format <strong>JPG</strong> dan <strong>PNG</strong> yang diizinkan</small>
+                                    <small class="text-muted"><span class="text-red">*</span> Ukuran maks. <strong>2MB</strong></small>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-12 mb-3">
+            <div class="card card-body">
+                <div class="d-flex justify-content-between mb-3">
+                    <h5 class="fw-bold"><i class="bi bi-person-square me-2"></i> Informasi Pribadi</h5>
+                    <div class="text-lg-start">
+                        <div class="d-lg-block d-none">
+                            <button id="upgradeAccountBtn" class="btn btn-outline-green btn-sm rounded-pill fw-medium me-2" data-bs-toggle="modal" data-bs-target="#upgradeAccount">
+                                <i class="bi bi-arrow-up-circle me-2"></i> Upgrade Akun
+                            </button>
+                            <button id="updateProfileBtn" type="button" class="btn btn-green btn-sm rounded-pill text-white w-auto" data-bs-toggle="modal" data-bs-target="#updateProfile">
+                                <i class="bi bi-pencil-square me-2"></i> Edit Profil
+                            </button>
+                        </div>
+                        <div class="d-lg-none d-block">
+                            <div class="dropdown">
+                                <button class="btn btn-lightwn-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false"><i class="bi bi-three-dots-vertical"></i></button>
+                                <ul class="dropdown-menu">
+                                    <li>
+                                        <button class="dropdown-item" id="updateProfileBtn" type="button" data-bs-toggle="modal" data-bs-target="#updateProfile"><i class="bi bi-pencil-square me-2"></i> Edit</button>
+                                    </li>
+                                    <li>
+                                        <button class="dropdown-item" id="upgradeAccountBtn" type="button" data-bs-toggle="modal" data-bs-target="#upgradeAccount"><i class="bi bi-arrow-up-circle me-2"></i> Upgrade Akun</button>
+                                    </li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="row">
+                    <div class="col-4">
+                        <p class="fw-bold opacity-50 mb-1">Nama Lengkap</p>
+                        <p class="mb-4">{{ current_user.nama_lengkap }}</p>
+                        <p class="fw-bold opacity-50 mb-1">Email</p>
+                        <p>{{ current_user.email }}</p>
+                    </div>
+                    <div class="col-4">
+                        <p class="fw-bold opacity-50 mb-1">Username</p>
+                        <p class="mb-4">{{ current_user.username }}</p>
+                        <p class="fw-bold opacity-50 mb-1">No HP</p>
+                        <p>{{ current_user.phone | default("0") }}</p>
+                    </div>
+                    <div class="col-4">
+                        <p class="fw-bold opacity-50 mb-1">Pekerjaan</p>
+                        <p>{{ current_user.pekerjaan }}</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-12">
+            <div class="card mb-3">
+                <div class="card-body">
+                    <h5 class="fw-bold mb-3"><i class="bi bi-list-task me-2"></i> Biodata</h5>
+                    <textarea class="form-control" rows="5" readonly style="resize: none">{{ current_user.bio }}</textarea>
+                </div>
+            </div>
+        </div>
+    </div>
+</main>
+
+<div class="modal modal-lg fade" id="updateProfile" tabindex="-1" aria-labelledby="updateProfileLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable">
+        <div class="modal-content p-3">
+            <div class="modal-header">
+                <h1 class="modal-title fs-5 fw-bold" id="updateProfileLabel">Ubah Profil</h1>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form action="{{ url_for('personal.updateprofil', id=current_user.id ) }}" method="post">
+                    <input type="text" name="formType" id="formType" value="Data User" class="visually-hidden" />
+                    <div class="mb-3">
+                        <label for="nama" class="form-label fw-bold">Nama Lengkap</label>
+                        <input class="form-control" type="text" name="nama" id="nama" placeholder="contoh : Yusuf Hi Bisnu" value="{{ current_user.nama_lengkap }}" />
+                    </div>
+                    <div class="mb-3">
+                        <label for="username" class="form-label fw-bold">Username</label>
+                        <input class="form-control" type="text" name="username" id="username" placeholder="contoh : ucup123" value="{{ current_user.username }}" />
+                    </div>
+                    <div class="mb-3">
+                        <label for="phone" class="form-label fw-bold">No HP</label>
+                        <input class="form-control" type="tel" name="phone" id="phone" placeholder="contoh : 081234567890" value="{{ current_user.phone }}" />
+                    </div>
+                    <div class="mb-3">
+                        <div class="row">
+                            <div class="col">
+                                <label for="kelamin" class="form-label fw-bold">Jenis Kelamin</label>
+                                <select class="form-select" aria-label="kelamin" id="kelamin" name="kelamin">
+                                    <option value="Laki-Laki">Laki-Laki</option>
+                                    <option value="Perempuan">Perempuan</option>
+                                </select>
+                            </div>
+                            <div class="col">
+                                <label for="pekerjaan" class="form-label fw-bold">Pekerjaan</label>
+                                <select class="form-select" aria-label="pekerjaan" id="pekerjaan" name="pekerjaan">
+                                    <option value="Petani">Petani</option>
+                                    <option value="Pelajar/Mahasiswa">Pelajar/Mahasiswa</option>
+                                    <option value="Guru atau Dosen">Guru atau Dosen</option>
+                                    <option value="Tentara dan Polisi">Tentara dan Polisi</option>
+                                    <option value="Dokter">Dokter</option>
+                                    <option value="Nelayan">Nelayan</option>
+                                    <option value="IRT">IRT</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <div class="row">
+                            <div class="col-4">
+                                <label for="regency" class="form-label fw-bold">Kabupaten/Kota</label>
+                                <select class="form-select" aria-label="regency" id="regency" name="regency">
+                                    <option value="">Pilih Kabupaten/Kota</option>
+                                    {% if current_user.kota %}
+                                    <option value="{{ current_user.kota }}" selected>{{ current_user.kota }}</option>
+                                    {% endif %}
+                                </select>
+                            </div>
+                            <div class="col-4">
+                                <label for="district" class="form-label fw-bold">Kecamatan</label>
+                                <select class="form-select" aria-label="district" id="district" name="district">
+                                    <option value="">Pilih Kecamatan</option>
+                                    {% if current_user.kec %}
+                                    <option value="{{ current_user.kec }}" selected>{{ current_user.kec }}</option>
+                                    {% endif %}
+                                </select>
+                            </div>
+                            <div class="col-4">
+                                <label for="village" class="form-label fw-bold">Kelurahan/Desa</label>
+                                <select class="form-select" aria-label="village" id="village" name="village">
+                                    <option value="">Pilih Kelurahan/Desa</option>
+                                    {% if current_user.kelurahan %}
+                                    <option value="{{ current_user.kelurahan }}" selected>{{ current_user.kelurahan }}</option>
+                                    {% endif %}
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="mb-4">
+                        <label for="bio" class="form-label">Biodata</label>
+                        <textarea class="form-control" id="bio" name="bio" rows="3">{{ current_user.bio }}</textarea>
+                    </div>
+                    <div class="d-flex justify-content-center">
+                        <button type="submit" class="btn btn-green w-100">Simpan</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="upgradeAccount" tabindex="-1" aria-labelledby="upgradeAccountLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="upgradeAccountLabel">Upgrade Akun</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="upgradeAccountForm" action="{{ url_for('auth.request_upgrade', id=current_user.id) }}" method="post" enctype="multipart/form-data">
+                    <div class="mb-3">
+                        <label for="accountType" class="form-label">Tipe Akun</label>
+                        <select class="form-select" id="accountType" name="accountType" required>
+                            <option value="">Pilih Tipe Akun</option>
+                            <option value="petani">Petani</option>
+                            <option value="ahli">Ahli</option>
+                        </select>
+                    </div>
+                    <div id="petaniFields" style="display: none">
+                        <div class="mb-3">
+                            <label for="luasLahan" class="form-label">Luas Lahan (hektar)</label>
+                            <input type="number" class="form-control" id="luasLahan" name="luasLahan" step="0.01" />
+                        </div>
+                    </div>
+                    <div id="ahliFields" style="display: none">
+                        <div class="mb-3">
+                            <label for="bidangKeahlian" class="form-label">Bidang Keahlian</label>
+                            <input type="text" class="form-control" id="bidangKeahlian" name="bidangKeahlian" />
+                        </div>
+                        <div class="mb-3">
+                            <label for="gelar" class="form-label">Gelar</label>
+                            <input type="text" class="form-control" id="gelar" name="gelar" />
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label for="verificationDocument" class="form-label">Dokumen Verifikasi</label>
+                        <input type="file" class="form-control" id="verificationDocument" name="verificationDocument" accept=".pdf,.jpg,.jpeg,.png" required />
+                        <small class="form-text text-muted">Unggah dokumen pendukung (PDF, JPG, atau PNG)</small>
+                    </div>
+                    <div class="text-end">
+                        <button type="submit" class="btn btn-primary">Ajukan Upgrade</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %} {% endblock %}
+<!-- Scritps block -->
+{% block scripts %}
+<script
+    src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.7.1/jquery.min.js"
+    integrity="sha512-v2CJ7UaYy4JwqLDIrZUI/4hqeoQieOmAZNXBeQyjo21dadnwR+8ZaIJVT8EE2iyI61OV8e6M8PP2/4hpQINQ/g=="
+    crossorigin="anonymous"
+    referrerpolicy="no-referrer"
+></script>
+<script>
+    // Profile picture upload functionality
+    const profilePicInput = document.getElementById('profilePicInput');
+    const profilePicForm = document.getElementById('profilePicForm');
+
+    if (profilePicInput && profilePicForm) {
+        profilePicInput.addEventListener('change', () => {
+            profilePicForm.submit();
+        });
+    }
+
+    // Region selection functionality
+    $(document).ready(function () {
+        const API_BASE_URL = '/api/proxy';
+        const REGION_TYPES = {
+            regencies: { parentId: '82', childType: 'districts', label: 'Kabupaten/Kota' },
+            districts: { childType: 'villages', label: 'Kecamatan' },
+            villages: { label: 'Kelurahan/Desa' },
+        };
+
+        function showLoading(elementId) {
+            $(`#${elementId}`).prop('disabled', true);
+            $(`#${elementId}-loading`).removeClass('d-none');
+        }
+
+        function hideLoading(elementId) {
+            $(`#${elementId}`).prop('disabled', false);
+            $(`#${elementId}-loading`).addClass('d-none');
+        }
+
+        function populateSelect(elementId, data, label) {
+            const select = $(`#${elementId}`);
+            select.empty().append(`<option value="">Pilih ${label}</option>`);
+            $.each(data, function (index, region) {
+                select.append(`<option value="${region.name}" data-id="${region.id}">${region.name}</option>`);
+            });
+        }
+
+        async function fetchRegions(type, parentId) {
+            const url = parentId ? `${API_BASE_URL}/${type}/${parentId}.json` : `${API_BASE_URL}/${type}.json`;
+
+            try {
+                const response = await $.ajax({
+                    url: url,
+                    type: 'GET',
+                    dataType: 'json',
+                });
+                return response;
+            } catch (error) {
+                console.error(`Failed to fetch ${type}:`, error);
+                throw error;
+            }
+        }
+
+        async function handleRegionChange(type, elementId) {
+            const selectedOption = $(`#${elementId} option:selected`);
+            const parentId = selectedOption.data('id');
+            const parentName = selectedOption.val();
+            if (!parentName) return;
+
+            const childType = REGION_TYPES[type].childType;
+            if (!childType) return;
+
+            const childElementId = childType.slice(0, -1);
+            showLoading(childElementId);
+
+            try {
+                const data = await fetchRegions(childType, parentId);
+                populateSelect(childElementId, data, REGION_TYPES[childType].label);
+            } catch (error) {
+                alert(`Failed to fetch ${REGION_TYPES[childType].label}. Please try again.`);
+            } finally {
+                hideLoading(childElementId);
+            }
+        }
+
+        // Initial load of regencies
+        (async function () {
+            showLoading('regency');
+            try {
+                const regencies = await fetchRegions('regencies', REGION_TYPES.regencies.parentId);
+                populateSelect('regency', regencies, REGION_TYPES.regencies.label);
+            } catch (error) {
+                alert('Failed to load initial data. Please refresh the page.');
+            } finally {
+                hideLoading('regency');
+            }
+        })();
+
+        // Event listeners
+        $('#regency').change(() => handleRegionChange('regencies', 'regency'));
+        $('#district').change(() => handleRegionChange('districts', 'district'));
+    });
+
+    $(document).ready(function () {
+        $('#accountType').change(function () {
+            const selectedType = $(this).val();
+            $('#petaniFields, #ahliFields').hide();
+            if (selectedType === 'petani') {
+                $('#petaniFields').show();
+            } else if (selectedType === 'ahli') {
+                $('#ahliFields').show();
+            }
+        });
+
+        $('#upgradeAccountForm').submit(function (e) {
+            e.preventDefault();
+            const formData = new FormData(this);
+
+            $.ajax({
+                url: $(this).attr('action'),
+                type: 'POST',
+                data: formData,
+                processData: false,
+                contentType: false,
+                success: function (response) {
+                    if (response.success) {
+                        alert('Permintaan upgrade akun berhasil dikirim. Mohon tunggu verifikasi dari admin.');
+                        $('#upgradeAccount').modal('hide');
+                    } else {
+                        alert('Anda telah mengajukan upgrade akun, silakan tunggu verifikasi dari admin');
+                    }
+                },
+                error: function () {
+                    alert('Terjadi kesalahan. Silakan coba lagi nanti.');
+                },
+            });
+        });
+    });
+
+    function updateUpgradeOptions() {
+        const userRole = '{{ current_user.role }}';
+        const accountTypeSelect = document.getElementById('accountType');
+        const petaniOption = accountTypeSelect.querySelector('option[value="petani"]');
+        const ahliOption = accountTypeSelect.querySelector('option[value="ahli"]');
+
+        if (userRole === 'petani') {
+            petaniOption.disabled = true;
+            petaniOption.style.display = 'none';
+        } else if (userRole === 'ahli') {
+            ahliOption.disabled = true;
+            ahliOption.style.display = 'none';
+        }
+    }
+
+    document.addEventListener('DOMContentLoaded', updateUpgradeOptions);
+</script>
+{% endblock %}

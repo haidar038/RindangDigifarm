@@ -1,0 +1,35 @@
+{% extends 'layout/auth_base.html' %} {% block title %}Verifikasi OTP{% endblock %} {% block content %}
+<div class="container-fluid h-100">
+    <div class="row h-100">
+        <div class="col-12 col-lg-6 p-3 p-lg-4 d-flex flex-column">
+            <div class="d-flex justify-content-between">
+                <a href="{{ url_for('auth.forgot_password') }}" class="link-color-primary fw-bold nav-link"> <i class="bi bi-arrow-left"></i> Kembali </a>
+            </div>
+            <div class="flex-fill d-flex flex-column pt-5">
+                <h2 class="fw-bold mb-3 text-green-accent">Verifikasi OTP</h2>
+                <p class="mb-4">Masukkan kode OTP yang telah dikirim ke email Anda</p>
+
+                <form action="{{ url_for('auth.verify_otp') }}" method="post" class="w-100">
+                    {{ form.csrf_token }}
+                    <div class="mb-3">
+                        <label for="otp" class="form-label">Kode OTP</label>
+                        {{ form.otp(class="form-control", placeholder="Masukkan 6 digit kode OTP", id="otp") }} {% if form.otp.errors %} {% for error in form.otp.errors %}
+                        <span class="text-danger">{{ error }}</span>
+                        {% endfor %} {% endif %}
+                    </div>
+
+                    {% with messages = get_flashed_messages(with_categories=true) %} {% if messages %} {% for category, message in messages %}
+                    <div class="alert alert-{{ category }} alert-dismissible fade show mb-4" role="alert">
+                        {{ message }}
+                        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                    </div>
+                    {% endfor %} {% endif %} {% endwith %}
+
+                    <button type="submit" class="btn btn-green text-center fw-bold text-light w-100 mb-3">Verifikasi OTP</button>
+                </form>
+            </div>
+        </div>
+        <div class="col-12 col-lg-6 d-none d-lg-block bg-secondary-subtle"></div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,169 @@
+{% extends 'layout/public_base.html' %}
+<!-- HEAD SCRIPTS -->
+{% block head_scripts %}
+<script
+    src="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.2/cropper.min.js"
+    integrity="sha512-JyCZjCOZoyeQZSd5+YEAcFgz2fowJ1F1hyJOXgtKu4llIa0KneLcidn5bwfutiehUTiOuK87A986BZJMko0eWQ=="
+    crossorigin="anonymous"
+    referrerpolicy="no-referrer"
+></script>
+<link
+    rel="stylesheet"
+    href="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.2/cropper.min.css"
+    integrity="sha512-UtLOu9C7NuThQhuXXrGwx9Jb/z9zPQJctuAgNUBK3Z6kkSYT9wJ+2+dh6klS+TDBCV9kNPBbAxbVD+vCcfGPaA=="
+    crossorigin="anonymous"
+    referrerpolicy="no-referrer"
+/>
+{% endblock %}
+<!-- STYLE BLOCK -->
+{% block styles %}
+<style>
+    .modal-body {
+        max-height: 80vh;
+        overflow: hidden;
+    }
+    .img-container {
+        max-height: 70vh;
+        width: 100%;
+    }
+</style>
+{% endblock %}
+<!-- TITLE -->
+{% block title %} Tulis Artikel {% endblock %}
+<!-- BLOCKS -->
+{% block content %}
+<main class="container py-4">
+    <form action="" method="post" enctype="multipart/form-data">
+        <div class="d-flex align-items-center justify-content-between mb-3">
+            <a href="{{ url_for('personal.index' ) }}" class="nav-link text-green fw-bold">&larr; Kembali</a>
+            <div class="d-flex gap-2">
+                <button type="submit" id="draftBtn" class="btn btn-outline-green fw-bold">Simpan Draft</button>
+                <button type="submit" id="postBtn" class="btn btn-green fw-bold text-white">Posting</button>
+            </div>
+        </div>
+        <h1 class="h5 fw-bold mb-4">Draft</h1>
+        <div class="row mb-3">
+            <input type="hidden" name="action" id="action" />
+            <div class="col-4">
+                <div class="mb-3">
+                    <label for="thumbnail" class="form-label fw-bold">Thumbnail</label>
+                    <input class="form-control" type="file" accept=".jpg, .jpeg, .png" id="thumbnail" name="thumbnail" />
+                </div>
+                <img src="https://upload.wikimedia.org/wikipedia/commons/3/3f/Placeholder_view_vector.svg" alt="Preview Uploaded Image" width="100%" class="img-thumbnail" id="thumbnail-preview" />
+            </div>
+            <div class="col-8">
+                <div class="mb-3">
+                    <label for="judul" class="form-label fw-bold">Judul Artikel</label>
+                    <input type="text" class="form-control" id="judul" name="judul" placeholder="Buat judul artikel yang menarik" required />
+                </div>
+                <div class="mb-3">
+                    <label for="ckeditor" class="form-label fw-bold">Tulisan</label>
+                    {{ ckeditor.create() }}
+                </div>
+            </div>
+        </div>
+    </form>
+</main>
+
+<!-- Modal for cropping -->
+<div class="modal fade" id="cropModal" tabindex="-1" aria-labelledby="cropModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="cropModalLabel">Crop Gambar</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="img-container">
+                    <img id="image-to-crop" src="" style="max-width: 100%; max-height: 100%" />
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Batal</button>
+                <button type="button" id="cropBtn" class="btn btn-primary">Crop</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+<!-- JS Block -->
+{% block scripts %} {{ ckeditor.load() }}
+<script src="//cdn.ckeditor.com/4.24.0-lts/full/ckeditor.js"></script>
+<script>
+    const draftBtn = document.getElementById('draftBtn');
+    const postBtn = document.getElementById('postBtn');
+    let action = document.getElementById('action');
+    draftBtn.addEventListener('click', function () {
+        action.value = 'save';
+    });
+    postBtn.addEventListener('click', function () {
+        action.value = 'posting';
+    });
+</script>
+<script>
+    let cropper;
+    const input = document.getElementById('thumbnail');
+    const modal = new bootstrap.Modal(document.getElementById('cropModal'));
+    const imageElement = document.getElementById('image-to-crop');
+    const preview = document.getElementById('thumbnail-preview');
+    const cropBtn = document.getElementById('cropBtn');
+
+    // Preview and open modal to crop image
+    input.addEventListener('change', function (event) {
+        const files = event.target.files;
+        if (files && files.length > 0) {
+            const file = files[0];
+            const reader = new FileReader();
+            reader.onload = function (e) {
+                imageElement.src = e.target.result;
+                modal.show();
+                if (cropper) {
+                    cropper.destroy();
+                }
+                cropper = new Cropper(imageElement, {
+                    aspectRatio: 16 / 9,
+                    viewMode: 0,
+                    dragMode: 'move',
+                    restore: false,
+                    center: false,
+                    highlight: false,
+                    //cropBoxMovable: false,
+                    //cropBoxResizable: false,
+                    //toggleDragModeOnDblclick: false,
+                });
+            };
+            reader.readAsDataURL(file);
+        }
+    });
+
+    // Adjust cropper when modal is shown
+    document.getElementById('cropModal').addEventListener('shown.bs.modal', function () {
+        if (cropper) {
+            cropper.resize();
+        }
+    });
+
+    // Crop image and update preview
+    cropBtn.addEventListener('click', function () {
+        const canvas = cropper.getCroppedCanvas({
+            width: 800,
+            height: 450,
+        });
+        canvas.toBlob(function (blob) {
+            const url = URL.createObjectURL(blob);
+            preview.src = url;
+
+            // Prepare the cropped file for uploading
+            const fileInputElement = document.getElementById('thumbnail');
+            const croppedFile = new File([blob], fileInputElement.files[0].name, { type: 'image/jpeg', lastModified: Date.now() });
+            const dataTransfer = new DataTransfer();
+            dataTransfer.items.add(croppedFile);
+            fileInputElement.files = dataTransfer.files;
+
+            modal.hide();
+        }, 'image/jpeg');
+    });
+</script>
+
+{% endblock %}

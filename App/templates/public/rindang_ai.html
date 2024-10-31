@@ -1,0 +1,183 @@
+{% extends 'layout/public_base.html' %}
+<!-- Title block -->
+{% block title %} Rindang AI {% endblock %}
+<!-- Head Block -->
+{% block styles %}
+<style>
+    .profile-picture {
+        width: 40px;
+        height: 40px;
+        object-fit: cover;
+        border-radius: 50%;
+    }
+
+    .typing-indicator {
+        display: inline-block;
+        padding: 5px 10px;
+        background-color: #e0e0e0;
+        border-radius: 20px;
+    }
+    .typing-indicator span {
+        height: 8px;
+        width: 8px;
+        float: left;
+        margin: 0 1px;
+        background-color: #9e9ea1;
+        display: block;
+        border-radius: 50%;
+        opacity: 0.4;
+    }
+    .typing-indicator span:nth-of-type(1) {
+        animation: 1s blink infinite 0.3333s;
+    }
+    .typing-indicator span:nth-of-type(2) {
+        animation: 1s blink infinite 0.6666s;
+    }
+    .typing-indicator span:nth-of-type(3) {
+        animation: 1s blink infinite 0.9999s;
+    }
+    @keyframes blink {
+        50% {
+            opacity: 1;
+        }
+    }
+</style>
+{% endblock %}
+<!-- Content Block -->
+{% block content %}
+<input type="hidden" name="userName" id="userName" value="{{ current_user.nama_lengkap }}" />
+<main class="container d-flex flex-column flex-grow-1 flex-shrink-1 py-3">
+    <div class="row flex-column align-items-center flex-grow-1 w-100">
+        <div class="col-md-8 d-flex flex-column flex-grow-1">
+            <div class="chatbox flex-grow-1 mb-3" style="overflow-y: auto; scroll-behavior: smooth" id="chatbox">
+                <!-- Pesan chat akan muncul di sini -->
+            </div>
+            <div class="rounded-pill border-1 border p-1">
+                <div class="input-group">
+                    <input type="text" id="user_input" class="form-control focus-ring rounded-start-pill border-0" style="--bs-focus-ring-color: rgba(var(--accent-green-color-rgb), 0.25)" placeholder="Tanyakan apapun disini..." />
+                    <button class="btn btn-green fw-bold text-white rounded-pill" onclick="sendMessage()">Kirim<i class="bi bi-send-fill ms-2"></i></button>
+                </div>
+            </div>
+        </div>
+    </div>
+</main>
+
+{% endblock %}
+<!-- Script block -->
+{% block scripts %}
+<script>
+    const chatbox = document.getElementById('chatbox');
+    let lastRequestTime = 0;
+    const requestLimit = 5; // 5 requests per second
+    const requestInterval = 1000; // 1 second in milliseconds
+    const userName = document.getElementById('userName').value;
+
+    function smoothScrollToBottom() {
+        const lastMessage = chatbox.lastElementChild;
+        if (lastMessage) {
+            lastMessage.scrollIntoView({ behavior: 'smooth', block: 'end' });
+        }
+    }
+
+    function appendMessage(sender, message, profilePicture) {
+        const messageDiv = document.createElement('div');
+        messageDiv.className = `mb-3 d-flex ${sender === 'Anda' ? 'justify-content-end' : 'justify-content-start'}`;
+
+        messageDiv.innerHTML = `
+            <div class="d-flex ${sender === 'Anda' ? 'flex-row-reverse' : ''} align-items-start gap-3" style="max-width: 80%;">
+                <img src="${profilePicture}" alt="${sender} profile picture" class="profile-picture rounded-4" style="width: 40px; height: 40px; object-fit: cover;">
+                <div class="d-inline-block p-2 rounded ${sender === 'Anda' ? 'bg-light text-end' : 'bg-success-subtle'}" style="max-width: calc(100% - 50px);">
+                    <strong>${sender}:</strong> ${message}
+                </div>
+            </div>
+        `;
+        chatbox.appendChild(messageDiv);
+        smoothScrollToBottom();
+    }
+
+    function appendTypingIndicator() {
+        const typingDiv = document.createElement('div');
+        typingDiv.className = 'mb-3';
+        typingDiv.innerHTML = `
+            <div class="typing-indicator">
+                <span></span>
+                <span></span>
+                <span></span>
+            </div>
+        `;
+        chatbox.appendChild(typingDiv);
+        smoothScrollToBottom();
+        return typingDiv;
+    }
+
+    function removeTypingIndicator(element) {
+        if (element && element.parentNode) {
+            element.parentNode.removeChild(element);
+        }
+    }
+
+    function sendMessage() {
+        const userInput = document.getElementById('user_input');
+        const userMessage = userInput.value.trim();
+        if (!userMessage) {
+            return;
+        }
+
+        const currentTime = Date.now();
+        if (currentTime - lastRequestTime < requestInterval / requestLimit) {
+            alert('Mohon tunggu sebentar sebelum mengirim pesan yang lain.');
+            return;
+        }
+
+        appendMessage('Anda', userMessage, `https://ui-avatars.com/api/?name=${userName}&background=random&length=1`);
+        userInput.value = '';
+        lastRequestTime = currentTime;
+
+        const typingIndicator = appendTypingIndicator();
+
+        fetch('/api/gemini', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ message: userMessage }),
+        })
+            .then((response) => {
+                if (!response.ok) {
+                    return response.json().then((err) => {
+                        throw new Error(err.error || 'An unknown error occurred.');
+                    });
+                }
+                return response.json();
+            })
+            .then((data) => {
+                removeTypingIndicator(typingIndicator);
+                const assistantReply = data.reply ? data.reply : 'No response from assistant.';
+                appendMessage('Assistant', assistantReply, 'static/img/ai_profile.png');
+            })
+            .catch((error) => {
+                removeTypingIndicator(typingIndicator);
+                console.error('Error:', error);
+                appendMessage('System', `An error occurred: ${error.message}`);
+            });
+    }
+
+    // Allow sending message with Enter key
+    document.getElementById('user_input').addEventListener('keypress', function (event) {
+        if (event.key === 'Enter') {
+            event.preventDefault();
+            sendMessage();
+        }
+    });
+
+    // Function to display welcome message
+    function displayWelcomeMessage() {
+        const welcomeMessage = `<p>Selamat datang di <strong>RINDANG AI</strong>! 👋🌱</p>
+        <p class='mb-0'>Saya di sini untuk membantu Anda dengan berbagai pertanyaan seputar pertanian.</p>`;
+        appendMessage('Assistant', welcomeMessage, 'static/img/ai_profile.png');
+    }
+
+    // Display welcome message when the page loads
+    window.onload = displayWelcomeMessage;
+</script>
+{% endblock %}

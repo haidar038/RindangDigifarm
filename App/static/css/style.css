@@ -1,0 +1,206 @@
+:root {
+    --primary-color: #89c97b;
+    --secondary-color: #d9ffd0;
+    --accent-green-color: #5faa4e;
+    --accent-green-color-rgb: 95, 170, 78;
+    --accent-red-color: #ff6b6b;
+    --accent-yellow-color: #fcb45e;
+    --light-yellow-color: #ffe3c2;
+    --dark-green-color: #2d6e22;
+    --bs-nav-link-color: #5faa4e !important;
+    --bs-link-color: #5faa4e !important;
+    --bs-link-hover-color: var(--dark-green-color) !important;
+    --navbar-height: 56px;
+}
+
+* {
+    font-family: 'Plus Jakarta Sans', sans-serif;
+}
+
+html,
+body {
+    height: 100%;
+}
+
+.hero-section {
+    background: url('../img/chillies.png');
+    background-repeat: no-repeat;
+    background-size: cover;
+}
+
+.bg-yellow {
+    background-color: var(--accent-yellow-color) !important;
+}
+
+.bg-yellow-secondary {
+    background-color: var(--light-yellow-color) !important;
+}
+
+.bg-green-dark {
+    background-color: var(--dark-green-color) !important;
+}
+
+.bg-green-secondary {
+    background-color: var(--secondary-color) !important;
+}
+
+.card-green-outline {
+    background-color: #f6fff4 !important;
+    outline: 1px solid var(--primary-color);
+}
+
+.link-color-primary {
+    color: var(--primary-color) !important;
+    -webkit-text-decoration-color: var(--primary-color) !important;
+    text-decoration-color: var(--primary-color) !important;
+    transition: all 0.3s;
+}
+
+.link-color-primary:hover {
+    color: var(--accent-green-color) !important;
+}
+
+.link-color-accent {
+    color: var(--accent-green-color) !important;
+    -webkit-text-decoration-color: var(--accent-green-color) !important;
+    text-decoration-color: var(--accent-green-color) !important;
+    transition: all 0.3s;
+}
+
+.link-color-accent:hover {
+    color: var(--primary-color) !important;
+}
+
+.nav {
+    --bs-nav-link-padding-x: 1rem;
+    --bs-nav-link-padding-y: 0.5rem;
+    --bs-nav-link-font-weight: ;
+    --bs-nav-link-color: var(--bs-link-color);
+    --bs-nav-link-hover-color: var(--bs-link-hover-color);
+    --bs-nav-link-disabled-color: var(--bs-secondary-color);
+    display: flex;
+    flex-wrap: wrap;
+    padding-left: 0;
+    margin-bottom: 0;
+    list-style: none;
+}
+
+.nav-pills .nav-link.active,
+.nav-pills .show > .nav-link {
+    color: var(--bs-nav-pills-link-active-color);
+    background-color: var(--accent-green-color) !important;
+}
+
+.nav-link {
+    display: block;
+    padding: var(--bs-nav-link-padding-y) var(--bs-nav-link-padding-x);
+    font-size: var(--bs-nav-link-font-size);
+    font-weight: var(--bs-nav-link-font-weight);
+    color: var(--bs-nav-link-color);
+    text-decoration: none;
+    background: 0 0;
+    border: 0;
+    transition: color 0.15s ease-in-out, background-color 0.15s ease-in-out, border-color 0.15s ease-in-out;
+}
+
+/* .nav-link:focus,
+.nav-link:hover {
+    color: var(--accent-green-color) !important;
+} */
+
+.btn-green {
+    --bs-btn-color: #fff;
+    --bs-btn-bg: var(--primary-color) !important;
+    --bs-btn-border-color: var(--primary-color) !important;
+    --bs-btn-hover-color: #fff;
+    --bs-btn-hover-bg: var(--accent-green-color) !important;
+    --bs-btn-hover-border-color: var(--accent-green-color) !important;
+    --bs-btn-focus-shadow-rgb: 49, 132, 253;
+    --bs-btn-active-color: #fff;
+    --bs-btn-active-bg: var(--accent-green-color) !important;
+    --bs-btn-active-border-color: var(--accent-green-color) !important;
+    --bs-btn-active-shadow: inset 0 3px 5px rgba(0, 0, 0, 0.125);
+    --bs-btn-disabled-color: #fff;
+    --bs-btn-disabled-bg: var(--primary-color) !important;
+    --bs-btn-disabled-border-color: var(--primary-color) !important;
+}
+
+.btn-outline-green {
+    --bs-btn-color: var(--primary-color) !important;
+    --bs-btn-bg: #fff;
+    --bs-btn-border-color: var(--primary-color) !important;
+    --bs-btn-hover-color: #fff;
+    --bs-btn-hover-bg: var(--accent-green-color) !important;
+    --bs-btn-hover-border-color: var(--accent-green-color) !important;
+    --bs-btn-focus-shadow-rgb: 49, 132, 253;
+    --bs-btn-active-color: #fff;
+    --bs-btn-active-bg: var(--accent-green-color) !important;
+    --bs-btn-active-border-color: var(--accent-green-color) !important;
+    --bs-btn-active-shadow: inset 0 3px 5px rgba(0, 0, 0, 0.125);
+    --bs-btn-disabled-color: #fff;
+    --bs-btn-disabled-bg: var(--primary-color) !important;
+    --bs-btn-disabled-border-color: var(--primary-color) !important;
+}
+
+.text-red {
+    color: var(--accent-red-color);
+}
+
+.text-green {
+    color: var(--primary-color);
+}
+
+.text-yellow {
+    color: var(--accent-yellow-color);
+}
+
+.text-green-accent {
+    color: var(--accent-green-color);
+}
+
+.weather-card {
+    /* Rectangle 4357 */
+    background: linear-gradient(180deg, #5faa4e 0%, #4eab3a 100%);
+}
+
+.personal-feature-card {
+    transition: all 0.3s;
+}
+
+.personal-feature-card:hover {
+    opacity: 0.75;
+    scale: 1.05;
+}
+
+/* CLASSES */
+#hero-img {
+    right: 10rem;
+}
+
+#about-img {
+    right: 1rem;
+}
+
+#about-card-wrap {
+    overflow: hidden;
+    position: relative;
+}
+
+#about-card-img {
+    opacity: 0.3;
+    position: absolute;
+    left: 0;
+    bottom: 25%;
+    transform: translate(-0%, 50%);
+    width: 100%;
+    height: auto;
+    mix-blend-mode: multiply;
+}
+
+#about-card-content {
+    position: relative;
+}
+
+#bg-img {
+    background-image: url('../img/chillies.png');
+}

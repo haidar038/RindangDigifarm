@@ -1,0 +1,98 @@
+{% extends 'layout/public_base.html' %}
+<!-- BLOCK -->
+{% block title %} Rindang Talk {% endblock %}
+<!--  -->
+{% block content %}
+<main class="container py-4">
+    <div class="row justify-content-lg-center">
+        <div class="col-12 col-lg-8">
+            <div class="d-flex flex-column align-items-center">
+                <img src="{{ url_for('static', filename='logo/RindangAskLogo.svg' ) }}" alt="RindangTalk" width="320px" class="mb-3" />
+                <p class="mb-5 h5 text-center">Diskusi dan tanya jawab tentang pertanian bersama <br /><strong>Rindang Ask</strong></p>
+
+                <div class="card card-body shadow border-0 rounded-4 p-4">
+                    <form action="" method="post">
+                        <div class="mb-3">
+                            <label for="nama_lengkap" class="form-label text-center w-100 fw-bold text-dark">Nama</label>
+                            <input type="text" name="nama_lengkap" class="form-control bg-body-secondary text-center" id="nama_lengkap" placeholder="Nama Lengkap" value="{{ current_user.nama_lengkap }}" required />
+                        </div>
+                        <div class="mb-3">
+                            <label for="email" class="form-label text-center w-100 fw-bold text-dark">Alamat Email</label>
+                            <input type="email" name="email" class="form-control bg-body-secondary text-center" id="email" placeholder="nama@gmail.com" value="{{ current_user.email }}" required />
+                        </div>
+                        <div class="mb-3">
+                            <label for="question" class="form-label fw-bold w-100 text-center">Tulis Pertanyaanmu</label>
+                            <textarea class="form-control" name="question" id="question" rows="4" required></textarea>
+                        </div>
+                        <div class="m-b3">
+                            <div class="alert alert-success d-flex gap-2">
+                                <i class="bi bi-exclamation-circle"></i>
+                                <small class="text-muted">
+                                    Pertanyaan akan dijawab oleh Ahli Pertanian melalui email Anda. Tim Rindang akan mempublikasikan pertanyaan dan jawaban ini di halaman Rindang TALK tanpa mencantumkan nama atau alamat email Anda.
+                                </small>
+                            </div>
+                        </div>
+                        <button type="submit" class="btn btn-green fw-bold text-light">Kirim Pertanyaan</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="row py-5">
+        <div class="col-12">
+            <p class="h5 mb-4">Diskusi Rindang Ask Terbaru</p>
+            <div class="row">
+                <div class="col-12">
+                    {% if questions %} {% for item in questions %}
+                    <div class="d-flex gap-3 align-items-start justify-content-between mb-3">
+                        <div class="d-flex gap-3">
+                            <div class="position-relative d-flex align-items-start">
+                                <img src="https://ui-avatars.com/api/?name={{ current_user.nama_lengkap }}&background=random&length=1&bold=true&rounded=true" alt="Profil Pict" class="position-relative profile-pict" />
+                                {% if item.answer %}
+                                <div class="position-absolute end-0 bottom-0">
+                                    <img src="https://ui-avatars.com/api/?name={{ item.replied_by }}&background=random&length=1&bold=true&rounded=true" alt="" />
+                                </div>
+                                {% endif %}
+                            </div>
+                            <div class="d-flex flex-column">
+                                <a class="h5 mb-3 link-dark link-underline-opacity-0 link-underline-opacity-50-hover link-opacity-50-hover" href="{{ url_for('personal.questiondetails', id=item.id ) }}">{{ item.question }}</a>
+                                <div>
+                                    {% if item.answer %}
+                                    <p class="text-green">dijawab oleh <strong>{{ item.replied_by }}</strong></p>
+                                    <p class="text-wrap">{{ item.answer }}</p>
+                                    {% else %}
+                                    <span class="badge p-2 rounded-pill bg-yellow">Menunggu Jawaban</span>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+                        <small class="date">{{ item.created_at }}</small>
+                    </div>
+                    {% endfor %} {% else %}
+                    <p class="opacity-50">-- Belum ada pertanyaan! --</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</main>
+
+{% endblock %}
+<!-- SCRIPT -->
+{% block scripts %}
+<script>
+    const dateElements = document.querySelectorAll('.date');
+
+    dateElements.forEach((element) => {
+        const dateString = element.textContent.trim();
+        const date = new Date(dateString);
+
+        if (!isNaN(date)) {
+            // Check if date is valid more concisely
+            const options = { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC' }; // Added timeZone for consistency
+            const formattedDate = date.toLocaleDateString('id-ID', options);
+            element.textContent = formattedDate;
+        }
+    });
+</script>
+{% endblock %}
