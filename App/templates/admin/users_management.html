@@ -1,0 +1,67 @@
+{% extends 'layout/admin_base.html' %}
+<!-- Head Block -->
+{% block title %} Dashboard Admin - Manajemen Pengguna {% endblock %}
+<!-- Content Block -->
+{% block content %}
+<main class="container">
+    <h3 class="mb-3 fw-bold">Manajemen Pengguna</h3>
+    <table class="table table-striped">
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th>Username</th>
+                <th>Email</th>
+                <th>Role</th>
+                <th>Aksi</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for item in users %}
+            <tr class="align-middle">
+                <td>{{ loop.index }}</td>
+                <td>{{ item.username }}</td>
+                <td>{{ item.email }}</td>
+                <td class="text-capitalize">{{ item.role }}</td>
+                <td>
+                    <!-- Button trigger modal -->
+                    <div class="dropdown">
+                        <button class="btn btn-light position-relative" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                            {% for requests in user_req %} {% if requests.user_id == item.id %}
+                            <span class="position-absolute top-0 start-100 translate-middle p-2 bg-danger border border-light rounded-circle">
+                                <span class="visually-hidden">New alerts</span>
+                            </span>
+                            {% endif %} {% endfor %}
+                            <i class="bi bi-three-dots-vertical"></i>
+                        </button>
+                        <ul class="dropdown-menu">
+                            <li><a class="dropdown-item" href="{{ url_for('admin.view_upgrade_requests' ) }}">Upgrade Requests</a></li>
+                            <hr />
+                            <li><a class="dropdown-item" href="#">Edit</a></li>
+                            <li><a class="dropdown-item" href="#">Hapus</a></li>
+                        </ul>
+                    </div>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</main>
+
+<!-- Modal -->
+{% for item in users %}
+<div class="modal fade" id="detailsModal{{ item.id }}" tabindex="-1" aria-labelledby="detailsModal{{ item.id }}Label" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h1 class="modal-title fs-5" id="detailsModal{{ item.id }}Label"></h1>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">...</div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                <button type="button" class="btn btn-primary">Save changes</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endfor %} {% endblock %}

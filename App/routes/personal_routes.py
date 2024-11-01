@@ -6,9 +6,11 @@ from flask_ckeditor.utils import cleanify
 from werkzeug.utils import secure_filename
 from werkzeug.security import check_password_hash, generate_password_hash
 from flask_mail import Mail, Message
+from datetime import datetime
 
 from App import db, mail
-from App.models import User, Kebun, Artikel, Forum
+from App.models import User, Kebun, Artikel, Forum, UpgradeRequest
+from App.forms.auth_forms import UpgradeRequestForm
 
 personal = Blueprint('personal', __name__)
 
@@ -39,7 +41,7 @@ def index():
 
     return render_template('personal/index.html', users=users, articles=articles, forum=forum, min=min, max=max, articles_pagination=articles_pagination, forum_pagination=forum_pagination)
 
-@personal.route('/personal/rindang-ask', methods=['GET', 'POST'])
+@personal.route('/rindang-ask', methods=['GET', 'POST'])
 def rindang_ask():
     questions = Forum.query.filter_by(created_by=current_user.id).all()
     fetch_ahli_email = User.query.filter_by(role='ahli').all()
@@ -210,8 +212,11 @@ def delete_article(id):
     return redirect(url_for('personal.index'))
 
 @personal.route('/personal/profile')
+@login_required
 def profile():
-    return render_template('personal/profile.html')
+    form = UpgradeRequestForm()
+    print(current_user.roles)
+    return render_template('personal/profile.html', form=form)
 
 @personal.route('/personal/profile/update/<int:id>', methods=['GET', 'POST'])
 @login_required
@@ -229,7 +234,7 @@ def updateprofil(id):
             user.pekerjaan = request.form['pekerjaan']
             user.kelamin = request.form['kelamin']
             user.phone = request.form['phone']
-            
+
             # Hanya update data wilayah jika ada perubahan
             user.kota = request.form['regency'] if request.form['regency'] else user.kota
             user.kec = request.form['district'] if request.form['district'] else user.kec
@@ -307,6 +312,96 @@ def update_profile_picture(id):
         else:
             flash('File yang diizinkan hanya JPG, JPEG, dan PNG.', 'warning')
     return redirect(url_for('personal.profile'))
+
+@personal.route('/personal/request-upgrade', methods=['POST'])
+@login_required
+def request_upgrade():
+    form = UpgradeRequestForm()
+    
+    if form.validate_on_submit():
+        # Cek apakah user sudah memiliki role yang diminta
+        if form.upgrade_type.data in [role.name for role in current_user.roles]:
+            flash(f'Anda sudah memiliki role {form.upgrade_type.data}!', 'warning')
+            return redirect(url_for('personal.profile'))
+            
+        # Cek apakah ada permintaan yang masih pending
+        pending_request = UpgradeRequest.query.filter_by(
+            user_id=current_user.id,
+            requested_role=form.upgrade_type.data,
+            status='pending'
+        ).first()
+        
+        if pending_request:
+            flash('Anda masih memiliki permintaan upgrade yang sedang diproses!', 'warning')
+            return redirect(url_for('personal.profile'))
+
+        # Handle file upload
+        attachment_filename = None
+        if form.attachments.data:
+            if allowed_file(form.attachments.data.filename):
+                filename = secure_filename(form.attachments.data.filename)
+                filename = f"upgrade_{current_user.id}_{int(datetime.now().timestamp())}_{filename}"
+                upload_folder = os.path.join(current_app.root_path, 'static', 'uploads', 'upgrade_attachments')
+                os.makedirs(upload_folder, exist_ok=True)
+                form.attachments.data.save(os.path.join(upload_folder, filename))
+                attachment_filename = f"upgrade_attachments/{filename}"
+            else:
+                flash('Format file tidak diizinkan!', 'danger')
+                return redirect(url_for('personal.profile'))
+
+        try:
+            upgrade_request = UpgradeRequest(
+                user_id=current_user.id,
+                requested_role=form.upgrade_type.data,
+                reason=form.reason.data,
+                attachment=attachment_filename
+            )
+            db.session.add(upgrade_request)
+            db.session.commit()
+            
+            flash('Permintaan upgrade akun telah dikirim dan sedang dalam proses verifikasi.', 'success')
+            return redirect(url_for('personal.profile'))
+            
+        except Exception as e:
+            db.session.rollback()
+            current_app.logger.error(f"Error saat mengajukan upgrade request: {str(e)}")
+            flash('Terjadi kesalahan saat mengirim permintaan upgrade.', 'danger')
+            return redirect(url_for('personal.profile'))
+            
+    return redirect(url_for('personal.profile'))
+
+def allowed_file(filename):
+    """Memeriksa apakah file memiliki ekstensi yang diperbolehkan."""
+    allowed_extensions = current_app.config.get('ALLOWED_EXTENSIONS', {'png', 'jpg', 'jpeg', 'pdf'})
+    return '.' in filename and \
+            filename.rsplit('.', 1)[1].lower() in allowed_extensions
+
+def send_admin_upgrade_request_notification(upgrade_request):
+    """Mengirim email notifikasi ke admin tentang permintaan upgrade baru."""
+    admin_email = current_app.config.get('ADMIN_EMAIL')
+    if not admin_email:
+        current_app.logger.error('Admin email tidak dikonfigurasi.')
+        return
+    
+    subject = "Permintaan Upgrade Akun Baru"
+    body = f"""
+    Hai Admin,
+
+    Pengguna dengan username '{upgrade_request.user.username}' dan email '{upgrade_request.user.email}' telah mengajukan permintaan upgrade akun ke '{upgrade_request.upgrade_type.value.title()}'.
+
+    Alasan:
+    {upgrade_request.reason}
+
+    Silakan kunjungi dashboard admin untuk memproses permintaan ini.
+
+    Terima kasih.
+    """
+    msg = Message(subject=subject, recipients=[admin_email], body=body)
+    try:
+        mail.send(msg)
+        current_app.logger.info(f"Email notifikasi permintaan upgrade dikirim ke {admin_email}.")
+    except Exception as e:
+        current_app.logger.error(f"Gagal mengirim email notifikasi upgrade: {str(e)}")
 
 @personal.route('/personal/pengaturan', methods=['GET', 'POST'])
 def settings():

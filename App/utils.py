@@ -14,7 +14,7 @@ def generate_confirmation_token(email, expiration=3600):
     try:
         payload = {
             'email': email,
-            'exp': datetime.utcnow() + timedelta(seconds=expiration)
+            'exp': datetime.now() + timedelta(seconds=expiration)
         }
         return jwt.encode(payload, current_app.config['SECRET_KEY'], algorithm='HS256')
     except Exception as e:

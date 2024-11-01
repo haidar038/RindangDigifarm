@@ -77,11 +77,11 @@
                                 <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false"> {{ current_user.username }} </a>
                                 <ul class="dropdown-menu dropdown-menu-end">
                                     <li><a class="dropdown-item" href="{{ url_for('personal.index' ) }}">Layanan Personal</a></li>
-                                    {% if current_user.role == 'petani' %}
+                                    {% if current_user.type == 'petani' %}
                                     <li><a class="dropdown-item" href="#">Dashboard</a></li>
-                                    {% elif current_user.role == 'ahli' %}
+                                    {% elif current_user.type == 'ahli' %}
                                     <li><a class="dropdown-item" href="#">Dashboard</a></li>
-                                    {% elif current_user.role == 'admin' %}
+                                    {% elif current_user.type == 'admin' %}
                                     <li><a class="dropdown-item" href="#">Dashboard</a></li>
                                     {% else %} {% endif %}
                                     <li><hr class="dropdown-divider" /></li>
@@ -131,7 +131,6 @@
                 </div>
                 <div class="d-flex">
                     <div class="toast-body">{{ message }}</div>
-                    <button type="button" class="btn-close me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button>
                 </div>
             </div>
             {% endfor %} {% endif %} {% endwith %}

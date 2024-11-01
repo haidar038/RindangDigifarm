@@ -59,7 +59,7 @@
                     <h5 class="fw-bold"><i class="bi bi-person-square me-2"></i> Informasi Pribadi</h5>
                     <div class="text-lg-start">
                         <div class="d-lg-block d-none">
-                            <button id="upgradeAccountBtn" class="btn btn-outline-green btn-sm rounded-pill fw-medium me-2" data-bs-toggle="modal" data-bs-target="#upgradeAccount">
+                            <button id="upgradeAccountBtn" class="btn btn-outline-green btn-sm rounded-pill fw-medium me-2" data-bs-toggle="modal" data-bs-target="#upgradeAccountModal">
                                 <i class="bi bi-arrow-up-circle me-2"></i> Upgrade Akun
                             </button>
                             <button id="updateProfileBtn" type="button" class="btn btn-green btn-sm rounded-pill text-white w-auto" data-bs-toggle="modal" data-bs-target="#updateProfile">
@@ -74,7 +74,7 @@
                                         <button class="dropdown-item" id="updateProfileBtn" type="button" data-bs-toggle="modal" data-bs-target="#updateProfile"><i class="bi bi-pencil-square me-2"></i> Edit</button>
                                     </li>
                                     <li>
-                                        <button class="dropdown-item" id="upgradeAccountBtn" type="button" data-bs-toggle="modal" data-bs-target="#upgradeAccount"><i class="bi bi-arrow-up-circle me-2"></i> Upgrade Akun</button>
+                                        <button class="dropdown-item" type="button" data-bs-toggle="modal" data-bs-target="#upgradeAccountModal">Upgrade Akun</button>
                                     </li>
                                 </ul>
                             </div>
@@ -108,6 +108,53 @@
                     <textarea class="form-control" rows="5" readonly style="resize: none">{{ current_user.bio }}</textarea>
                 </div>
             </div>
+        </div>
+        <div class="roles-section">
+            <h4>Roles</h4>
+            <div class="current-roles">
+                {% for role in current_user.roles %}
+                <span class="badge badge-primary">{{ role.name }}</span>
+                {% endfor %}
+            </div>
+
+            {% if 'personal' in current_user.roles|map(attribute='name') %}
+            <div class="upgrade-section">
+                <h5>Upgrade Akun</h5>
+                <form action="{{ url_for('personal.request_upgrade') }}" method="POST" enctype="multipart/form-data">
+                    {{ form.csrf_token }}
+                    <div class="form-group">{{ form.upgrade_type.label }} {{ form.upgrade_type(class="form-control") }}</div>
+                    <div class="form-group">{{ form.reason.label }} {{ form.reason(class="form-control") }}</div>
+                    <div class="form-group">{{ form.attachment.label }} {{ form.attachment(class="form-control-file") }}</div>
+                    <button type="submit" class="btn btn-primary">Ajukan Upgrade</button>
+                </form>
+            </div>
+            {% endif %} {% if current_user.upgrade_requests %}
+            <div class="upgrade-requests">
+                <h5>Riwayat Permintaan Upgrade</h5>
+                <div class="table-responsive">
+                    <table class="table">
+                        <thead>
+                            <tr>
+                                <th>Role</th>
+                                <th>Status</th>
+                                <th>Tanggal Pengajuan</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for request in current_user.upgrade_requests %}
+                            <tr>
+                                <td>{{ request.requested_role }}</td>
+                                <td>
+                                    <span class="badge badge-{{ 'warning' if request.status == 'pending' else 'success' if request.status == 'approved' else 'danger' }}"> {{ request.status }} </span>
+                                </td>
+                                <td>{{ request.created_at.strftime('%Y-%m-%d %H:%M') }}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            {% endif %}
         </div>
     </div>
 </main>
@@ -201,49 +248,59 @@
     </div>
 </div>
 
-<div class="modal fade" id="upgradeAccount" tabindex="-1" aria-labelledby="upgradeAccountLabel" aria-hidden="true">
+<!-- Modal Upgrade Akun -->
+<div class="modal modal-lg fade" id="upgradeAccountModal" tabindex="-1" aria-labelledby="upgradeAccountModalLabel" aria-hidden="true">
     <div class="modal-dialog">
         <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title" id="upgradeAccountLabel">Upgrade Akun</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-            </div>
-            <div class="modal-body">
-                <form id="upgradeAccountForm" action="{{ url_for('auth.request_upgrade', id=current_user.id) }}" method="post" enctype="multipart/form-data">
+            <form method="POST" action="{{ url_for('personal.request_upgrade' ) }}" enctype="multipart/form-data">
+                {{ form.csrf_token }}
+                <div class="modal-header">
+                    <h5 class="modal-title" id="upgradeAccountModalLabel">Ajukan Upgrade Akun</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <!-- Tipe Upgrade -->
                     <div class="mb-3">
-                        <label for="accountType" class="form-label">Tipe Akun</label>
-                        <select class="form-select" id="accountType" name="accountType" required>
-                            <option value="">Pilih Tipe Akun</option>
-                            <option value="petani">Petani</option>
-                            <option value="ahli">Ahli</option>
-                        </select>
-                    </div>
-                    <div id="petaniFields" style="display: none">
-                        <div class="mb-3">
-                            <label for="luasLahan" class="form-label">Luas Lahan (hektar)</label>
-                            <input type="number" class="form-control" id="luasLahan" name="luasLahan" step="0.01" />
+                        <label for="upgrade_type" class="form-label">Tipe Upgrade</label>
+                        {{ form.upgrade_type(class="form-select", id="upgrade_type") }} {% if form.upgrade_type.errors %}
+                        <div class="text-danger">
+                            {% for error in form.upgrade_type.errors %}
+                            <span>{{ error }}</span>
+                            {% endfor %}
                         </div>
+                        {% endif %}
                     </div>
-                    <div id="ahliFields" style="display: none">
-                        <div class="mb-3">
-                            <label for="bidangKeahlian" class="form-label">Bidang Keahlian</label>
-                            <input type="text" class="form-control" id="bidangKeahlian" name="bidangKeahlian" />
-                        </div>
-                        <div class="mb-3">
-                            <label for="gelar" class="form-label">Gelar</label>
-                            <input type="text" class="form-control" id="gelar" name="gelar" />
-                        </div>
-                    </div>
+
+                    <!-- Alasan Upgrade -->
                     <div class="mb-3">
-                        <label for="verificationDocument" class="form-label">Dokumen Verifikasi</label>
-                        <input type="file" class="form-control" id="verificationDocument" name="verificationDocument" accept=".pdf,.jpg,.jpeg,.png" required />
-                        <small class="form-text text-muted">Unggah dokumen pendukung (PDF, JPG, atau PNG)</small>
+                        <label for="reason" class="form-label">Alasan Upgrade</label>
+                        {{ form.reason(class="form-control", id="reason", rows="4") }} {% if form.reason.errors %}
+                        <div class="text-danger">
+                            {% for error in form.reason.errors %}
+                            <span>{{ error }}</span>
+                            {% endfor %}
+                        </div>
+                        {% endif %}
                     </div>
-                    <div class="text-end">
-                        <button type="submit" class="btn btn-primary">Ajukan Upgrade</button>
+
+                    <!-- Lampiran Pendukung -->
+                    <div class="mb-3">
+                        <label for="attachments" class="form-label">Dokumen Pendukung (Opsional)</label>
+                        {{ form.attachment(class="form-control", id="attachments", accept=".pdf,.jpg,.jpeg,.png") }} {% if form.attachment.errors %}
+                        <div class="text-danger">
+                            {% for error in form.attachment.errors %}
+                            <span>{{ error }}</span>
+                            {% endfor %}
+                        </div>
+                        {% endif %}
+                        <div class="form-text">Unggah dokumen berupa PDF, JPG, atau PNG dengan ukuran maksimal 2MB.</div>
                     </div>
-                </form>
-            </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Batal</button>
+                    <button type="submit" class="btn btn-green">Kirim Permintaan</button>
+                </div>
+            </form>
         </div>
     </div>
 </div>
@@ -349,58 +406,5 @@
         $('#regency').change(() => handleRegionChange('regencies', 'regency'));
         $('#district').change(() => handleRegionChange('districts', 'district'));
     });
-
-    $(document).ready(function () {
-        $('#accountType').change(function () {
-            const selectedType = $(this).val();
-            $('#petaniFields, #ahliFields').hide();
-            if (selectedType === 'petani') {
-                $('#petaniFields').show();
-            } else if (selectedType === 'ahli') {
-                $('#ahliFields').show();
-            }
-        });
-
-        $('#upgradeAccountForm').submit(function (e) {
-            e.preventDefault();
-            const formData = new FormData(this);
-
-            $.ajax({
-                url: $(this).attr('action'),
-                type: 'POST',
-                data: formData,
-                processData: false,
-                contentType: false,
-                success: function (response) {
-                    if (response.success) {
-                        alert('Permintaan upgrade akun berhasil dikirim. Mohon tunggu verifikasi dari admin.');
-                        $('#upgradeAccount').modal('hide');
-                    } else {
-                        alert('Anda telah mengajukan upgrade akun, silakan tunggu verifikasi dari admin');
-                    }
-                },
-                error: function () {
-                    alert('Terjadi kesalahan. Silakan coba lagi nanti.');
-                },
-            });
-        });
-    });
-
-    function updateUpgradeOptions() {
-        const userRole = '{{ current_user.role }}';
-        const accountTypeSelect = document.getElementById('accountType');
-        const petaniOption = accountTypeSelect.querySelector('option[value="petani"]');
-        const ahliOption = accountTypeSelect.querySelector('option[value="ahli"]');
-
-        if (userRole === 'petani') {
-            petaniOption.disabled = true;
-            petaniOption.style.display = 'none';
-        } else if (userRole === 'ahli') {
-            ahliOption.disabled = true;
-            ahliOption.style.display = 'none';
-        }
-    }
-
-    document.addEventListener('DOMContentLoaded', updateUpgradeOptions);
 </script>
 {% endblock %}

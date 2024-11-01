@@ -2,7 +2,7 @@
 
 from flask_wtf import FlaskForm
 from wtforms import StringField, PasswordField, BooleanField, SelectField, TextAreaField, FileField
-from wtforms.validators import DataRequired, Email, Length, EqualTo, ValidationError
+from wtforms.validators import DataRequired, Email, Length, EqualTo, ValidationError, Optional
 from App.models import User
 
 class LoginForm(FlaskForm):
@@ -56,12 +56,10 @@ class OTPVerificationForm(FlaskForm):
     ])
 
 class UpgradeRequestForm(FlaskForm):
-    upgrade_type = SelectField('Tipe Upgrade', choices=[
-        ('petani', 'Petani'),
-        ('ahli', 'Ahli')
-    ], validators=[DataRequired(message='Tipe upgrade wajib dipilih.')])
-    reason = TextAreaField('Alasan Upgrade', validators=[
-        DataRequired(message='Alasan upgrade wajib diisi.'),
-        Length(min=50, message='Alasan minimal 50 karakter.')
-    ])
-    attachments = FileField('Dokumen Pendukung')
+    upgrade_type = SelectField('Jenis Upgrade', 
+                        choices=[('petani', 'Petani'), ('ahli', 'Ahli')],
+                        validators=[DataRequired()])
+    reason = TextAreaField('Alasan Upgrade', 
+                        validators=[DataRequired(), Length(min=50, max=500)])
+    attachment = FileField('Dokumen Pendukung (PDF/Image)', 
+                        validators=[Optional()])

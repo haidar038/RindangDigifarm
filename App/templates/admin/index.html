@@ -1,12 +1,46 @@
-<!DOCTYPE html>
-<html lang="en">
-    <head>
-        <meta charset="UTF-8" />
-        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-        <title>Admin Dashboard</title>
-    </head>
-    <body>
-        <h1>Admin</h1>
-        <a href="{{ url_for('auth.logout' ) }}">Keluar</a>
-    </body>
-</html>
+{% extends 'layout/admin_base.html' %}
+<!-- Head Block -->
+{% block title %} Dashboard Admin {% endblock %}
+<!-- Content Block -->
+{% block content %}
+<div class="container">
+    <h2>Selamat Datang di Dashboard Admin</h2>
+    <p>Gunakan menu di sidebar untuk mengelola berbagai fitur sistem.</p>
+
+    <!-- Contoh Statistik atau Informasi Dasbor -->
+    <div class="row my-4">
+        <div class="col-md-3">
+            <div class="card bg-green-secondary text-center">
+                <div class="card-body">
+                    <h5 class="card-title">Pengguna</h5>
+                    <p class="card-text">{{ users | length }}</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-green-secondary text-center">
+                <div class="card-body">
+                    <h5 class="card-title">Artikel</h5>
+                    <p class="card-text">{{ articles | length }}</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-green-secondary text-center">
+                <div class="card-body">
+                    <h5 class="card-title">Produksi</h5>
+                    <p class="card-text">30</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-green-secondary text-center">
+                <div class="card-body">
+                    <h5 class="card-title">Pengaturan</h5>
+                    <p class="card-text">Aktif</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

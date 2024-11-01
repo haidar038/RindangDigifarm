@@ -45,12 +45,12 @@ def create_app(config_class=Config):
 
     login_manager.login_view = 'auth.login'
 
-    from App.views.auth_routes import auth
-    from App.views.admin_routes import admin
-    from App.views.farmer_routes import farmer
-    from App.views.expert_routes import expert
-    from App.views.personal_routes import personal
-    from App.views.public_routes import public
+    from App.routes.auth_routes import auth
+    from App.routes.admin_routes import admin
+    from App.routes.farmer_routes import farmer
+    from App.routes.expert_routes import expert
+    from App.routes.personal_routes import personal
+    from App.routes.public_routes import public
     app.register_blueprint(auth)
     app.register_blueprint(admin)
     app.register_blueprint(farmer)

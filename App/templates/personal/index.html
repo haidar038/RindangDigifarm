@@ -57,14 +57,14 @@
     <div class="d-flex align-items-center justify-content-between mb-3">
         <h1 class="h5 fw-bold mb-0">Daftar Artikel</h1>
         {% if articles %}
-        <a href="{{ url_for('personal.write_article' ) }}" role="button" class="btn btn-green btn-sm rounded-pill d-flex fw-bold text-white"><i class="bi bi-pencil-fill me-2"></i>Tulis artikel</a>
+        <a href="{{ url_for('personal.write_article' ) }}" role="button" class="btn btn-green btn-sm rounded-pill px-3 d-flex fw-bold text-white"><i class="bi bi-pencil-fill me-2"></i>Tulis artikel</a>
         {% endif %}
     </div>
     <div class="row mb-5">
         <div class="col">
             {% if not articles %}
             <div class="card card-body rounded-5 card-green-outline d-flex align-items-center justify-content-center">
-                <p class="fw-bold text-dark mb-0">Belum ada artikel</p>
+                <p class="fw-bold mb-0">Belum ada artikel</p>
                 <small class="text-muted mb-3">Mulai menulis artikel pertama anda</small>
                 <a href="{{ url_for('personal.write_article' ) }}" class="btn btn-green fw-bold text-light">Tulis Artikel</a>
             </div>
@@ -88,7 +88,7 @@
                                 {% if item.is_drafted == True %}
                                 <span class="badge text-bg-secondary">Draft</span>
                                 {% elif item.is_approved == False %}
-                                <span class="badge bg-yellow">Menunggu</span>
+                                <span class="badge bg-yellow text-dark">Menunggu</span>
                                 {% else %}
                                 <span class="badge text-bg-success">Diposting</span>
                                 {% endif %}
@@ -191,14 +191,14 @@
     <div class="d-flex align-items-center justify-content-between mb-3">
         <h1 class="h5 fw-bold mb-0">Daftar Pertanyaan</h1>
         {% if forum %}
-        <a href="{{ url_for('personal.rindang_ask' ) }}" role="button" class="btn btn-green btn-sm rounded-pill d-flex fw-bold text-white"><i class="bi bi-plus-lg me-2"></i>Buat pertanyaan</a>
+        <a href="{{ url_for('personal.rindang_ask' ) }}" role="button" class="btn btn-green btn-sm rounded-pill px-3 d-flex fw-bold text-white"><i class="bi bi-plus-lg me-2"></i>Buat pertanyaan</a>
         {% endif %}
     </div>
     <div class="row mb-3">
         <div class="col">
             {% if not forum %}
             <div class="card card-body rounded-5 card-green-outline d-flex align-items-center justify-content-center">
-                <p class="fw-bold text-dark mb-0">Buat Pertanyaan</p>
+                <p class="fw-bold mb-0">Buat Pertanyaan</p>
                 <small class="text-muted mb-3">Tanyakan pertanyaanmu kepada ahli</small>
                 <a role="button" href="{{ url_for('personal.rindang_ask' ) }}" class="btn btn-green fw-bold text-light">Buat Pertanyaan</a>
             </div>
@@ -332,7 +332,7 @@
                     Detail Artikel {% if item.is_drafted == True %}
                     <span class="ms-2 badge text-bg-secondary">Draft</span>
                     {% elif item.is_approved == False %}
-                    <span class="ms-2 badge text-bg-warning">Menunggu</span>
+                    <span class="ms-2 badge text-dark bg-yellow">Menunggu</span>
                     {% else %}
                     <span class="ms-2 badge text-bg-success">Diposting</span>
                     {% endif %}
@@ -348,7 +348,7 @@
                 {{ item.content | safe }}
             </div>
             <div class="modal-footer justify-content-between">
-                <a role="button" href="{{ url_for('personal.article_preview', id=item.id ) }}" class="nav-link fw-bold mx-3">Pratinjau Artikel</a>
+                <a role="button" href="{{ url_for('personal.article_preview', id=item.id ) }}" class="nav-link fw-bold">Pratinjau Artikel</a>
                 <div class="d-flex gap-2">
                     <button type="button" class="btn btn-outline-danger" data-bs-toggle="modal" data-bs-target="#articlesConfirmDel{{item.id}}">Hapus</button>
                     <a role="button" href="{{ url_for('personal.update_article', id=item.id ) }}" class="btn btn-green fw-bold text-white">Edit</a>

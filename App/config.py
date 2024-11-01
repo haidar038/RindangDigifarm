@@ -1,3 +1,5 @@
+# App/config.py
+
 import os
 from datetime import timedelta
 from flask import current_app
@@ -8,18 +10,18 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-# Use a default port if MYSQLPORT is not set
+# Gunakan port default jika MYSQLPORT tidak diatur
 mysql_port = os.environ.get("MYSQLPORT", "3306")
 
 mysql_uri = (f'mysql+pymysql://{os.environ.get("MYSQLUSER")}:'
-        f'{os.environ.get("MYSQLPASSWORD")}@'
-        f'{os.environ.get("MYSQLHOST")}:'
-        f'{mysql_port}/'
-        f'{os.environ.get("MYSQLDATABASE")}')
+    f'{os.environ.get("MYSQLPASSWORD")}@'
+    f'{os.environ.get("MYSQLHOST")}:'
+    f'{mysql_port}/'
+    f'{os.environ.get("MYSQLDATABASE")}')
 
-# Create engine only if all necessary environment variables are set
+# Buat engine hanya jika semua variabel lingkungan yang diperlukan diatur
 if all([os.environ.get("MYSQLUSER"), os.environ.get("MYSQLPASSWORD"),
-        os.environ.get("MYSQLHOST"), os.environ.get("MYSQLDATABASE")]):
+    os.environ.get("MYSQLHOST"), os.environ.get("MYSQLDATABASE")]):
     engine = create_engine(mysql_uri)
     limiter = Limiter(
         key_func=get_remote_address,
@@ -34,6 +36,8 @@ class Config:
     SECRET_KEY = os.environ.get("SECRET_KEY", "rindang123")    
     BASE_DIR = os.path.abspath(os.path.dirname(__file__))
     UPLOAD_FOLDER = os.path.join(BASE_DIR, 'static', 'uploads')
+    ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'pdf'}
+    MAX_CONTENT_LENGTH = 2 * 1024 * 1024  # 2MB
 
     SECURITY_PASSWORD_SALT = os.environ.get('SECURITY_PASSWORD_SALT') or 'rindang_ternate_security_salt'
     SQLALCHEMY_DATABASE_URI = mysql_uri
@@ -44,7 +48,6 @@ class Config:
         "pool_timeout": 20,
         "max_overflow": 5
     }
-    MAX_CONTENT_LENGTH = 2 * 1024 * 1024  # Batasi ukuran file (misal: 16MB)
     PERMANENT_SESSION_LIFETIME = timedelta(days=365)  # Maksimum lifetime
     SESSION_COOKIE_SECURE = True
     SESSION_COOKIE_HTTPONLY = True
@@ -68,3 +71,6 @@ class Config:
     MAIL_DEFAULT_SENDER = os.environ.get('EMAIL_USER')
     MAIL_USE_CREDENTIALS = True
     MAIL_ASCII_ATTACHMENTS = False
+
+    # Admin Email untuk Notifikasi Upgrade
+    ADMIN_EMAIL = os.environ.get('ADMIN_EMAIL', 'admin@rindang.net')
