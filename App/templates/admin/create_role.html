@@ -1,0 +1,15 @@
+{% extends 'layout/admin_base.html' %} {% block content %}
+<h2 class="fw-bold mb-3">Tambah Role Baru</h2>
+<form action="{{ url_for('admin.create_role') }}" method="post">
+    <div class="form-group mb-3">
+        <label for="name" class="form-label fw-medium">Nama Role</label>
+        <input type="text" name="name" id="name" class="form-control" required />
+    </div>
+    <div class="form-group mb-4">
+        <label for="description" class="form-label fw-medium">Deskripsi</label>
+        <textarea name="description" id="description" class="form-control"></textarea>
+    </div>
+    <button type="submit" class="btn btn-success">Simpan</button>
+    <a href="{{ url_for('admin.manage_roles') }}" class="btn btn-secondary">Batal</a>
+</form>
+{% endblock %}

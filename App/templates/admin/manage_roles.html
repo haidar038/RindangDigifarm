@@ -1,0 +1,29 @@
+{% extends 'layout/admin_base.html' %} {% block content %}
+<h1 class="fw-bold mb-4">Manajemen Role</h1>
+<a href="{{ url_for('admin.create_role') }}" class="btn btn-green text-white btn-sm rounded-pill"><i class="bi bi-plus-lg"></i> Tambah Role Baru</a>
+<table class="table mt-3">
+    <thead>
+        <tr>
+            <th>ID</th>
+            <th>Nama</th>
+            <th>Deskripsi</th>
+            <th>Aksi</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for role in roles %}
+        <tr>
+            <td>{{ role.id }}</td>
+            <td>{{ role.name }}</td>
+            <td>{{ role.description }}</td>
+            <td>
+                <a href="{{ url_for('admin.edit_role', role_id=role.id) }}" class="btn btn-yellow btn-sm">Edit</a>
+                <form action="{{ url_for('admin.delete_role', role_id=role.id) }}" method="post" style="display: inline">
+                    <button type="submit" class="btn btn-red text-white btn-sm" onclick="return confirm('Apakah Anda yakin ingin menghapus role ini?');">Hapus</button>
+                </form>
+            </td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% endblock %}

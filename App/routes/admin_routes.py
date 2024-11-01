@@ -1,6 +1,6 @@
 import string, random
 
-from flask import Blueprint, render_template, redirect, url_for, flash, current_app
+from flask import Blueprint, render_template, redirect, url_for, flash, current_app, request
 from flask_login import login_required, current_user
 from textwrap import shorten
 from datetime import datetime
@@ -96,48 +96,34 @@ def approve_upgrade_request(id):
     if upgrade_request.status != 'pending':
         flash('Permintaan ini sudah diproses.', 'warning')
         return redirect(url_for('admin.view_upgrade_requests'))
-
-    user = User.query.get(upgrade_request.user_id)
     
-    try:
-        # Update type/role pada instance User yang sudah ada
-        user.type = upgrade_request.requested_role  # Mengubah polymorphic identity
-        
-        if upgrade_request.requested_role == 'petani':
-            # Tambahkan data spesifik Petani
-            petani_data = {
-                'unique_id': petani_unique_id(),
-                'kebun_area': None,
-                'luas_lahan': None
-            }
-            for key, value in petani_data.items():
-                setattr(user, key, value)
-                
-        elif upgrade_request.requested_role == 'ahli':
-            # Tambahkan data spesifik Ahli
-            ahli_data = {
-                'unique_id': ahli_unique_id(),
-                'institusi': None,
-                'bidang_keahlian': None,
-                'gelar': None
-            }
-            for key, value in ahli_data.items():
-                setattr(user, key, value)
+    user = upgrade_request.user
 
-        # Update status permintaan
-        upgrade_request.status = 'approved'
-        
-        db.session.commit()
-        flash('Permintaan upgrade akun telah disetujui.', 'success')
-        
-        # Opsional: Kirim notifikasi email ke pengguna
-        # send_upgrade_approval_email(user.email, upgrade_request.upgrade_type.value)
-        
-    except Exception as e:
-        db.session.rollback()
-        current_app.logger.error(f"Error saat menyetujui permintaan upgrade: {str(e)}")
-        flash('Terjadi kesalahan saat menyetujui permintaan.', 'danger')
+    print(user)
     
+    # Add the new role to the user
+    new_role = Role.query.filter_by(name=upgrade_request.requested_role).first()
+    print(new_role)
+    if not new_role:
+        flash('Role tidak ditemukan.', 'danger')
+        return redirect(url_for('admin.view_upgrade_requests'))
+    
+    user.roles.append(new_role)
+    
+    # Create role-specific profile
+    if upgrade_request.requested_role == 'petani':
+        petani_profile = Petani(id=user.id)
+        db.session.add(petani_profile)
+    elif upgrade_request.requested_role == 'ahli':
+        ahli_profile = Ahli(id=user.id)
+        db.session.add(ahli_profile)
+    
+    # Update the upgrade request status
+    upgrade_request.status = 'approved'
+    upgrade_request.updated_at = datetime.now()
+    
+    db.session.commit()
+    flash('Permintaan upgrade telah disetujui.', 'success')
     return redirect(url_for('admin.view_upgrade_requests'))
 
 def send_upgrade_approval_email(upgrade_request):
@@ -191,3 +177,65 @@ def reject_upgrade_request(id):
         flash('Terjadi kesalahan saat menolak permintaan.', 'danger')
     
     return redirect(url_for('admin.view_upgrade_requests'))
+
+@admin.route('/admin/roles')
+@login_required
+def manage_roles():
+    if current_user.type!='admin':
+        flash('Anda tidak memiliki akses ke halaman ini.', 'danger')
+        return redirect(url_for('admin.index'))
+    roles = Role.query.all()
+    return render_template('admin/manage_roles.html', roles=roles)
+
+# Route untuk menambah role baru
+@admin.route('/admin/roles/new', methods=['GET', 'POST'])
+@login_required
+def create_role():
+    if current_user.type!='admin':
+        flash('Anda tidak memiliki akses ke halaman ini.', 'danger')
+        return redirect(url_for('admin.index'))
+    if request.method == 'POST':
+        name = request.form.get('name')
+        description = request.form.get('description')
+        if not name:
+            flash('Nama role harus diisi.', 'warning')
+            return redirect(url_for('admin.create_role'))
+        role = Role.query.filter_by(name=name).first()
+        if role:
+            flash('Role dengan nama tersebut sudah ada.', 'danger')
+            return redirect(url_for('admin.create_role'))
+        new_role = Role(name=name, description=description)
+        db.session.add(new_role)
+        db.session.commit()
+        flash('Role baru berhasil ditambahkan.', 'success')
+        return redirect(url_for('admin.manage_roles'))
+    return render_template('admin/create_role.html')
+
+# Route untuk mengedit role
+@admin.route('/admin/roles/<int:role_id>/edit', methods=['GET', 'POST'])
+@login_required
+def edit_role(role_id):
+    if current_user.type!='admin':
+        flash('Anda tidak memiliki akses ke halaman ini.', 'danger')
+        return redirect(url_for('admin.index'))
+    role = Role.query.get_or_404(role_id)
+    if request.method == 'POST':
+        role.name = request.form.get('name')
+        role.description = request.form.get('description')
+        db.session.commit()
+        flash('Role berhasil diperbarui.', 'success')
+        return redirect(url_for('admin.manage_roles'))
+    return render_template('admin/edit_role.html', role=role)
+
+# Route untuk menghapus role
+@admin.route('/admin/roles/<int:role_id>/delete', methods=['POST'])
+@login_required
+def delete_role(role_id):
+    if current_user.type!='admin':
+        flash('Anda tidak memiliki akses ke halaman ini.', 'danger')
+        return redirect(url_for('admin.index'))
+    role = Role.query.get_or_404(role_id)
+    db.session.delete(role)
+    db.session.commit()
+    flash('Role berhasil dihapus.', 'success')
+    return redirect(url_for('admin.manage_roles'))

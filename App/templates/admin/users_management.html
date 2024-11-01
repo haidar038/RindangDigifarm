@@ -21,12 +21,12 @@
                 <td>{{ loop.index }}</td>
                 <td>{{ item.username }}</td>
                 <td>{{ item.email }}</td>
-                <td class="text-capitalize">{{ item.role }}</td>
+                <td class="text-capitalize">{{ item.type }}</td>
                 <td>
                     <!-- Button trigger modal -->
                     <div class="dropdown">
                         <button class="btn btn-light position-relative" type="button" data-bs-toggle="dropdown" aria-expanded="false">
-                            {% for requests in user_req %} {% if requests.user_id == item.id %}
+                            {% for requests in user_req %} {% if requests.status == 'pending' %}
                             <span class="position-absolute top-0 start-100 translate-middle p-2 bg-danger border border-light rounded-circle">
                                 <span class="visually-hidden">New alerts</span>
                             </span>

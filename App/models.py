@@ -103,6 +103,12 @@ class User(db.Model, UserMixin):
     def has_role(self, role_name):
         return any(role.name == role_name for role in self.roles)
 
+    def get_role_names(self):
+        return [role.name for role in self.roles]
+
+    def is_admin(self):
+        return 'Admin' in self.get_role_names()
+
     __mapper_args__ = {
         'polymorphic_identity': 'user',
         'polymorphic_on': type
@@ -138,6 +144,9 @@ class Ahli(User):
     __tablename__ = 'ahlis'
     id = db.Column(db.Integer, db.ForeignKey('users.id'), primary_key=True)
     unique_id = db.Column(db.String(100), unique=True, nullable=False)
+    # user_id = db.Column(db.Integer, db.ForeignKey('users.id'), unique=True, nullable=False)
+    user_data = db.relationship('User', backref=db.backref('ahlis', uselist=False))
+    # Ahli-specific fields
     institusi = db.Column(db.String(255), nullable=True)
     bidang_keahlian = db.Column(db.String(255), nullable=True)
     gelar = db.Column(db.String(100), nullable=True)
@@ -150,12 +159,18 @@ class Petani(User):
     __tablename__ = 'petanis'
     id = db.Column(db.Integer, db.ForeignKey('users.id'), primary_key=True)
     unique_id = db.Column(db.String(100), unique=True, nullable=False)
+    
+    kebun_area = db.Column(db.Float, nullable=True)
+    luas_lahan = db.Column(db.Float, nullable=True)
+
+    user = db.relationship('User', backref=db.backref('petanis', uselist=False))
+    # Petani-specific fields
     kebun_area = db.Column(db.Float, nullable=True)
     luas_lahan = db.Column(db.Float, nullable=True)
 
     __mapper_args__ = {
         'polymorphic_identity': 'petani'
-  }
+    }
 
 # Model untuk Role
 class Role(db.Model):
@@ -171,7 +186,7 @@ class Role(db.Model):
 user_roles = db.Table('user_roles',
     db.Column('user_id', db.Integer, db.ForeignKey('users.id')),
     db.Column('role_id', db.Integer, db.ForeignKey('roles.id'))
-    )
+)
 
 # Association Table untuk hubungan many-to-many dengan Kebun
 user_kebun = db.Table('user_kebun',

@@ -337,13 +337,13 @@ def request_upgrade():
 
         # Handle file upload
         attachment_filename = None
-        if form.attachments.data:
-            if allowed_file(form.attachments.data.filename):
-                filename = secure_filename(form.attachments.data.filename)
+        if form.attachment.data:
+            if allowed_file(form.attachment.data.filename):
+                filename = secure_filename(form.attachment.data.filename)
                 filename = f"upgrade_{current_user.id}_{int(datetime.now().timestamp())}_{filename}"
                 upload_folder = os.path.join(current_app.root_path, 'static', 'uploads', 'upgrade_attachments')
                 os.makedirs(upload_folder, exist_ok=True)
-                form.attachments.data.save(os.path.join(upload_folder, filename))
+                form.attachment.data.save(os.path.join(upload_folder, filename))
                 attachment_filename = f"upgrade_attachments/{filename}"
             else:
                 flash('Format file tidak diizinkan!', 'danger')
