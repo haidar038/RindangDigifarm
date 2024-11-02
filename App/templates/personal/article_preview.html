@@ -1,4 +1,6 @@
 {% extends 'layout/public_base.html' %}
+<!-- Title Block -->
+{% block title %}Pratinjau Artikel {% endblock %}
 <!-- Content Blocks -->
 {% block content %}
 <div class="container py-4">
@@ -12,7 +14,7 @@
             <img src="{{ url_for('static', filename='uploads/'+article.thumbnail ) }}" alt="Thumbnail" class="img-thumbnail mb-3" />
             <div class="d-flex flex-column small mb-4">
                 <p class="mb-0 fw-bold text-green">{{ created_by }}</p>
-                <p class="mb-0 opacity-50" id="created_at">{{ article.created_at }}</p>
+                <p class="mb-0 opacity-50 fw-lighter" id="created_at">{{ article.created_at }}</p>
             </div>
             <hr />
             {{ article.content | safe }}

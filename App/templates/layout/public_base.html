@@ -77,13 +77,17 @@
                                 <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false"> {{ current_user.username }} </a>
                                 <ul class="dropdown-menu dropdown-menu-end">
                                     <li><a class="dropdown-item" href="{{ url_for('personal.index' ) }}">Layanan Personal</a></li>
-                                    {% if current_user.type == 'petani' %}
-                                    <li><a class="dropdown-item" href="#">Dashboard</a></li>
-                                    {% elif current_user.type == 'ahli' %}
-                                    <li><a class="dropdown-item" href="#">Dashboard</a></li>
-                                    {% elif current_user.type == 'admin' %}
-                                    <li><a class="dropdown-item" href="#">Dashboard</a></li>
-                                    {% else %} {% endif %}
+                                    {% if current_user.has_role('petani') %}
+                                    <li><a class="dropdown-item" href="{{ url_for('farmer.index' ) }}">Dashboard Petani</a></li>
+                                    {% endif %}
+                                    <!--  -->
+                                    {% if current_user.has_role('ahli') %}
+                                    <li><a class="dropdown-item" href="{{ url_for('expert.index' ) }}">Dashboard Ahli</a></li>
+                                    {% endif %}
+                                    <!--  -->
+                                    {% if current_user.has_role('admin') %}
+                                    <li><a class="dropdown-item" href="{{ url_for('admin.index' ) }}">Dashboard</a></li>
+                                    {% endif %}
                                     <li><hr class="dropdown-divider" /></li>
                                     <li>
                                         <a class="dropdown-item" href="{{ url_for('personal.profile' ) }}"><i class="bi bi-person me-2"></i> Profil</a>

@@ -36,8 +36,12 @@ class User(db.Model, UserMixin):
     # Shared profile data
     nama_lengkap = db.Column(db.String(255), nullable=True)
     phone = db.Column(db.String(20), nullable=True)
+    pekerjaan = db.Column(db.String(128), nullable=True)
     bio = db.Column(db.String(255), nullable=True)
     profile_pic = db.Column(db.String(255), nullable=True)
+    kec = db.Column(db.String(255), nullable=True)
+    kota = db.Column(db.String(255), nullable=True)
+    kelurahan = db.Column(db.String(255), nullable=True)
     
     # Add the relationships to profiles
     petani_profile = db.relationship('PetaniProfile', back_populates='user', uselist=False)
@@ -47,18 +51,6 @@ class User(db.Model, UserMixin):
     kebun = db.relationship('Kebun', secondary='user_kebun', back_populates='users')
     roles = db.relationship('Role', secondary='user_roles', 
                             backref=db.backref('users', lazy='dynamic'))
-    
-    # Password handling
-    @property
-    def password(self):
-        raise AttributeError('password is not a readable attribute.')
-
-    @password.setter
-    def password(self, password):
-        self.password_hash = generate_password_hash(password)
-
-    def verify_password(self, password):
-        return check_password_hash(self.password_hash, password)
 
     def get_reset_password_token(self, expires_in=3600):
         """Generate a JWT token for password reset"""
@@ -122,14 +114,21 @@ class User(db.Model, UserMixin):
     def __repr__(self):
         return f"<User('{self.username}', '{self.email}')>"
 
-class Admin(User):
-    __tablename__ = 'admins'
-    id = db.Column(db.Integer, db.ForeignKey('users.id'), primary_key=True)
-    admin_level = db.Column(db.String(20), nullable=False, default='standard')
+# class Admin(User):
+#     __tablename__ = 'admins'
+#     id = db.Column(db.Integer, db.ForeignKey('users.id'), primary_key=True)
+#     admin_level = db.Column(db.String(20), nullable=False, default='standard')
 
-    __mapper_args__ = {
-        'polymorphic_identity': 'admin'
-    }
+#     __mapper_args__ = {
+#         'polymorphic_identity': 'admin',
+#         'inherit_condition': (id == User.id)
+#     }
+
+# Tabel asosiasi untuk user-role many-to-many relationship
+user_roles = db.Table('user_roles',
+    db.Column('user_id', db.Integer, db.ForeignKey('users.id')),
+    db.Column('role_id', db.Integer, db.ForeignKey('roles.id'))
+)
 
 # Model untuk Role
 class Role(db.Model):
@@ -138,14 +137,13 @@ class Role(db.Model):
     name = db.Column(db.String(50), unique=True, nullable=False)
     description = db.Column(db.String(255))
 
+    # Use dynamic relationship to avoid type checking issues
+    # users = db.relationship('User', secondary=user_roles, 
+    #                         backref=db.backref('roles', lazy='dynamic'), 
+    #                         lazy='dynamic')
+
     def __repr__(self):
         return f"Role('{self.name}')"
-
-# Tabel asosiasi untuk user-role many-to-many relationship
-user_roles = db.Table('user_roles',
-    db.Column('user_id', db.Integer, db.ForeignKey('users.id')),
-    db.Column('role_id', db.Integer, db.ForeignKey('roles.id'))
-)
 
 # PetaniProfile model
 class PetaniProfile(db.Model):

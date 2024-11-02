@@ -42,7 +42,12 @@ def index():
     return render_template('personal/index.html', users=users, articles=articles, forum=forum, min=min, max=max, articles_pagination=articles_pagination, forum_pagination=forum_pagination)
 
 @personal.route('/rindang-ask', methods=['GET', 'POST'])
+@login_required
 def rindang_ask():
+    if not current_user.is_authenticated:
+        flash('Anda harus login terlebih dahulu', 'warning')
+        return redirect(url_for('auth.login'))
+
     questions = Forum.query.filter_by(created_by=current_user.id).all()
     fetch_ahli_email = User.query.filter_by(role='ahli').all()
     ahli_emails = fetch_ahli_email

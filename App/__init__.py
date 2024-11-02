@@ -30,6 +30,21 @@ mail = Mail()
 ckeditor = CKEditor()
 flatpages = FlatPages()
 
+def seed_roles():
+    from App.models import Role
+    roles = [
+        {'name': 'admin', 'description': 'Administrator sistem dengan akses penuh'},
+        {'name': 'personal', 'description': 'Pengguna umum dengan akses dasar'},
+        {'name': 'petani', 'description': 'Pengguna dengan peran petani'},
+        {'name': 'ahli', 'description': 'Pengguna dengan peran ahli di bidang tertentu'},
+    ]
+
+    for role_data in roles:
+        role = Role.query.filter_by(name=role_data['name']).first()
+        if not role:
+            role = Role(name=role_data['name'], description=role_data['description'])
+            db.session.add(role)
+
 def create_app(config_class=Config):
     app.config.from_object(config_class)
 
@@ -60,18 +75,19 @@ def create_app(config_class=Config):
 
     with app.app_context():
         db.create_all()
+        seed_roles()
 
-        from App.models import Admin, Role  # Ganti import Admin menjadi User
+        from App.models import User, Role # Ganti import Admin menjadi User
 
         # Ensure the upload folder exists
         if not os.path.exists(app.config['UPLOAD_FOLDER']):
             os.makedirs(app.config['UPLOAD_FOLDER'])
 
         # Cek apakah admin sudah ada
-        admin = Admin.query.filter_by(username='admin').first()
+        admin = User.query.filter_by(username='admin').first()
         admin_role = Role.query.filter_by(name='admin').first()
         if not admin:
-            admin = Admin(
+            admin = User(
                 username='admin',
                 email='official@rindang.net',
                 password=generate_password_hash('admrindang123'),
@@ -80,6 +96,9 @@ def create_app(config_class=Config):
             admin.roles.append(admin_role)
             db.session.add(admin)
             db.session.commit()
+
+        db.session.commit()
+        print('Roles telah ditambahkan ke database.')
 
         try:
             with mail.connect() as conn:

@@ -4,6 +4,11 @@
 <main class="container py-4">
     <div class="row">
         <h1 class="h3 mb-3 fw-bold">Profil Saya</h1>
+        <p>
+            {% for role in current_user.roles %}
+            <span class="badge small rounded-pill {% if role.name == 'petani' %} bg-outline-green {% elif role.name == 'personal' %} bg-outline-red {% else %} bg-outline-yellow {% endif %} text-capitalize me-1"> {{ role.name }} </span>
+            {% endfor %}
+        </p>
         <div class="col-12">
             <div class="card mb-3">
                 <div class="card-body">
@@ -59,12 +64,23 @@
                     <h5 class="fw-bold"><i class="bi bi-person-square me-2"></i> Informasi Pribadi</h5>
                     <div class="text-lg-start">
                         <div class="d-lg-block d-none">
-                            <button id="upgradeAccountBtn" class="btn btn-outline-green btn-sm rounded-pill fw-medium me-2" data-bs-toggle="modal" data-bs-target="#upgradeAccountModal">
+                            {% if not current_user.nama_lengkap or not current_user.phone %}
+                            <button id="updateProfileBtn" type="button" class="btn btn-green btn-sm rounded-pill text-white w-auto" data-bs-toggle="modal" data-bs-target="#updateProfile">
+                                <i class="bi bi-pencil-square me-2"></i> Edit Profil
+                            </button>
+                            {% else %}
+                            <button
+                                id="upgradeAccountBtn"
+                                class="btn btn-outline-green btn-sm rounded-pill {% if current_user.has_role('ahli') and current_user.has_role('petani') %} disabled {% endif %} fw-medium me-2"
+                                data-bs-toggle="modal"
+                                data-bs-target="#upgradeAccountModal"
+                            >
                                 <i class="bi bi-arrow-up-circle me-2"></i> Upgrade Akun
                             </button>
                             <button id="updateProfileBtn" type="button" class="btn btn-green btn-sm rounded-pill text-white w-auto" data-bs-toggle="modal" data-bs-target="#updateProfile">
                                 <i class="bi bi-pencil-square me-2"></i> Edit Profil
                             </button>
+                            {% endif %}
                         </div>
                         <div class="d-lg-none d-block">
                             <div class="dropdown">
@@ -108,53 +124,6 @@
                     <textarea class="form-control" rows="5" readonly style="resize: none">{{ current_user.bio }}</textarea>
                 </div>
             </div>
-        </div>
-        <div class="roles-section">
-            <h4>Roles</h4>
-            <div class="current-roles">
-                {% for role in current_user.roles %}
-                <span class="badge badge-primary">{{ role.name }}</span>
-                {% endfor %}
-            </div>
-
-            {% if 'personal' in current_user.roles|map(attribute='name') %}
-            <div class="upgrade-section">
-                <h5>Upgrade Akun</h5>
-                <form action="{{ url_for('personal.request_upgrade') }}" method="POST" enctype="multipart/form-data">
-                    {{ form.csrf_token }}
-                    <div class="form-group">{{ form.upgrade_type.label }} {{ form.upgrade_type(class="form-control") }}</div>
-                    <div class="form-group">{{ form.reason.label }} {{ form.reason(class="form-control") }}</div>
-                    <div class="form-group">{{ form.attachment.label }} {{ form.attachment(class="form-control-file") }}</div>
-                    <button type="submit" class="btn btn-primary">Ajukan Upgrade</button>
-                </form>
-            </div>
-            {% endif %} {% if current_user.upgrade_requests %}
-            <div class="upgrade-requests">
-                <h5>Riwayat Permintaan Upgrade</h5>
-                <div class="table-responsive">
-                    <table class="table">
-                        <thead>
-                            <tr>
-                                <th>Role</th>
-                                <th>Status</th>
-                                <th>Tanggal Pengajuan</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {% for request in current_user.upgrade_requests %}
-                            <tr>
-                                <td>{{ request.requested_role }}</td>
-                                <td>
-                                    <span class="badge badge-{{ 'warning' if request.status == 'pending' else 'success' if request.status == 'approved' else 'danger' }}"> {{ request.status }} </span>
-                                </td>
-                                <td>{{ request.created_at.strftime('%Y-%m-%d %H:%M') }}</td>
-                            </tr>
-                            {% endfor %}
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-            {% endif %}
         </div>
     </div>
 </main>

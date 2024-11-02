@@ -21,7 +21,13 @@
                 <td>{{ loop.index }}</td>
                 <td>{{ item.username }}</td>
                 <td>{{ item.email }}</td>
-                <td class="text-capitalize">{{ item.type }}</td>
+                <td>
+                    <div class="d-flex gap-1">
+                        {% for role in item.roles %}
+                        <span class="badge bg-outline-green rounded-pill text-capitalize">{{ role.name }}</span>
+                        {% endfor %}
+                    </div>
+                </td>
                 <td>
                     <!-- Button trigger modal -->
                     <div class="dropdown">

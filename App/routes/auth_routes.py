@@ -43,7 +43,6 @@ def register():
         email = request.form['email']
         password = request.form['password']
         confirm_password = request.form.get('confirm_password')
-        unique_id = personal_unique_id()
         username = generate_username(email)
 
         if len(password) < 8:
@@ -57,7 +56,7 @@ def register():
             return redirect(url_for('auth.register'))
 
         try:
-            user = User(email=email, username=username, unique_id=unique_id, password=generate_password_hash(password))
+            user = User(email=email, username=username, password=generate_password_hash(password))
             personal_role = Role.query.filter_by(name='personal').first()
             if personal_role:
                 user.roles.append(personal_role)
@@ -368,7 +367,12 @@ def send_forgot_password_token(user_email):
 @auth.route('/auth/login', methods=['GET', 'POST'])
 def login():
     if current_user.is_authenticated:
-        return redirect(url_for('public.index'))
+        if user.roles == 'admin':
+            flash('Berhasil login', 'success')
+            return redirect(url_for('admin.index'))
+        else:
+            flash('Berhasil login', 'success')
+            return redirect(url_for('public.index'))
     
     form = LoginForm()
         
@@ -394,20 +398,20 @@ def login():
         login_user(user, remember=remember)
         
         # Redirect berdasarkan role
-        if user.type == 'admin':
-            print(f'Berhasil Login Sebagai {user.type}')
+        if user.roles == 'admin':
+            print(f'Berhasil Login Sebagai {user.roles}')
             return redirect(url_for('admin.index'))
-        elif user.type == 'petani':
-            print(f'Berhasil Login Sebagai {user.type}')
+        elif user.roles == 'petani':
+            print(f'Berhasil Login Sebagai {user.roles}')
             return redirect(url_for('farmer.index'))
-        elif user.type == 'ahli':
-            print(f'Berhasil Login Sebagai {user.type}')
+        elif user.roles == 'ahli':
+            print(f'Berhasil Login Sebagai {user.roles}')
             return redirect(url_for('expert.index'))
-        elif user.type == 'personal':
-            print(f'Berhasil Login Sebagai {user.type}')
+        elif user.roles == 'personal':
+            print(f'Berhasil Login Sebagai {user.roles}')
             return redirect(url_for('personal.index'))
         else:
-            print(f'Berhasil Login Sebagai {user.type}')
+            print(f'Berhasil Login Sebagai {user.roles}')
             return redirect(url_for('public.index'))
             
     return render_template('auth/login.html', form=form)
@@ -430,7 +434,7 @@ def role_required(*roles):
         def decorated_view(*args, **kwargs):
             if not current_user.is_authenticated:
                 return redirect(url_for('auth.login'))
-            if current_user.type not in roles:
+            if current_user.roles not in roles:
                 flash('Anda tidak memiliki akses ke halaman ini.', category='danger')
                 return redirect(url_for('dashboard.index'))
             return fn(*args, **kwargs)

@@ -9,8 +9,10 @@
     --light-red-color: #ffaeae;
     --dark-red-color: #b81717;
     --dark-green-color: #2d6e22;
+    --dark-yellow-color: #966d15;
     --darker-red-color: #4b0909;
     --darker-green-color: #12330c;
+    --darker-yellow-color: #443107;
     --bs-nav-link-color: #5faa4e !important;
     --bs-link-color: #5faa4e !important;
     --bs-link-hover-color: var(--dark-green-color) !important;
@@ -32,6 +34,14 @@ body {
     background-size: cover;
 }
 
+.bg-red {
+    background-color: var(--accent-red-color) !important;
+}
+
+.bg-red-secondary {
+    background-color: var(--light-red-color) !important;
+}
+
 .bg-yellow {
     background-color: var(--accent-yellow-color) !important;
 }
@@ -50,6 +60,42 @@ body {
 
 .bg-green-secondary {
     background-color: var(--secondary-color) !important;
+}
+
+.bg-outline-green {
+    background-color: var(--secondary-color);
+    color: var(--dark-green-color) !important;
+    outline: 1px solid var(--primary-color);
+}
+
+[data-bs-theme='dark'] .bg-outline-green {
+    background-color: var(--darker-green-color);
+    color: var(--secondary-color) !important;
+    outline: 1px solid var(--accent-green-color);
+}
+
+.bg-outline-yellow {
+    background-color: var(--light-yellow-color);
+    color: var(--dark-yellow-color) !important;
+    outline: 1px solid var(--accent-yellow-color);
+}
+
+[data-bs-theme='dark'] .bg-outline-yellow {
+    background-color: var(--darker-yellow-color);
+    color: var(--light-yellow-color) !important;
+    outline: 1px solid var(--accent-yellow-color);
+}
+
+.bg-outline-red {
+    background-color: var(--light-red-color);
+    color: var(--dark-red-color) !important;
+    outline: 1px solid var(--accent-red-color);
+}
+
+[data-bs-theme='dark'] .bg-outline-red {
+    background-color: var(--darker-red-color);
+    color: var(--light-red-color) !important;
+    outline: 1px solid var(--accent-red-color);
 }
 
 .card-green-outline {
@@ -203,9 +249,13 @@ body {
     --bs-btn-active-bg: var(--accent-green-color) !important;
     --bs-btn-active-border-color: var(--accent-green-color) !important;
     --bs-btn-active-shadow: inset 0 3px 5px rgba(0, 0, 0, 0.125);
-    --bs-btn-disabled-color: #fff;
-    --bs-btn-disabled-bg: var(--primary-color) !important;
+    --bs-btn-disabled-color: var(--primary-color);
+    --bs-btn-disabled-bg: transparent !important;
     --bs-btn-disabled-border-color: var(--primary-color) !important;
+}
+
+.btn-outline-green.disabled {
+    opacity: 0.5 !important;
 }
 
 [data-bs-theme='dark'] .btn-light {
