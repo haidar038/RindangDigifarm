@@ -7,7 +7,7 @@ from datetime import datetime
 from flask_mail import Message
 
 from App import db, mail
-from App.models import UpgradeRequest, User, Petani, Ahli, Artikel, Role
+from App.models import UpgradeRequest, User, PetaniProfile, AhliProfile, Artikel, Role
 
 admin = Blueprint('admin', __name__)
 
@@ -48,6 +48,10 @@ def ahli_unique_id(prefix="PKR_", string_length=2, number_length=4):
 @admin.route('/admin')
 @login_required
 def index():
+    if not current_user.has_role('admin'):
+        flash('Anda tidak memiliki akses ke halaman ini.', 'danger')
+        return redirect(url_for('public.index'))
+    
     users = User.query.filter(User.type!='admin').all()
     articles = Artikel.query.all()
     return render_template('admin/index.html', users=users, articles=articles)
@@ -55,6 +59,10 @@ def index():
 @admin.route('/admin/users-management')
 @login_required
 def users_management():
+    if not current_user.has_role('admin'):
+        flash('Anda tidak memiliki akses ke halaman ini.', 'danger')
+        return redirect(url_for('public.index'))
+
     users = User.query.filter(User.type!='admin')
     user_req = UpgradeRequest.query.all()
     
@@ -63,21 +71,37 @@ def users_management():
 @admin.route('/admin/articles-management')
 @login_required
 def articles_management():
+    if not current_user.has_role('admin'):
+        flash('Anda tidak memiliki akses ke halaman ini.', 'danger')
+        return redirect(url_for('public.index'))
+        
     return render_template('admin/articles_management.html')
 
 @admin.route('/admin/productions-management')
 @login_required
 def productions_management():
+    if not current_user.has_role('admin'):
+        flash('Anda tidak memiliki akses ke halaman ini.', 'danger')
+        return redirect(url_for('public.index'))
+        
     return render_template('admin/productions_management.html')
 
 @admin.route('/admin/settings')
 @login_required
 def settings():
+    if not current_user.has_role('admin'):
+        flash('Anda tidak memiliki akses ke halaman ini.', 'danger')
+        return redirect(url_for('public.index'))
+        
     return render_template('admin/settings.html')
 
 @admin.route('/admin/upgrade-requests')
 @login_required
 def view_upgrade_requests():
+    if not current_user.has_role('admin'):
+        flash('Anda tidak memiliki akses ke halaman ini.', 'danger')
+        return redirect(url_for('public.index'))
+        
     if current_user.type != 'admin':
         flash('Anda tidak memiliki akses ke halaman ini.', 'danger')
         return redirect(url_for('public.index'))
@@ -88,7 +112,7 @@ def view_upgrade_requests():
 @admin.route('/admin/upgrade-request/<int:id>/approve', methods=['POST'])
 @login_required
 def approve_upgrade_request(id):
-    if current_user.type != 'admin':
+    if not current_user.has_role('admin'):
         flash('Anda tidak memiliki akses ke halaman ini.', 'danger')
         return redirect(url_for('public.index'))
     
@@ -98,31 +122,29 @@ def approve_upgrade_request(id):
         return redirect(url_for('admin.view_upgrade_requests'))
     
     user = upgrade_request.user
-
-    print(user)
-    
     # Add the new role to the user
     new_role = Role.query.filter_by(name=upgrade_request.requested_role).first()
-    print(new_role)
     if not new_role:
         flash('Role tidak ditemukan.', 'danger')
         return redirect(url_for('admin.view_upgrade_requests'))
     
     user.roles.append(new_role)
-    
     # Create role-specific profile
     if upgrade_request.requested_role == 'petani':
-        petani_profile = Petani(id=user.id)
+        petani_profile = PetaniProfile(user_id=user.id, unique_id=petani_unique_id())
         db.session.add(petani_profile)
     elif upgrade_request.requested_role == 'ahli':
-        ahli_profile = Ahli(id=user.id)
+        ahli_profile = AhliProfile(user_id=user.id, unique_id=ahli_unique_id())
         db.session.add(ahli_profile)
+    else:
+        flash('Tipe upgrade tidak valid.', 'danger')
+        return redirect(url_for('admin.view_upgrade_requests'))
     
     # Update the upgrade request status
     upgrade_request.status = 'approved'
-    upgrade_request.updated_at = datetime.now()
-    
+    upgrade_request.updated_at = datetime.utcnow()
     db.session.commit()
+    
     flash('Permintaan upgrade telah disetujui.', 'success')
     return redirect(url_for('admin.view_upgrade_requests'))
 
@@ -156,7 +178,7 @@ def send_upgrade_approval_email(upgrade_request):
 @admin.route('/admin/upgrade-request/<int:id>/reject', methods=['POST'])
 @login_required
 def reject_upgrade_request(id):
-    if current_user.type != 'admin':
+    if not current_user.has_role('admin'):
         flash('Anda tidak memiliki akses ke halaman ini.', 'danger')
         return redirect(url_for('public.index'))
     
@@ -181,9 +203,10 @@ def reject_upgrade_request(id):
 @admin.route('/admin/roles')
 @login_required
 def manage_roles():
-    if current_user.type!='admin':
+    if not current_user.has_role('admin'):
         flash('Anda tidak memiliki akses ke halaman ini.', 'danger')
-        return redirect(url_for('admin.index'))
+        return redirect(url_for('public.index'))
+
     roles = Role.query.all()
     return render_template('admin/manage_roles.html', roles=roles)
 
@@ -191,9 +214,10 @@ def manage_roles():
 @admin.route('/admin/roles/new', methods=['GET', 'POST'])
 @login_required
 def create_role():
-    if current_user.type!='admin':
+    if not current_user.has_role('admin'):
         flash('Anda tidak memiliki akses ke halaman ini.', 'danger')
-        return redirect(url_for('admin.index'))
+        return redirect(url_for('public.index'))
+
     if request.method == 'POST':
         name = request.form.get('name')
         description = request.form.get('description')
@@ -215,9 +239,10 @@ def create_role():
 @admin.route('/admin/roles/<int:role_id>/edit', methods=['GET', 'POST'])
 @login_required
 def edit_role(role_id):
-    if current_user.type!='admin':
+    if not current_user.has_role('admin'):
         flash('Anda tidak memiliki akses ke halaman ini.', 'danger')
-        return redirect(url_for('admin.index'))
+        return redirect(url_for('public.index'))
+
     role = Role.query.get_or_404(role_id)
     if request.method == 'POST':
         role.name = request.form.get('name')
@@ -231,9 +256,10 @@ def edit_role(role_id):
 @admin.route('/admin/roles/<int:role_id>/delete', methods=['POST'])
 @login_required
 def delete_role(role_id):
-    if current_user.type!='admin':
+    if not current_user.has_role('admin'):
         flash('Anda tidak memiliki akses ke halaman ini.', 'danger')
-        return redirect(url_for('admin.index'))
+        return redirect(url_for('public.index'))
+
     role = Role.query.get_or_404(role_id)
     db.session.delete(role)
     db.session.commit()

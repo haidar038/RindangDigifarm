@@ -10,7 +10,7 @@ from functools import wraps
 
 from App import login_manager, db, mail
 from App.utils import confirm_token, generate_confirmation_token, send_password_reset_email, send_otp_email
-from App.models import User, Admin, Personal, Ahli, Petani, UserRole, UpgradeRequest, UpgradeTypeEnum
+from App.models import User, Role
 from App.forms.auth_forms import LoginForm, RegistrationForm, UpgradeRequestForm, ForgotPasswordForm, OTPVerificationForm, ResetPasswordForm
 
 import random, string
@@ -57,7 +57,14 @@ def register():
             return redirect(url_for('auth.register'))
 
         try:
-            user = Personal(email=email, username=username, unique_id=unique_id, password=generate_password_hash(password))
+            user = User(email=email, username=username, unique_id=unique_id, password=generate_password_hash(password))
+            personal_role = Role.query.filter_by(name='personal').first()
+            if personal_role:
+                user.roles.append(personal_role)
+            else:
+                # Handle the case where the role doesn't exist
+                # You can create it or raise an error
+                pass 
 
             db.session.add(user)
             db.session.commit()

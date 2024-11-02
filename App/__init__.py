@@ -61,7 +61,7 @@ def create_app(config_class=Config):
     with app.app_context():
         db.create_all()
 
-        from App.models import Admin  # Ganti import Admin menjadi User
+        from App.models import Admin, Role  # Ganti import Admin menjadi User
 
         # Ensure the upload folder exists
         if not os.path.exists(app.config['UPLOAD_FOLDER']):
@@ -69,6 +69,7 @@ def create_app(config_class=Config):
 
         # Cek apakah admin sudah ada
         admin = Admin.query.filter_by(username='admin').first()
+        admin_role = Role.query.filter_by(name='admin').first()
         if not admin:
             admin = Admin(
                 username='admin',
@@ -76,6 +77,7 @@ def create_app(config_class=Config):
                 password=generate_password_hash('admrindang123'),
             )
             admin.is_confirmed = True
+            admin.roles.append(admin_role)
             db.session.add(admin)
             db.session.commit()
 
