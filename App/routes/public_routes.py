@@ -216,8 +216,22 @@ def rindang_ai():
 
 @public.route('/rindang-pedia')
 def rindang_pedia():
-    articles = Artikel.query.all()
-    return render_template('public/rindang_pedia.html', articles=articles, shorten=shorten)
+    # Add pagination logic
+    page = request.args.get('page', 1, type=int)
+    pagination_pages = 5  # Same as index page
+    articles_pagination = Artikel.query.filter(
+        Artikel.is_drafted == False,
+        Artikel.is_approved == True
+    ).paginate(page=page, per_page=pagination_pages)
+    
+    articles = articles_pagination.items if articles_pagination.items else []
+    
+    return render_template('public/rindang_pedia.html', 
+                            articles=articles,
+                            min=min,
+                            max=max,
+                            articles_pagination=articles_pagination,
+                            shorten=shorten)
 
 @public.route('/read-article/<int:id>', methods=['GET'])
 def read_article(id):
