@@ -275,3 +275,7 @@ def maps():
             continue
             
     return render_template('public/maps.html', koordinat=json.dumps(koordinat))
+
+@public.route('/maintenance')
+def maintenance():
+    return render_template('public/maintenance.html')
