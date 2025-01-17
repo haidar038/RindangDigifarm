@@ -1,0 +1,285 @@
+{% extends 'layout/admin_base.html' %}
+
+{% block title %}Manajemen Artikel{% endblock %}
+{% block page_title %}Dashboard Admin - Artikel{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col-md-4 mb-1 mb-lg-0">
+        <div class="card bg-green-secondary">
+            <div class="card-body text-center">
+                <h6 class="card-title mb-2">Total Artikel</h6>
+                <h2 class="mb-0">{{ articles|length }}</h2>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4 mb-1 mb-lg-0">
+        <div class="card bg-green-secondary">
+            <div class="card-body text-center">
+                <h6 class="card-title mb-2">Artikel Dipublish</h6>
+                <h2 class="mb-0">{{ articles|selectattr('is_approved', 'true')|list|length }}</h2>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card bg-green-secondary">
+            <div class="card-body text-center">
+                <h6 class="card-title mb-2">Draft Artikel</h6>
+                <h2 class="mb-0">{{ articles|selectattr('is_drafted', 'true')|list|length }}</h2>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-header d-flex justify-content-between align-items-center">
+        <h6 class="card-title mb-0">Daftar Artikel</h6>
+        <div class="d-flex gap-2">
+            <div class="dropdown">
+                <button class="btn btn-sm btn-outline-secondary dropdown-toggle" type="button"
+                    data-bs-toggle="dropdown">
+                    Filter Status
+                </button>
+                <ul class="dropdown-menu">
+                    <li><a class="dropdown-item" href="?status=all">Semua</a></li>
+                    <li><a class="dropdown-item" href="?status=published">Dipublish</a></li>
+                    <li><a class="dropdown-item" href="?status=draft">Draft</a></li>
+                </ul>
+            </div>
+            <a href="{{ url_for('personal.write_article' ) }}" class="btn btn-sm btn-green">
+                <i class="fa fa-plus-circle me-1"></i> Tambah Artikel
+            </a>
+        </div>
+    </div>
+    <div class="card-body">
+        <div class="table-responsive">
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th>Thumbnail</th>
+                        <th>Judul</th>
+                        <th>Penulis</th>
+                        <th>Tanggal</th>
+                        <th>Status</th>
+                        <th>Aksi</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for article in articles %}
+                    <tr class="align-middle">
+                        <td>
+                            <img src="{{ url_for('static', filename='uploads/'+article.thumbnail) }}" alt="thumbnail"
+                                class="img-thumbnail" style="width: 50px; height: 50px; object-fit: cover;">
+                        </td>
+                        <td>{{ article.judul }}</td>
+                        <td>{{ article.created_by.username }}</td>
+                        <td>{{ article.created_at.strftime('%d/%m/%Y') }}</td>
+                        <td>
+                            {% if article.is_approved %}
+                            <span class="badge bg-green">Published</span>
+                            {% elif article.is_drafted %}
+                            <span class="badge bg-yellow">Draft</span>
+                            {% else %}
+                            <span class="badge bg-secondary">Pending</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <div class="d-flex gap-1 d-lg-none">
+                                <button class="btn btn-sm btn-light" type="button" data-bs-toggle="modal"
+                                    data-bs-target="#previewModal{{ article.id }}"><i class="bi bi-eye"></i></button>
+                                <a class="btn btn-sm btn-light" role="button"
+                                    href="{{ url_for('personal.update_article', id=article.id ) }}"><i
+                                        class="bi bi-pencil"></i></a>
+                                <form action="{{ url_for('admin.approve_article', id=article.id) }}" method="POST">
+                                    <button class="btn btn-sm btn-light" type="submit"><i
+                                            class="bi bi-check-circle"></i></button>
+                                </form>
+                            </div>
+                            <div class="dropdown d-none d-lg-block">
+                                <button class="btn btn-sm btn-light" type="button" data-bs-toggle="dropdown">
+                                    <i class="bi bi-three-dots-vertical"></i>
+                                </button>
+                                <ul class="dropdown-menu">
+                                    <li>
+                                        <a class="dropdown-item" href="#" data-bs-toggle="modal"
+                                            data-bs-target="#previewModal{{ article.id }}">
+                                            <i class="bi bi-eye me-2"></i>Preview
+                                        </a>
+                                    </li>
+                                    <li>
+                                        <a class="dropdown-item"
+                                            href="{{ url_for('personal.update_article', id=article.id ) }}">
+                                            <i class="bi bi-pencil me-2"></i>Edit
+                                        </a>
+                                    </li>
+                                    {% if not article.is_approved %}
+                                    <li>
+                                        <form action="{{ url_for('admin.approve_article', id=article.id) }}"
+                                            method="POST">
+                                            <button type="submit" class="dropdown-item">
+                                                <i class="bi bi-check-circle me-2"></i>Approve
+                                            </button>
+                                        </form>
+                                    </li>
+                                    {% endif %}
+                                    <li>
+                                        <form action="{{ url_for('admin.delete_article', id=article.id) }}"
+                                            method="POST"
+                                            onsubmit="return confirm('Yakin ingin menghapus artikel ini?');">
+                                            <button type="submit" class="dropdown-item text-danger">
+                                                <i class="bi bi-trash me-2"></i>Delete
+                                            </button>
+                                        </form>
+                                    </li>
+                                </ul>
+                            </div>
+                        </td>
+                    </tr>
+
+                    <!-- Preview Modal -->
+                    <div class="modal fade" id="previewModal{{ article.id }}" tabindex="-1">
+                        <div class="modal-dialog modal-lg modal-dialog-scrollable">
+                            <div class="modal-content">
+                                <div class="modal-header">
+                                    <h5 class="modal-title">Preview Artikel</h5>
+                                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                                </div>
+                                <div class="modal-body">
+                                    <img src="{{ url_for('static', filename='uploads/'+article.thumbnail) }}"
+                                        class="img-fluid mb-3" alt="thumbnail">
+                                    <h3>{{ article.judul }}</h3>
+                                    <div class="d-flex gap-3 text-muted small mb-3">
+                                        <span><i class="bi bi-person me-1"></i>{{ article.created_by.username }}</span>
+                                        <span><i class="bi bi-calendar me-1"></i>
+                                            {{ article.created_at.strftime('%d/%m/%Y') }}
+                                        </span>
+                                    </div>
+                                    <div>{{ article.content|safe }}</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Edit Modal -->
+                    <div class="modal fade" id="editModal{{ article.id }}" tabindex="-1">
+                        <div class="modal-dialog modal-lg">
+                            <div class="modal-content">
+                                <form action="{{ url_for('admin.update_article', id=article.id) }}" method="POST"
+                                    enctype="multipart/form-data">
+                                    <div class="modal-header">
+                                        <h5 class="modal-title">Edit Artikel</h5>
+                                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                                    </div>
+                                    <div class="modal-body">
+                                        <div class="mb-3">
+                                            <label class="form-label">Judul</label>
+                                            <input type="text" class="form-control" name="judul"
+                                                value="{{ article.judul }}" required>
+                                        </div>
+                                        <div class="mb-3">
+                                            <label class="form-label">Thumbnail</label>
+                                            <input type="file" class="form-control" name="thumbnail" accept="image/*">
+                                        </div>
+                                        <div class="mb-3">
+                                            <label class="form-label">Konten</label>
+                                            {{ ckeditor.create() }}
+                                        </div>
+                                    </div>
+                                    <div class="modal-footer">
+                                        <button type="button" class="btn btn-secondary"
+                                            data-bs-dismiss="modal">Batal</button>
+                                        <button type="submit" name="action" value="save" class="btn btn-warning">
+                                            Simpan sebagai Draft
+                                        </button>
+                                        <button type="submit" name="action" value="publish" class="btn btn-green">
+                                            Publish
+                                        </button>
+                                    </div>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Pagination -->
+        {% if pagination.pages > 1 %}
+        <nav class="mt-4">
+            <ul class="pagination justify-content-center">
+                <li class="page-item {{ 'disabled' if not pagination.has_prev }}">
+                    <a class="page-link" href="{{ url_for('admin.articles_management', page=pagination.prev_num) }}">
+                        Previous
+                    </a>
+                </li>
+                {% for page in pagination.iter_pages() %}
+                {% if page %}
+                <li class="page-item {{ 'active' if page == pagination.page }}">
+                    <a class="page-link" href="{{ url_for('admin.articles_management', page=page) }}">{{ page }}</a>
+                </li>
+                {% else %}
+                <li class="page-item disabled"><span class="page-link">...</span></li>
+                {% endif %}
+                {% endfor %}
+                <li class="page-item {{ 'disabled' if not pagination.has_next }}">
+                    <a class="page-link" href="{{ url_for('admin.articles_management', page=pagination.next_num) }}">
+                        Next
+                    </a>
+                </li>
+            </ul>
+        </nav>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Add Article Modal -->
+<div class="modal fade" id="addArticleModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <form action="{{ url_for('admin.add_article') }}" method="POST" enctype="multipart/form-data">
+                <div class="modal-header">
+                    <h5 class="modal-title">Tambah Artikel Baru</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label">Judul</label>
+                        <input type="text" class="form-control" name="judul" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Thumbnail</label>
+                        <input type="file" class="form-control" name="thumbnail" accept="image/*" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Konten</label>
+                        {{ ckeditor.create() }}
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Batal</button>
+                    <button type="submit" name="action" value="save" class="btn btn-warning">
+                        Simpan sebagai Draft
+                    </button>
+                    <button type="submit" name="action" value="publish" class="btn btn-green">
+                        Publish
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+{% for article in articles %}
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        // Initialize CKEditor instances for edit modals
+        CKEDITOR.replace('ckeditor-edit-{{ article.id }}', {
+            initialData: `{{ article.content|safe }}`
+        });
+    });
+</script>
+{% endfor %}
+{% endblock %}

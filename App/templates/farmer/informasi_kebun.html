@@ -1,0 +1,1036 @@
+{% extends 'layout/farmer_base.html' %}
+<!-- Title block -->
+{% block title %} Kebun {% endblock %}
+<!-- Page Title Block -->
+{% block page_title %} Kebun {% endblock %}
+<!-- Head Scripts -->
+{% block head_scripts %}
+<link href="https://api.mapbox.com/mapbox-gl-js/v3.6.0/mapbox-gl.css" rel="stylesheet" />
+<script src="https://api.mapbox.com/mapbox-gl-js/v3.6.0/mapbox-gl.js"></script>
+{% endblock %}
+<!-- Styles block -->
+{% block styles %}
+<style>
+    #mapContainer,
+    #updateMapContainer {
+        width: 100%;
+        position: relative;
+    }
+
+    [data-location-pin='fixedPin'] {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-52%, -185%); /* Adjust to center the pin */
+        width: 32px;
+        height: 32px;
+        background-image: url('https://upload.wikimedia.org/wikipedia/commons/f/fb/Map_pin_icon_green.svg'); /* Example pin image */
+        background-size: contain;
+        background-repeat: no-repeat;
+        background-position: center center;
+        z-index: 10;
+    }
+    [data-location-pin='updateFixedPin'] {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-52%, -130%); /* Adjust to center the pin */
+        width: 32px;
+        height: 32px;
+        background-image: url('https://upload.wikimedia.org/wikipedia/commons/f/fb/Map_pin_icon_green.svg'); /* Example pin image */
+        background-size: contain;
+        background-repeat: no-repeat;
+        background-position: center center;
+        z-index: 10;
+    }
+
+    .custom-popover {
+        --bs-popover-border-color: var(--accent-red-color);
+        --bs-popover-header-bg: var(--accent-red-color);
+        --bs-popover-header-color: var(--bs-white);
+    }
+</style>
+{% endblock %}
+<!-- Content Block -->
+{% block content %}
+<nav style="--bs-breadcrumb-divider: '>'" aria-label="breadcrumb">
+    <ol class="breadcrumb">
+        <li class="breadcrumb-item"><a href="{{ url_for('farmer.index' ) }}" class="nav-link text-green text-decoration-none">Dashboard</a></li>
+        <li class="breadcrumb-item active" aria-current="page">Kebun</li>
+    </ol>
+</nav>
+<div class="card">
+    <div class="card-body position-relative">
+        <div class="container">
+            <div class="row gap-3 col text-lg-start text-center">
+                <h5><strong>Data Kebun</strong></h5>
+                <div class="mb-3 d-flex gap-2 flex-row">
+                    <button id="addKebunBtn" type="button" class="btn btn-green w-auto d-flex gap-2 align-items-center" data-bs-toggle="modal" data-bs-target="#addKebun">Tambah Kebun</button>
+                    <button id="importKebunBtn" type="button" class="btn btn-light w-auto d-flex gap-2 align-items-center" data-bs-toggle="modal" data-bs-target="#importKebun">Import</button>
+                </div>
+                <div class="table-responsive">
+                    <table class="table">
+                        <tr>
+                            <th>Nama Kebun</th>
+                            <th>Luas Kebun</th>
+                            <th>Koordinat Kebun</th>
+                            <th>Aksi</th>
+                        </tr>
+                        {% for data_kebun in kebun %}
+                        <tr class="align-middle">
+                            <td>{{ data_kebun.nama }}</td>
+                            <td>{{ data_kebun.luas_kebun }} ha</td>
+                            <td>{{ data_kebun.koordinat }}</td>
+                            <td>
+                                <button id="detailKebunBtn{{data_kebun.id}}" type="button" class="btn btn-light me-1 mb-1 mb-lg-0" data-bs-toggle="modal" data-bs-target="#detailKebun{{data_kebun.id}}">Detail</button>
+                                <button id="updateKebunBtn{{data_kebun.id}}" type="button" class="btn btn-light" data-bs-toggle="modal" data-bs-target="#updateKebunForm{{data_kebun.id}}">Ubah</button>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="importKebun" tabindex="-1" aria-labelledby="importKebunLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-center">
+        <div class="modal-content p-3">
+            <div class="modal-header">
+                <h1 class="modal-title fs-5 fw-bold">Import Data Kebun</h1>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form action="{{ url_for('farmer.import_kebun') }}" method="post" enctype="multipart/form-data">
+                    <div class="mb-3">
+                        <input type="file" name="excel_file" class="form-control" required />
+                    </div>
+                    <div class="d-flex justify-content-center">
+                        <button type="submit" class="btn btn-green w-100">Import</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Add Kebun -->
+<div class="modal fade" id="addKebun" tabindex="-1" aria-labelledby="addKebunLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
+        <div class="modal-content p-3">
+            <div class="modal-header border-bottom">
+                <h1 class="modal-title fs-5 fw-bold" id="addKebunLabel"><i class="fa fa-plus-circle me-2"></i>Tambahkan Kebun Baru</h1>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+
+            <form action="{{ url_for('farmer.add_kebun') }}" method="post" enctype="multipart/form-data" id="addKebunForm" class="needs-validation" novalidate>
+                <div class="modal-body">
+                    <!-- Progress Steps -->
+                    <div class="progress mb-3" style="height: 3px">
+                        <div class="progress-bar bg-success" role="progressbar" id="formProgress" style="width: 50%"></div>
+                    </div>
+
+                    <!-- Navigation Tabs -->
+                    <ul class="nav nav-pills mb-3 nav-justified" id="kebunTabs" role="tablist">
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link active d-flex align-items-center justify-content-center gap-2" id="info-umum-kebun-tab" data-bs-toggle="pill" data-bs-target="#info-umum-kebun" type="button" role="tab">
+                                <i class="fa fa-info-circle"></i>
+                                <span>Informasi Umum</span>
+                            </button>
+                        </li>
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link d-flex align-items-center justify-content-center gap-2" id="foto-kebun-tab" data-bs-toggle="pill" data-bs-target="#foto-kebun" type="button" role="tab">
+                                <i class="fa fa-camera"></i>
+                                <span>Foto Kebun</span>
+                            </button>
+                        </li>
+                    </ul>
+
+                    <!-- Tab Content -->
+                    <div class="tab-content" id="kebunTabContent">
+                        <!-- General Information Tab -->
+                        <div class="tab-pane fade show active" id="info-umum-kebun" role="tabpanel">
+                            <input type="hidden" name="formType" value="Data Kebun" />
+
+                            <!-- Map Container -->
+                            <div class="card mb-3">
+                                <div class="card-body">
+                                    <h6 class="card-title mb-3"><i class="fa fa-map-marker me-2"></i>Lokasi Kebun</h6>
+                                    <div id="mapContainer">
+                                        <div id="map" class="mb-3 rounded" style="height: 360px; width: 100%; position: relative"></div>
+                                        <div data-location-pin="fixedPin"></div>
+                                        <div class="input-group">
+                                            <input type="text" name="koordinat" id="koordinat" class="form-control" placeholder="Pilih lokasi pada peta" readonly required />
+                                            <button type="button" id="applyPin" class="btn btn-success"><i class="fa fa-check me-1"></i>Pilih Lokasi</button>
+                                        </div>
+                                        <div class="invalid-feedback">Silakan pilih lokasi kebun pada peta</div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Garden Details -->
+                            <div class="row g-3">
+                                <div class="col-md-6">
+                                    <label for="nama_kebun" class="form-label fw-bold"> <i class="fa fa-tag me-1"></i>Nama Kebun </label>
+                                    <input class="form-control" type="text" name="nama_kebun" id="nama_kebun" placeholder="Contoh: Kebun Sayur Organik" required minlength="3" maxlength="255" pattern="[a-zA-Z0-9 _\-éç]+" />
+                                    <div class="invalid-feedback">Nama kebun harus diisi (minimal 3 karakter, hanya huruf, angka, spasi, - dan _)</div>
+                                </div>
+                                <div class="col-md-6">
+                                    <label for="luaskebun" class="form-label fw-bold"> <i class="fa fa-ruler me-1"></i>Luas Lahan (m²) </label>
+                                    <div class="input-group">
+                                        <input class="form-control" type="number" name="luaskebun" id="luaskebun" placeholder="Contoh: 100" min="1" step="0.01" required />
+                                        <span class="input-group-text rounded-end">m²</span>
+                                        <div class="invalid-feedback">Luas lahan harus diisi dengan angka positif</div>
+                                    </div>
+                                </div>
+
+                                <!-- Komoditas Selection -->
+                                <div class="col-12">
+                                    <label class="form-label fw-bold"> <i class="fa fa-seedling me-1"></i>Komoditas </label>
+                                    <div class="card p-3">
+                                        <div class="row">
+                                            <div class="col-md-6">
+                                                <div class="form-check mb-2">
+                                                    <input class="form-check-input" type="checkbox" name="komoditas[]" value="Cabai Merah" id="cabaiMerah" />
+                                                    <label class="form-check-label" for="cabaiMerah">Cabai Merah</label>
+                                                </div>
+                                                <div class="form-check mb-2">
+                                                    <input class="form-check-input" type="checkbox" name="komoditas[]" value="Cabai Rawit" id="cabaiRawit" />
+                                                    <label class="form-check-label" for="cabaiRawit">Cabai Rawit</label>
+                                                </div>
+                                                <div class="form-check mb-2">
+                                                    <input class="form-check-input" type="checkbox" name="komoditas[]" value="Bawang Merah" id="bawangMerah" />
+                                                    <label class="form-check-label" for="bawangMerah">Bawang Merah</label>
+                                                </div>
+                                            </div>
+                                            <div class="col-md-6">
+                                                <div class="form-check mb-2">
+                                                    <input class="form-check-input" type="checkbox" name="komoditas[]" value="Tomat" id="tomat" />
+                                                    <label class="form-check-label" for="tomat">Tomat</label>
+                                                </div>
+                                                <div class="form-check mb-2">
+                                                    <input class="form-check-input" type="checkbox" name="komoditas[]" value="Jagung" id="jagung" />
+                                                    <label class="form-check-label" for="jagung">Jagung</label>
+                                                </div>
+                                                <div class="form-check">
+                                                    <input class="form-check-input" type="checkbox" id="lainnyaCheck" />
+                                                    <label class="form-check-label" for="lainnyaCheck">Lainnya</label>
+                                                </div>
+                                                <div id="lainnyaInput" class="mt-2 d-none">
+                                                    <input type="text" class="form-control" name="komoditas_lainnya" placeholder="Masukkan komoditas lain" />
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Photo Tab -->
+                        <div class="tab-pane fade" id="foto-kebun" role="tabpanel">
+                            <div class="card">
+                                <div class="card-body">
+                                    <!-- Photo Preview Carousel -->
+                                    <div id="fotoKebunCarousel" class="carousel slide mb-4" data-bs-ride="carousel">
+                                        <div class="carousel-inner">
+                                            <div class="carousel-item active">
+                                                <img
+                                                    src="https://upload.wikimedia.org/wikipedia/commons/3/3f/Placeholder_view_vector.svg"
+                                                    class="d-block w-100 rounded"
+                                                    id="previewFoto1"
+                                                    style="max-height: 300px; object-fit: cover"
+                                                    alt="Preview Foto Kebun 1"
+                                                />
+                                            </div>
+                                            <div class="carousel-item">
+                                                <img
+                                                    src="https://upload.wikimedia.org/wikipedia/commons/3/3f/Placeholder_view_vector.svg"
+                                                    class="d-block w-100 rounded"
+                                                    id="previewFoto2"
+                                                    style="max-height: 300px; object-fit: cover"
+                                                    alt="Preview Foto Kebun 2"
+                                                />
+                                            </div>
+                                            <div class="carousel-item">
+                                                <img
+                                                    src="https://upload.wikimedia.org/wikipedia/commons/3/3f/Placeholder_view_vector.svg"
+                                                    class="d-block w-100 rounded"
+                                                    id="previewFoto3"
+                                                    style="max-height: 300px; object-fit: cover"
+                                                    alt="Preview Foto Kebun 3"
+                                                />
+                                            </div>
+                                        </div>
+                                        <button class="carousel-control-prev" type="button" data-bs-target="#fotoKebunCarousel" data-bs-slide="prev">
+                                            <span class="carousel-control-prev-icon" aria-hidden="true"></span>
+                                            <span class="visually-hidden">Previous</span>
+                                        </button>
+                                        <button class="carousel-control-next" type="button" data-bs-target="#fotoKebunCarousel" data-bs-slide="next">
+                                            <span class="carousel-control-next-icon" aria-hidden="true"></span>
+                                            <span class="visually-hidden">Next</span>
+                                        </button>
+                                    </div>
+
+                                    <!-- Photo Upload Section -->
+                                    <div class="mb-3">
+                                        <label class="form-label fw-bold">
+                                            <i class="fa fa-camera me-1"></i>Unggah Foto Kebun
+                                            <small class="text-muted">(Maksimal 3 foto)</small>
+                                        </label>
+                                        <div class="row g-3">
+                                            <div class="col-md-4">
+                                                <input
+                                                    type="file"
+                                                    class="form-control foto-kebun"
+                                                    id="fotoKebun1"
+                                                    name="fotoKebun[]"
+                                                    accept=".jpg,.jpeg,.png"
+                                                    data-bs-toggle="popover"
+                                                    data-bs-custom-class="custom-popover"
+                                                    data-bs-trigger="manual"
+                                                    data-bs-placement="top"
+                                                    data-bs-content="Mohon unggah minimal 1 foto kebun"
+                                                />
+                                            </div>
+                                            <div class="col-md-4">
+                                                <input type="file" class="form-control foto-kebun" id="fotoKebun2" name="fotoKebun[]" accept=".jpg,.jpeg,.png" />
+                                            </div>
+                                            <div class="col-md-4">
+                                                <input type="file" class="form-control foto-kebun" id="fotoKebun3" name="fotoKebun[]" accept=".jpg,.jpeg,.png" />
+                                            </div>
+                                        </div>
+                                        <div class="form-text">Format yang didukung: JPG, JPEG, PNG. Maksimal 5MB per file</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Footer -->
+                <div class="modal-footer border-top">
+                    <button type="reset" class="btn btn-light" data-bs-dismiss="modal"><i class="fa fa-times me-1"></i>Batal</button>
+                    <button type="submit" class="btn btn-success"><i class="fa fa-save me-1"></i>Simpan Kebun</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- UPDATE MODAL -->
+{% for data_kebun in kebun %}
+<div
+    class="modal fade"
+    id="updateKebunForm{{ data_kebun.id }}"
+    tabindex="-1"
+    aria-labelledby="updateKebunForm{{ data_kebun.id }}Label"
+    aria-hidden="true"
+    data-kebun-id="{{data_kebun.id}}"
+    data-kebun-name="{{data_kebun.nama}}"
+    data-kebun-foto="{{data_kebun.foto}}"
+    data-kebun-luas="{{data_kebun.luas_kebun}}"
+    data-kebun-koordinat="{{data_kebun.koordinat}}"
+    data-kebun-komoditas="{{data_kebun.komoditas}}"
+>
+    <div class="modal-dialog modal-dialog-centered modal-lg">
+        <div class="modal-content p-3">
+            <div class="modal-header border-bottom">
+                <h1 class="modal-title fs-5 fw-bold" id="updateKebunForm{{ data_kebun.id }}Label"><i class="fa fa-edit me-2"></i>Ubah Informasi Kebun</h1>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+
+            <form action="{{ url_for('farmer.update_kebun', id=data_kebun.id) }}" method="post" enctype="multipart/form-data" id="updateKebunForm{{ data_kebun.id }}" class="needs-validation" novalidate>
+                <div class="modal-body">
+                    <!-- Progress Steps -->
+                    <div class="progress mb-3" style="height: 3px">
+                        <div class="progress-bar bg-success" role="progressbar" id="formProgressUpdate{{ data_kebun.id }}" style="width: 50%"></div>
+                    </div>
+
+                    <!-- Navigation Tabs -->
+                    <ul class="nav nav-pills mb-3 nav-justified" id="kebunTabsUpdate{{ data_kebun.id }}" role="tablist">
+                        <li class="nav-item" role="presentation">
+                            <button
+                                class="nav-link active d-flex align-items-center justify-content-center gap-2"
+                                id="info-umum-kebun-tab-update{{ data_kebun.id }}"
+                                data-bs-toggle="pill"
+                                data-bs-target="#info-umum-kebun-update{{ data_kebun.id }}"
+                                type="button"
+                                role="tab"
+                            >
+                                <i class="fa fa-info-circle"></i>
+                                <span>Informasi Umum</span>
+                            </button>
+                        </li>
+                        <li class="nav-item" role="presentation">
+                            <button
+                                class="nav-link d-flex align-items-center justify-content-center gap-2"
+                                id="foto-kebun-tab-update{{ data_kebun.id }}"
+                                data-bs-toggle="pill"
+                                data-bs-target="#foto-kebun-update{{ data_kebun.id }}"
+                                type="button"
+                                role="tab"
+                            >
+                                <i class="fa fa-camera"></i>
+                                <span>Foto Kebun</span>
+                            </button>
+                        </li>
+                    </ul>
+
+                    <!-- Tab Content -->
+                    <div class="tab-content" id="kebunTabContentUpdate{{ data_kebun.id }}">
+                        <!-- General Information Tab -->
+                        <div class="tab-pane fade show active" id="info-umum-kebun-update{{ data_kebun.id }}" role="tabpanel">
+                            <input type="hidden" name="formType" value="Update Kebun" />
+
+                            <!-- Map Container -->
+                            <div class="card mb-3">
+                                <div class="card-body">
+                                    <h6 class="card-title mb-3"><i class="fa fa-map-marker me-2"></i>Lokasi Kebun</h6>
+                                    <div id="updateMapContainer{{ data_kebun.id }}">
+                                        <div id="updateMap{{ data_kebun.id }}" class="mb-3 rounded" style="height: 360px; width: 100%; position: relative"></div>
+                                        <div id="updateFixedPin{{ data_kebun.id }}" data-location-pin="updateFixedPin"></div>
+                                        <div class="input-group">
+                                            <input type="text" name="koordinat" id="updateKoordinat{{ data_kebun.id }}" class="form-control" placeholder="Pilih lokasi pada peta" value="{{ data_kebun.koordinat }}" readonly required />
+                                            <button type="button" id="updateApplyPin{{ data_kebun.id }}" class="btn btn-success"><i class="fa fa-check me-1"></i>Pilih Lokasi</button>
+                                        </div>
+                                        <div class="invalid-feedback">Silakan pilih lokasi kebun pada peta</div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Garden Details -->
+                            <div class="row g-3">
+                                <div class="col-md-6">
+                                    <label for="nama_kebun{{ data_kebun.id }}" class="form-label fw-bold"> <i class="fa fa-tag me-1"></i>Nama Kebun </label>
+                                    <input class="form-control" type="text" name="nama_kebun" id="nama_kebun{{ data_kebun.id }}" value="{{ data_kebun.nama }}" required minlength="3" maxlength="255" pattern="[a-zA-Z0-9 _\-éç]+" />
+                                    <div class="invalid-feedback">Nama kebun harus diisi (minimal 3 karakter, hanya huruf, angka, spasi, - dan _)</div>
+                                </div>
+                                <div class="col-md-6">
+                                    <label for="luaskebun{{ data_kebun.id }}" class="form-label fw-bold"> <i class="fa fa-ruler me-1"></i>Luas Lahan (m²) </label>
+                                    <div class="input-group">
+                                        <input class="form-control" type="number" name="luaskebun" id="luaskebun{{ data_kebun.id }}" value="{{ data_kebun.luas_kebun }}" min="1" step="0.01" required />
+                                        <span class="input-group-text rounded-end">m²</span>
+                                        <div class="invalid-feedback">Luas lahan harus diisi dengan angka positif</div>
+                                    </div>
+                                </div>
+
+                                <!-- Komoditas Selection -->
+                                <div class="col-12">
+                                    <label class="form-label fw-bold"> <i class="fa fa-seedling me-1"></i>Komoditas </label>
+                                    <div class="card p-3">
+                                        <div class="row">
+                                            <div class="col-md-6">
+                                                <div class="form-check mb-2">
+                                                    <input class="form-check-input" type="checkbox" name="komoditas[]" value="cabai_merah" id="cabaiMerah{{ data_kebun.id }}" {% if 'cabai_merah' in data_kebun.komoditas %} checked {% endif %}
+                                                    />
+                                                    <label class="form-check-label" for="cabaiMerah{{ data_kebun.id }}">Cabai Merah</label>
+                                                </div>
+                                                <div class="form-check mb-2">
+                                                    <input class="form-check-input" type="checkbox" name="komoditas[]" value="cabai_rawit" id="cabaiRawit{{ data_kebun.id }}" {% if 'cabai_rawit' in data_kebun.komoditas %} checked {% endif %}
+                                                    />
+                                                    <label class="form-check-label" for="cabaiRawit{{ data_kebun.id }}">Cabai Rawit</label>
+                                                </div>
+                                                <div class="form-check mb2">
+                                                    <input class="form-check-input" type="checkbox" name="komoditas[]" value="bawang_merah" id="bawangMerah{{ data_kebun.id }}" {% if 'bawang_merah' in data_kebun.komoditas %} checked {% endif
+                                                    %}>
+                                                    <label class="form-check-label" for="bawangMerah{{ data_kebun.id }}">Bawang Merah</label>
+                                                </div>
+                                            </div>
+                                            <div class="col-md-6">
+                                                <div class="form-check mb-2">
+                                                    <input class="form-check-input" type="checkbox" name="komoditas[]" value="tomat" id="tomat{{ data_kebun.id }}" {% if 'tomat' in data_kebun.komoditas %} checked {% endif %}>
+                                                    <label class="form-check-label" for="tomat{{ data_kebun.id }}">Tomat</label>
+                                                </div>
+                                                <div class="form-check mb-2">
+                                                    <input class="form-check-input" type="checkbox" name="komoditas[]" value="jagung" id="jagung{{ data_kebun.id }}" {% if 'jagung' in data_kebun.komoditas %} checked {% endif %}>
+                                                    <label class="form-check-label" for="jagung{{ data_kebun.id }}">Jagung</label>
+                                                </div>
+                                                <div class="form-check mb-2">
+                                                    <input class="form-check-input" type="checkbox" name="komoditas[]" value="lainnya" id="lainnyaCheckUpdate{{ data_kebun.id }}" {% if data_kebun.komoditas_lainnya %} checked {% endif %} />
+                                                    <label class="form-check-label" for="lainnyaCheckUpdate{{ data_kebun.id }}">Lainnya</label>
+                                                </div>
+                                                <div id="lainnyaInputUpdate{{ data_kebun.id }}" class="mt-2 {% if not data_kebun.komoditas_lainnya %}d-none{% endif %}">
+                                                    <input type="text" class="form-control" name="komoditas_lainnya" placeholder="Masukkan komoditas lain" value="{{ data_kebun.komoditas_lainnya }}" />
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Photo Tab -->
+                        <div class="tab-pane fade" id="foto-kebun-update{{ data_kebun.id }}" role="tabpanel">
+                            <div class="card">
+                                <div class="card-body">
+                                    <!-- Photo Preview Carousel -->
+                                    <div id="fotoKebunCarouselUpdate{{ data_kebun.id }}" class="carousel slide mb-4" data-bs-ride="carousel">
+                                        <div class="carousel-inner">
+                                            {% if data_kebun.foto %} {% set photos = data_kebun.foto.split(',') %} {% for photo in photos %}
+                                            <div class="carousel-item {% if loop.first %}active{% endif %}">
+                                                <img
+                                                    src="{{ url_for('static', filename='uploads/foto_kebun/') }}{{ photo.strip() }}"
+                                                    class="d-block w-100 rounded"
+                                                    style="max-height: 300px; object-fit: cover"
+                                                    alt="Foto Kebun {{ loop.index }}"
+                                                />
+                                            </div>
+                                            {% endfor %} {% else %}
+                                            <div class="carousel-item active">
+                                                <img
+                                                    src="https://upload.wikimedia.org/wikipedia/commons/3/3f/Placeholder_view_vector.svg"
+                                                    class="d-block w-100 rounded"
+                                                    style="max-height: 300px; object-fit: cover"
+                                                    alt="Default Kebun Image"
+                                                />
+                                            </div>
+                                            {% endif %}
+                                        </div>
+                                        <!-- Carousel controls jika ada lebih dari satu foto -->
+                                        {% if data_kebun.foto and data_kebun.foto.split(',')|length > 1 %}
+                                        <button class="carousel-control-prev" type="button" data-bs-target="#fotoKebunCarouselUpdate{{data_kebun.id}}" data-bs-slide="prev">
+                                            <span class="carousel-control-prev-icon" aria-hidden="true"></span>
+                                            <span class="visually-hidden">Previous</span>
+                                        </button>
+                                        <button class="carousel-control-next" type="button" data-bs-target="#fotoKebunCarouselUpdate{{data_kebun.id}}" data-bs-slide="next">
+                                            <span class="carousel-control-next-icon" aria-hidden="true"></span>
+                                            <span class="visually-hidden">Next</span>
+                                        </button>
+                                        {% endif %}
+                                    </div>
+
+                                    <!-- Photo Upload Section -->
+                                    <div class="mb-3">
+                                        <label class="form-label fw-bold">
+                                            <i class="fa fa-camera me-1"></i>Unggah Foto Kebun
+                                            <small class="text-muted">(Maksimal 3 foto)</small>
+                                        </label>
+                                        <div class="row g-3">
+                                            <div class="col-md-4">
+                                                <input type="file" class="form-control foto-kebun-update" id="fotoKebunUpdate1{{ data_kebun.id }}" name="fotoKebun[]" accept=".jpg,.jpeg,.png" />
+                                            </div>
+                                            <div class="col-md-4">
+                                                <input type="file" class="form-control foto-kebun-update" id="fotoKebunUpdate2{{ data_kebun.id }}" name="fotoKebun[]" accept=".jpg,.jpeg,.png" />
+                                            </div>
+                                            <div class="col-md-4">
+                                                <input type="file" class="form-control foto-kebun-update" id="fotoKebunUpdate3{{ data_kebun.id }}" name="fotoKebun[]" accept=".jpg,.jpeg,.png" />
+                                            </div>
+                                            <!-- Tambahkan input file lainnya sesuai kebutuhan -->
+                                        </div>
+                                        <div class="form-text">Format yang didukung: JPG, JPEG, PNG. Maksimal 5MB per file</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <!-- Footer -->
+                <div class="modal-footer border-top">
+                    <button type="button" class="btn btn-light" data-bs-dismiss="modal"><i class="fa fa-times me-1"></i>Batal</button>
+                    <button type="submit" class="btn btn-success"><i class="fa fa-save me-1"></i>Simpan Perubahan</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endfor %}
+
+<!-- DELETE MODAL -->
+{% for data_kebun in kebun %}
+<div class="modal fade" id="delKebun{{ data_kebun.id }}" tabindex="-1" aria-labelledby="delKebun{{ data_kebun.id }}Label" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content p-3">
+            <div class="modal-header">
+                <h1 class="modal-title fs-5 fw-bold" id="delKebun{{ data_kebun.id }}Label">Hapus Kebun {{ data_kebun.nama }}</h1>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <hr class="m-0" />
+            <div class="modal-body">
+                <h5 class="text-center mb-3">Apakah anda yakin akan menghapus kebun ini?</h5>
+                <div class="d-flex gap-3 justify-content-center">
+                    <a href="{{ url_for('farmer.del_kebun', id=data_kebun.id)  }}" class="btn btn-outline-danger text-center">Ya, saya yakin!</a>
+                    <button data-bs-dismiss="modal" class="btn btn-green text-center">Tidak</button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endfor %}
+
+<!-- DETAILS MODAL -->
+{% for data_kebun in kebun %}
+<div
+    class="modal fade"
+    id="detailKebun{{data_kebun.id}}"
+    tabindex="-1"
+    aria-labelledby="detailKebun{{data_kebun.id}}Label"
+    aria-hidden="true"
+    data-kebun-id="{{data_kebun.id}}"
+    data-kebun-name="{{data_kebun.nama}}"
+    data-kebun-foto="{{data_kebun.foto}}"
+    data-kebun-luas="{{data_kebun.luas_kebun}}"
+    data-kebun-koordinat="{{data_kebun.koordinat}}"
+    data-kebun-komoditas="{{data_kebun.komoditas}}"
+>
+    <div class="modal-dialog modal-dialog-centered modal-lg">
+        <div class="modal-content p-3">
+            <!-- Modal Header -->
+            <div class="modal-header border-bottom">
+                <h5 class="modal-title fw-bold" id="detailKebun{{data_kebun.id}}Label"><i class="fa fa-info-circle me-2"></i>Detail Informasi Kebun</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+
+            <!-- Modal Body -->
+            <div class="modal-body">
+                <!-- Foto Kebun Carousel -->
+                <div class="card mb-4">
+                    <div class="card-body">
+                        <h6 class="card-title mb-3"><i class="fa fa-images me-2"></i>Foto Kebun</h6>
+                        <div id="kebunCarousel{{data_kebun.id}}" class="carousel slide" data-bs-ride="carousel">
+                            <div class="carousel-inner">
+                                {% if data_kebun.foto %} {% set photos = data_kebun.foto.split(',') %} {% for photo in photos %}
+                                <div class="carousel-item {% if loop.first %}active{% endif %}">
+                                    <div class="ratio ratio-4x3">
+                                        <img
+                                            src="{{ url_for('static', filename='uploads/foto_kebun/') }}{{ photo.strip() }}"
+                                            class="d-block w-100 h-100 img-thumbnail rounded"
+                                            style="height: 300px; object-fit: cover"
+                                            alt="Foto Kebun {{ loop.index }}"
+                                        />
+                                    </div>
+                                </div>
+                                {% endfor %} {% else %}
+                                <div class="carousel-item active">
+                                    <img src="{{ url_for('static', filename='img/default_thumbnail.jpg') }}" class="d-block w-100 rounded" style="height: 300px; object-fit: cover" alt="Default Kebun Image" />
+                                </div>
+                                {% endif %}
+                            </div>
+                            {% if data_kebun.foto and data_kebun.foto.split(',')|length > 1 %}
+                            <button class="carousel-control-prev" type="button" data-bs-target="#kebunCarousel{{data_kebun.id}}" data-bs-slide="prev">
+                                <span class="carousel-control-prev-icon" aria-hidden="true"></span>
+                                <span class="visually-hidden">Previous</span>
+                            </button>
+                            <button class="carousel-control-next" type="button" data-bs-target="#kebunCarousel{{data_kebun.id}}" data-bs-slide="next">
+                                <span class="carousel-control-next-icon" aria-hidden="true"></span>
+                                <span class="visually-hidden">Next</span>
+                            </button>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Informasi Umum -->
+                <div class="card mb-4">
+                    <div class="card-body">
+                        <h6 class="card-title mb-3"><i class="fa fa-info-circle me-2"></i>Informasi Umum</h6>
+                        <div class="row g-3">
+                            <div class="col-md-6">
+                                <label class="form-label text-muted">Nama Kebun</label>
+                                <p class="fw-bold">{{ data_kebun.nama }}</p>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label text-muted">Luas Lahan</label>
+                                <p class="fw-bold">{{ data_kebun.luas_kebun }} m²</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Komoditas -->
+                <div class="card mb-4">
+                    <div class="card-body">
+                        <h6 class="card-title mb-3"><i class="fa fa-seedling me-2"></i>Komoditas</h6>
+                        <div class="row">
+                            {% if data_kebun.komoditas %} {% set komoditas_list = data_kebun.komoditas.split(',') %} {% for komoditas in komoditas_list %}
+                            <div class="col-md-4 mb-2">
+                                <span class="badge bg-success komoditas">{{ komoditas.strip() }}</span>
+                            </div>
+                            {% endfor %} {% else %}
+                            <div class="col">
+                                <p class="text-muted">Belum ada komoditas yang ditambahkan</p>
+                            </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Lokasi Kebun -->
+                <div class="card">
+                    <div class="card-body">
+                        <h6 class="card-title mb-3"><i class="fa fa-map-marker me-2"></i>Lokasi Kebun</h6>
+                        <div id="mapDetail{{data_kebun.id}}" style="height: 300px; width: 100%" class="rounded mb-3"></div>
+                        <div class="input-group">
+                            <input type="text" class="form-control" value="{{ data_kebun.koordinat }}" readonly />
+                            <button class="btn btn-outline-secondary" type="button" onclick="copyKoordinat('{{ data_kebun.koordinat }}')">
+                                <i class="fa fa-copy"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Modal Footer -->
+            <div class="modal-footer border-top">
+                <button type="button" class="btn btn-light" data-bs-dismiss="modal"><i class="fa fa-times me-1"></i>Tutup</button>
+                <button type="button" class="btn btn-danger" data-bs-toggle="modal" data-bs-target="#delKebun{{data_kebun.id}}"><i class="fa fa-trash me-1"></i>Hapus Kebun</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endfor %} {% endblock %}
+
+<!-- Scripts Block -->
+{% block scripts %}
+<script
+    src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.7.1/jquery.min.js"
+    integrity="sha512-v2CJ7UaYy4JwqLDIrZUI/4hqeoQieOmAZNXBeQyjo21dadnwR+8ZaIJVT8EE2iyI61OV8e6M8PP2/4hpQINQ/g=="
+    crossorigin="anonymous"
+    referrerpolicy="no-referrer"
+></script>
+<script>
+    // Mapbox access token
+    mapboxgl.accessToken = 'pk.eyJ1IjoiaGFpZGFyMDM4IiwiYSI6ImNseWxtanB4ZzBkOGIyaXM2NXpqNHltbTEifQ.3UzDa633gOXAJMYeAJZBvQ';
+
+    // Global variables
+    let addKebunMap = null;
+    let addKebunMarker = null;
+
+    const addKebunToggleableLayers = [
+        { id: 'streets-v11', name: 'Normal' },
+        { id: 'light-v10', name: 'Light' },
+        { id: 'dark-v10', name: 'Dark' },
+    ];
+
+    // Utility functions
+    function copyKoordinat(koordinat) {
+        navigator.clipboard
+            .writeText(koordinat)
+            .then(() => {
+                alert('Koordinat berhasil disalin!');
+            })
+            .catch((err) => {
+                console.error('Gagal menyalin koordinat:', err);
+            });
+    }
+
+    // Function to initialize map for a specific kebun
+    function initializeKebunMap(kebunId) {
+        const updateMapContainer = document.getElementById(`updateMap${kebunId}`);
+        if (!updateMapContainer) {
+            console.error(`Map container for kebun ${kebunId} not found`);
+            return null;
+        }
+
+        // Clear the map container
+        updateMapContainer.innerHTML = '';
+
+        const modal = document.getElementById(`updateKebunForm${kebunId}`);
+        const koordinat = modal.getAttribute('data-kebun-koordinat');
+        console.log(modal);
+        console.log(koordinat);
+        const [lng, lat] = koordinat.split(', ').map(parseFloat);
+
+        const updateMap = new mapboxgl.Map({
+            container: updateMapContainer,
+            style: 'mapbox://styles/mapbox/streets-v11',
+            center: [lng, lat],
+            zoom: 12,
+        });
+
+        const updateMarker = new mapboxgl.Marker().setLngLat([lng, lat]).addTo(updateMap);
+
+        updateMap.addControl(new mapboxgl.NavigationControl());
+
+        const applyPinButton = document.getElementById(`updateApplyPin${kebunId}`);
+        if (applyPinButton) {
+            applyPinButton.addEventListener('click', function () {
+                const center = updateMap.getCenter();
+                const koordinatInput = document.getElementById(`updateKoordinat${kebunId}`);
+                if (koordinatInput) {
+                    koordinatInput.value = `${center.lng.toFixed(6)}, ${center.lat.toFixed(6)}`;
+                    updateMarker.setLngLat([center.lng, center.lat]);
+                }
+            });
+        }
+
+        return map;
+    }
+
+    // Function to initialize add kebun map
+    function initializeAddKebunMap() {
+        const mapContainer = document.getElementById('map');
+        if (!mapContainer) {
+            console.error('Add kebun map container not found');
+            return;
+        }
+
+        // Clear the map container
+        mapContainer.innerHTML = '';
+
+        if (addKebunMap) {
+            addKebunMap.remove(); // Remove existing map if it exists
+        }
+
+        addKebunMap = new mapboxgl.Map({
+            container: 'map',
+            style: 'mapbox://styles/mapbox/streets-v11',
+            center: [127.3569173, 0.8016929],
+            zoom: 12,
+        });
+
+        addKebunMap.addControl(new mapboxgl.NavigationControl());
+
+        // Re-add event listener for apply pin
+        const applyPinButton = document.getElementById('applyPin');
+        if (applyPinButton) {
+            applyPinButton.addEventListener('click', function () {
+                const center = addKebunMap.getCenter();
+                const koordinatInput = document.getElementById('koordinat');
+                if (koordinatInput) {
+                    koordinatInput.value = `${center.lng.toFixed(6)}, ${center.lat.toFixed(6)}`;
+                    if (addKebunMarker) {
+                        addKebunMarker.setLngLat([center.lng, center.lat]);
+                    } else {
+                        addKebunMarker = new mapboxgl.Marker().setLngLat([center.lng, center.lat]).addTo(addKebunMap);
+                    }
+                }
+            });
+        }
+
+        addKebunMap.resize();
+    }
+
+    // Tambahkan di dalam block scripts yang sudah ada
+    function initializeDetailMap(kebunId, koordinat) {
+        const [lng, lat] = koordinat.split(', ').map(parseFloat);
+
+        const map = new mapboxgl.Map({
+            container: `mapDetail${kebunId}`,
+            style: 'mapbox://styles/mapbox/streets-v11',
+            center: [lng, lat],
+            zoom: 15,
+        });
+
+        // Add marker
+        new mapboxgl.Marker().setLngLat([lng, lat]).addTo(map);
+
+        // Add navigation controls
+        map.addControl(new mapboxgl.NavigationControl());
+    }
+
+    // Function to initialize update kebun map
+    function initializeUpdateKebunMap(kebunId, koordinat) {
+        const [lng, lat] = koordinat.split(', ').map(parseFloat);
+
+        const mapContainer = document.getElementById(`updateMap${kebunId}`);
+        if (!mapContainer) {
+            console.error('Map container not found.');
+            return;
+        }
+
+        // Clear previous map instance
+        mapContainer.innerHTML = '';
+
+        const map = new mapboxgl.Map({
+            container: mapContainer,
+            style: 'mapbox://styles/mapbox/streets-v11',
+            center: [lng, lat],
+            zoom: 12,
+        });
+
+        // Add Marker
+        const marker = new mapboxgl.Marker().setLngLat([lng, lat]).addTo(map);
+
+        // Add navigation control
+        map.addControl(new mapboxgl.NavigationControl());
+
+        // Update koordinat input
+        const applyPinButton = document.getElementById(`updateApplyPin${kebunId}`);
+        applyPinButton.addEventListener('click', function () {
+            const center = map.getCenter();
+            const koordinatInput = document.getElementById(`updateKoordinat${kebunId}`);
+            if (koordinatInput) {
+                koordinatInput.value = `${center.lng.toFixed(6)}, ${center.lat.toFixed(6)}`;
+                marker.setLngLat(center);
+            }
+        });
+
+        return map;
+    }
+
+    // Initialize maps when modals are opened
+    document.addEventListener('shown.bs.modal', function (event) {
+        const modal = event.target;
+        const kebunId = modal.getAttribute('data-kebun-id');
+
+        if (modal.id.startsWith('detailKebun') && kebunId) {
+            setTimeout(() => {
+                const map = initializeKebunMap(kebunId);
+                if (map) {
+                    map.resize();
+                }
+            }, 100);
+        }
+    });
+
+    // Event listener for add kebun modal
+    document.addEventListener('DOMContentLoaded', function () {
+        const addKebunModal = document.getElementById('addKebun');
+        if (addKebunModal) {
+            addKebunModal.addEventListener('shown.bs.modal', function () {
+                initializeAddKebunMap();
+            });
+        }
+    });
+
+    // Initialize detail maps when modals are opened
+    document.addEventListener('shown.bs.modal', function (event) {
+        const modal = event.target;
+        const kebunId = modal.getAttribute('data-kebun-id');
+        const koordinat = modal.getAttribute('data-kebun-koordinat');
+
+        if (kebunId && koordinat) {
+            setTimeout(() => {
+                initializeDetailMap(kebunId, koordinat);
+            }, 100);
+        }
+    });
+
+    // Event listener for update kebun modal
+    document.addEventListener('shown.bs.modal', function (event) {
+        const modal = event.target;
+        const kebunId = modal.getAttribute('data-kebun-id');
+        const koordinat = modal.getAttribute('data-kebun-koordinat');
+
+        if (kebunId && koordinat && modal.id.startsWith('updateKebunForm')) {
+            setTimeout(() => {
+                initializeUpdateKebunMap(kebunId, koordinat);
+            }, 100);
+        }
+    });
+</script>
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        const form = document.getElementById('addKebunForm');
+        const progress = document.getElementById('formProgress');
+        const fotoInputs = document.querySelectorAll('.foto-kebun');
+        const lainnyaCheck = document.getElementById('lainnyaCheck');
+        const lainnyaInput = document.getElementById('lainnyaInput');
+        const lainnyaInputUpdate = document.getElementById('lainnyaInputUpdate');
+
+        // Initialize popovers
+        const popoverTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="popover"]'));
+        const popoverList = popoverTriggerList.map(function (popoverTriggerEl) {
+            return new bootstrap.Popover(popoverTriggerEl);
+        });
+
+        // Handle "Lainnya" checkbox
+        lainnyaCheck.addEventListener('change', function () {
+            lainnyaInput.classList.toggle('d-none', !this.checked);
+            if (this.checked) {
+                lainnyaInput.querySelector('input').setAttribute('required', '');
+            } else {
+                lainnyaInput.querySelector('input').removeAttribute('required');
+            }
+        });
+
+        // Handle "Lainnya" checkbox for update modal
+        document.querySelectorAll('[id^=lainnyaCheckUpdate]').forEach((checkbox) => {
+            checkbox.addEventListener('change', function () {
+                const input = document.getElementById(`lainnyaInputUpdate${checkbox.id.slice(-1)}`);
+                input.classList.toggle('d-none', !this.checked);
+                if (this.checked) {
+                    input.querySelector('input').setAttribute('required', '');
+                } else {
+                    input.querySelector('input').removeAttribute('required');
+                }
+            });
+        });
+
+        // Update progress bar when switching tabs
+        document.querySelectorAll('#kebunTabs .nav-link').forEach((tab) => {
+            tab.addEventListener('shown.bs.tab', function (event) {
+                const targetId = event.target.id;
+                progress.style.width = targetId === 'foto-kebun-tab' ? '100%' : '50%';
+            });
+        });
+
+        // Handle photo uploads and preview
+        fotoInputs.forEach((input, index) => {
+            input.addEventListener('change', function (event) {
+                const file = event.target.files[0];
+                if (file) {
+                    // Validate file size
+                    if (file.size > 5 * 1024 * 1024) {
+                        alert('Ukuran file terlalu besar. Maksimal 5MB.');
+                        this.value = '';
+                        return;
+                    }
+
+                    // Validate file type
+                    if (!['image/jpeg', 'image/jpg', 'image/png'].includes(file.type)) {
+                        alert('Format file tidak didukung. Gunakan JPG, JPEG, atau PNG.');
+                        this.value = '';
+                        return;
+                    }
+
+                    // Update preview
+                    const reader = new FileReader();
+                    reader.onload = function (e) {
+                        document.getElementById(`previewFoto${index + 1}`).src = e.target.result;
+                    };
+                    reader.readAsDataURL(file);
+                }
+            });
+        });
+
+        // Form validation
+        form.addEventListener('submit', function (event) {
+            event.preventDefault();
+
+            // Check if at least one photo is uploaded
+            const hasPhoto = Array.from(fotoInputs).some((input) => input.files.length > 0);
+            if (!hasPhoto) {
+                event.stopPropagation();
+                // Show popover on first photo input
+                const popover = bootstrap.Popover.getInstance(fotoInputs[0]);
+                popover.show();
+
+                // Switch to foto tab
+                const fotoTab = document.querySelector('#foto-kebun-tab');
+                bootstrap.Tab.getInstance(fotoTab).show();
+
+                return;
+            }
+
+            // Hide popover if photo is uploaded
+            const popover = bootstrap.Popover.getInstance(fotoInputs[0]);
+            if (popover) {
+                popover.hide();
+            }
+
+            // Check other form validations
+            if (!form.checkValidity()) {
+                event.stopPropagation();
+            } else {
+                // Form is valid, submit it
+                form.submit();
+            }
+
+            form.classList.add('was-validated');
+        });
+
+        // Hide popover when photo is selected
+        fotoInputs[0].addEventListener('change', function () {
+            if (this.files.length > 0) {
+                const popover = bootstrap.Popover.getInstance(this);
+                if (popover) {
+                    popover.hide();
+                }
+            }
+        });
+    });
+</script>
+<script></script>
+{% endblock %}

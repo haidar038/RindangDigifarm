@@ -1,1 +1,54 @@
-{% extends 'layout/expert_base.html' %} {% block content %} {% endblock %}
+{% extends 'layout/expert_base.html' %}
+{% block title %}Dashboard Ahli - Overview{% endblock %}
+
+{% block page_title %}Overview{% endblock %}
+
+{% block content %}
+<div class="row py-3 py-lg-0">
+    <div class="col-lg-12 d-flex">
+        <div class="d-flex flex-column mb-3">
+            <h2 class="fw-bold text-green">Selamat Datang, {{ current_user.nama_lengkap }}</h2>
+            <p class="fw-light text-muted">Dashboard satu pintu untuk pemantauan aktivitas Rindang</p>
+        </div>
+    </div>
+    <div class="col-sm-12 col-lg-4">
+        <a href="{{ url_for('expert.forum' ) }}" target="_blank" class="nav-link">
+            <div class="card card-body personal-feature-card border shadow-sm rounded-4 mb-3">
+                <div class="d-flex gap-3 align-items-center">
+                    <i class="fa fa-list-check fa-fw display-4 bg-yellow p-3 rounded-3" loading="lazy"></i>
+                    <div class="d-flex flex-column justify-content-center">
+                        <p class="text-yellow fw-bold mb-1">Pertanyaan Terjawab</p>
+                        <h2 class="fw-bold">{{ replied }}</h2>
+                    </div>
+                </div>
+            </div>
+        </a>
+    </div>
+    <div class="col-sm-12 col-lg-4">
+        <a href="{{ url_for('expert.forum' ) }}" target="_blank" class="nav-link">
+            <div class="card card-body personal-feature-card border shadow-sm rounded-4 mb-3">
+                <div class="d-flex gap-3 align-items-center">
+                    <i class="fa fa-circle-question fa-fw display-4 bg-red p-3 rounded-3" loading="lazy"></i>
+                    <div class="d-flex flex-column justify-content-center">
+                        <p class="text-red fw-bold mb-1">Belum Terjawab</p>
+                        <h2 class="fw-bold">{{ unreplied }}</h2>
+                    </div>
+                </div>
+            </div>
+        </a>
+    </div>
+    <div class="col-sm-12 col-lg-4">
+        <a href="#" target="_blank" class="nav-link">
+            <div class="card card-body personal-feature-card border shadow-sm rounded-4 mb-3">
+                <div class="d-flex gap-3 align-items-center">
+                    <i class="fa fa-person-circle-question fa-fw display-4 bg-green p-3 rounded-3" loading="lazy"></i>
+                    <div class="d-flex flex-column justify-content-center">
+                        <p class="text-green fw-bold mb-1">Jumlah Penanya</p>
+                        <h2 class="fw-bold">{{ total_users }}</h2>
+                    </div>
+                </div>
+            </div>
+        </a>
+    </div>
+</div>
+{% endblock %}

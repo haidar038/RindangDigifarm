@@ -1,0 +1,75 @@
+{% extends 'layout/admin_base.html' %} {% block content %}
+<h2 class="fw-bold mb-3">Tambah User Baru</h2>
+<form action="" method="post">
+    <div class="form-group mb-3">
+        <label for="name" class="form-label fw-medium">Nama Pengguna</label>
+        <input type="text" name="name" id="name" class="form-control" required />
+    </div>
+    <div class="form-group mb-3">
+        <label for="email" class="form-label fw-medium">Email</label>
+        <input type="email" name="email" id="email" class="form-control" />
+    </div>
+    <div class="form-group mb-3">
+        <label for="username" class="form-label fw-medium">Username</label>
+        <input type="text" name="username" id="username" class="form-control" readonly />
+    </div>
+    <div class="form-group mb-3">
+        <label for="password" class="form-label fw-medium">Password</label>
+        <input type="password" name="password" id="password" class="form-control" required />
+    </div>
+    <div class="form-group mb-4">
+        <label for="role" class="form-label fw-medium">Role</label>
+        <select name="role" id="role" class="form-select" required>
+            {% for item in roles %}
+            <option value="{{ item.name }}" class="text-capitalize">{{ item.name }}</option>
+            {% endfor %}
+        </select>
+    </div>
+    <button type="submit" class="btn btn-success">Simpan</button>
+    <a href="{{ url_for('admin.manage_roles') }}" class="btn btn-secondary">Batal</a>
+</form>
+{% endblock %} {% block scripts %}
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        const nameInput = document.getElementById('name');
+        const usernameInput = document.getElementById('username');
+
+        nameInput.addEventListener(
+            'input',
+            debounce(async function (e) {
+                if (!e.target.value) return;
+
+                try {
+                    const response = await fetch('/generate-username', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({ name: e.target.value }),
+                    });
+
+                    if (!response.ok) throw new Error('Network response was not ok');
+
+                    const data = await response.json();
+                    usernameInput.value = data.username;
+                } catch (error) {
+                    console.error('Error generating username:', error);
+                }
+            }, 500)
+        );
+    });
+
+    // Debounce function to limit API calls
+    function debounce(func, wait) {
+        let timeout;
+        return function executedFunction(...args) {
+            const later = () => {
+                clearTimeout(timeout);
+                func(...args);
+            };
+            clearTimeout(timeout);
+            timeout = setTimeout(later, wait);
+        };
+    }
+</script>
+{% endblock %}

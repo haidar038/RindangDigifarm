@@ -59,6 +59,8 @@ def create_app(config_class=Config):
     CORS(app, resources={r"/api/*": {"origins": "*"}})
 
     login_manager.login_view = 'auth.login'
+    login_manager.login_message = "Anda harus melakukan login terlebih dahulu"
+    login_manager.login_message_category = "warning"
 
     from App.routes.auth_routes import auth
     from App.routes.admin_routes import admin
@@ -98,12 +100,12 @@ def create_app(config_class=Config):
             db.session.commit()
 
         db.session.commit()
-        print('Roles telah ditambahkan ke database.')
+        print('Roles configuration complete')
 
-        try:
-            with mail.connect() as conn:
-                print("Email configuration is correct and connection successful")
-        except Exception as e:
-            print(f"Error in email configuration: {str(e)}")
+        # try:
+        #     with mail.connect() as conn:
+        #         print("Email configuration is correct and connection successful")
+        # except Exception as e:
+        #     print(f"Error in email configuration: {str(e)}")
 
     return app

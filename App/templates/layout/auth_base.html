@@ -1,51 +1,105 @@
 <!DOCTYPE html>
-<html lang="en" class="h-100">
-    <head>
-        <meta charset="UTF-8" />
-        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-        <title>{% block title %} {% endblock %}</title>
+<html lang="en" class="h-100" data-bs-theme="light">
 
-        <!-- FONT -->
-        <link rel="preconnect" href="https://fonts.googleapis.com" />
-        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-        <link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:ital,wght@0,100..900;1,100..900&family=Plus+Jakarta+Sans:ital,wght@0,200..800;1,200..800&display=swap" rel="stylesheet" />
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
-        <!-- STYLES -->
-        <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css' ) }}" />
+    <title>{% block title %} {% endblock %}</title>
 
-        <!-- LIBRARIES -->
-        <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH" crossorigin="anonymous" />
-        <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" />
-    </head>
-    <body class="h-100 d-flex flex-column">
-        <main class="h-100 d-flex flex-fill">{% block content %} {% endblock %}</main>
-        <footer></footer>
-        <!-- Toast Container for Flash Messages -->
-        <div aria-live="polite" aria-atomic="true" class="position-fixed top-0 end-0 p-3" style="z-index: 11">
-            {% with messages = get_flashed_messages(with_categories=true) %} {% if messages %} {% for category, message in messages %}
-            <div class="toast align-items-center text-bg-{{ category }} border-0" role="alert" aria-live="assertive" aria-atomic="true" data-bs-autohide="true">
-                <div class="toast-header">
-                    <img src="{{ url_for('static', filename='logo/r_logo_green.svg' ) }}" class="rounded me-2" width="35" alt="..." />
-                    <strong class="me-auto">Pemberitahuan</strong>
-                    <small>Baru saja</small>
-                    <button type="button" class="btn-close" data-bs-dismiss="toast" aria-label="Close"></button>
-                </div>
-                <div class="d-flex">
-                    <div class="toast-body">{{ message }}</div>
-                </div>
+    <!-- FAVICON -->
+    <link rel="icon" type="image/png" href="{{ url_for('static', filename='favicon/favicon-96x96.png"
+        sizes="96x96' ) }}" />
+    <link rel="icon" type="image/svg+xml" href="{{ url_for('static', filename='favicon/favicon.svg' ) }}" />
+    <link rel="shortcut icon" href="{{ url_for('static', filename='favicon/favicon.ico' ) }}" />
+    <link rel="apple-touch-icon" sizes="180x180"
+        href="{{ url_for('static', filename='favicon/apple-touch-icon.png' ) }}" />
+    <link rel="manifest" href="{{ url_for('static', filename='favicon/site.webmanifest' ) }}" />
+
+    <!-- FONT -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+        href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:ital,wght@0,100..900;1,100..900&family=Plus+Jakarta+Sans:ital,wght@0,200..800;1,200..800&display=swap"
+        rel="stylesheet" />
+
+    <!-- STYLES -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css' ) }}" />
+
+    <!-- LIBRARIES -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet"
+        integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH" crossorigin="anonymous" />
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" />
+</head>
+
+<body class="h-100 d-flex flex-column">
+    <main class="h-100 d-flex flex-fill">{% block content %} {% endblock %}</main>
+    <footer></footer>
+    <!-- Toast Container for Flash Messages -->
+    <div aria-live="polite" aria-atomic="true" class="position-fixed top-0 end-0 p-3" style="z-index: 11">
+        {% with messages = get_flashed_messages(with_categories=true) %} {% if messages %} {% for category, message in
+        messages %}
+        <div class="toast align-items-center text-bg-{{ category }} border-0" role="alert" aria-live="assertive"
+            aria-atomic="true" data-bs-autohide="true">
+            <div class="toast-header">
+                <img src="{{ url_for('static', filename='logo/r_logo_green.svg' ) }}" class="rounded me-2" width="35"
+                    alt="..." />
+                <strong class="me-auto">Pemberitahuan</strong>
+                <small>Baru saja</small>
+                <button type="button" class="btn-close" data-bs-dismiss="toast" aria-label="Close"></button>
             </div>
-            {% endfor %} {% endif %} {% endwith %}
+            <div class="d-flex">
+                <div class="toast-body">{{ message }}</div>
+            </div>
         </div>
-        <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js" integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz" crossorigin="anonymous"></script>
-        <script>
-            // Initialize all toasts
-            document.addEventListener('DOMContentLoaded', function () {
-                var toastElList = [].slice.call(document.querySelectorAll('.toast'));
-                var toastList = toastElList.map(function (toastEl) {
-                    return new bootstrap.Toast(toastEl).show();
-                });
+        {% endfor %} {% endif %} {% endwith %}
+    </div>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"
+        integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz"
+        crossorigin="anonymous"></script>
+    <script>
+        // Initialize all toasts
+        document.addEventListener('DOMContentLoaded', function () {
+            var toastElList = [].slice.call(document.querySelectorAll('.toast'));
+            var toastList = toastElList.map(function (toastEl) {
+                return new bootstrap.Toast(toastEl).show();
             });
-        </script>
-        {% block scripts %} {% endblock %}
-    </body>
+        });
+    </script>
+    <script>
+        const darkModeToggle = document.getElementById('darkModeToggle');
+        const htmlElement = document.documentElement;
+        const icon = document.querySelector('#darkModeToggle i'); // Get the icon element
+
+        // Load preference from localStorage on page load
+        function loadPreference() {
+            const storedTheme = localStorage.getItem('theme');
+            if (storedTheme) {
+                htmlElement.dataset.bsTheme = storedTheme;
+                updateIcon(storedTheme); // Update icon based on loaded theme
+            }
+        }
+
+        // Save preference to localStorage on theme change
+        function savePreference(theme) {
+            localStorage.setItem('theme', theme);
+            updateIcon(theme); // Update icon immediately
+        }
+
+        function updateIcon(theme) {
+            icon.className = theme === 'dark' ? 'bi bi-moon-fill' : 'bi bi-sun-fill';
+        }
+
+        darkModeToggle.addEventListener('click', () => {
+            const currentTheme = htmlElement.dataset.bsTheme;
+            const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
+            htmlElement.dataset.bsTheme = newTheme;
+            savePreference(newTheme);
+        });
+
+        loadPreference(); // Load preference on page load
+    </script>
+    {% block scripts %} {% endblock %}
+</body>
+
 </html>

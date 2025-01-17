@@ -5,13 +5,14 @@
         <div class="col-md-8">
             <div class="card weather-card rounded-4 rounded-4 mb-4 bg-gradient-green text-light">
                 <div class="card-body">
-                    <div class="mb-3">
-                        <p class="fw-bold mb-0">Cuaca Saat Ini</p>
+                    <div class="mb-3 d-flex justify-content-between align-items-center">
+                        <h5 class="fw-bold mb-0">Cuaca Saat Ini</h5>
                         <em class="text-white"><span id="clock">00:00:00</span> WIT</em>
                     </div>
                     <div class="row">
                         <div class="col-lg-4 col-sm-12">
-                            <p class="card-text d-flex justify-content-lg-start justify-content-center" id="currentWeather">--</p>
+                            <p class="card-text d-flex justify-content-lg-start justify-content-center"
+                                id="currentWeather">--</p>
                         </div>
                         <div class="col-lg-8 col-sm-12">
                             <div class="d-flex justify-content-between align-items-center">
@@ -29,7 +30,7 @@
             </div>
             <div class="card rounded-4 mb-4">
                 <div class="card-body">
-                    <h3 class="card-title mb-3">Prakiraan Hari Ini</h3>
+                    <h5 class="card-title fw-bold mb-3">Prakiraan Hari Ini</h5>
                     <div class="row" id="todayForecast"></div>
                 </div>
             </div>
@@ -37,12 +38,12 @@
         <div class="col-md-4">
             <div class="card rounded-4">
                 <div class="card-body">
-                    <h3 class="card-title mb-3">Prakiraan Cuaca 3 Hari</h3>
+                    <h5 class="card-title fw-bold mb-3">Prakiraan Cuaca 3 Hari</h5>
                     <div id="threeDayForecast"></div>
                 </div>
             </div>
             <div class="mt-4 rounded-4 alert alert-light" role="alert">
-                <h5>Rekomendasi berdasarkan cuaca hari ini</h5>
+                <h5 class="fw-bold mb-3">Rekomendasi berdasarkan cuaca hari ini</h5>
                 <div class="d-flex g">
                     <i class="bi bi-exclamation-circle display-6 text-danger me-3"></i>
                     <small id="agriRecommendation">Memuat rekomendasi...</small>
@@ -54,12 +55,9 @@
 {% endblock %}
 <!-- Script Block -->
 {% block scripts %}
-<script
-    src="https://cdnjs.cloudflare.com/ajax/libs/axios/1.7.7/axios.min.js"
+<script src="https://cdnjs.cloudflare.com/ajax/libs/axios/1.7.7/axios.min.js"
     integrity="sha512-DdX/YwF5e41Ok+AI81HI8f5/5UsoxCVT9GKYZRIzpLxb8Twz4ZwPPX+jQMwMhNQ9b5+zDEefc+dcvQoPWGNZ3g=="
-    crossorigin="anonymous"
-    referrerpolicy="no-referrer"
-></script>
+    crossorigin="anonymous" referrerpolicy="no-referrer"></script>
 <script>
     const apiUrl = 'https://api.bmkg.go.id/publik/prakiraan-cuaca?adm2=82.71';
 
@@ -84,13 +82,13 @@
         const todayForecastHtml = todayForecast
             .map(
                 (forecast) => `
-         <div class="col-2 text-center">
-             <p>${formatDateTime(forecast.local_datetime)}</p>
-             <img src="${forecast.image}" alt="${forecast.weather_desc}" style="width: 30px; height: 30px;">
-             <p>${forecast.t}°C</p>
-             <p>${forecast.weather_desc}</p>
-         </div>
-     `
+                <div class="col-2 text-center">
+                    <p>${formatDateTime(forecast.local_datetime)}</p>
+                    <img src="${forecast.image}" alt="${forecast.weather_desc}" style="width: 30px; height: 30px;">
+                    <p>${forecast.t}°C</p>
+                    <p>${forecast.weather_desc}</p>
+                </div>
+            `
             )
             .join('');
         document.getElementById('todayForecast').innerHTML = todayForecastHtml;
@@ -105,12 +103,12 @@
                 const date = new Date(forecast.local_datetime);
                 const dayName = ['Kemarin', 'Hari Ini', 'Besok'][index];
                 return `
-             <div class="d-flex justify-content-between align-items-center mb-2">
-                 <span>${dayName}</span>
-                 <img src="${forecast.image}" alt="${forecast.weather_desc}" style="width: 30px; height: 30px;">
-                 <span>${forecast.t}°C</span>
-             </div>
-         `;
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <span>${dayName}</span>
+                        <img src="${forecast.image}" alt="${forecast.weather_desc}" style="width: 30px; height: 30px;">
+                        <span>${forecast.t}°C</span>
+                    </div>
+                `;
             })
             .join('');
         document.getElementById('threeDayForecast').innerHTML = threeDayForecastHtml;

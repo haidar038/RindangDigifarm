@@ -47,7 +47,7 @@
             <div class="col-4">
                 <div class="mb-3">
                     <label for="thumbnail" class="form-label fw-bold">Thumbnail</label>
-                    <input class="form-control" type="file" accept=".jpg, .jpeg, .png" id="thumbnail" name="thumbnail" value="{{ url_for('static', filename='uploads/'+article.thumbnail ) }}" required />
+                    <input class="form-control" type="file" accept=".jpg, .jpeg, .png" id="thumbnail" name="thumbnail" value="{{ url_for('static', filename='uploads/'+article.thumbnail ) }}" />
                 </div>
                 <img src="{{ url_for('static', filename='uploads/'+article.thumbnail ) }}" alt="Preview Uploaded Image" width="100%" class="img-thumbnail" id="thumbnail-preview" />
             </div>

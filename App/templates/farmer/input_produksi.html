@@ -1,0 +1,36 @@
+{% extends 'layout/farmer_base.html' %}
+{% block title %} Input Data Produksi {% endblock %}
+{% block content %}
+<div class="container">
+    <h2>Input Data Produksi</h2>
+    <form method="POST">
+        <div class="mb-3">
+            <label for="kebun_id" class="form-label">Kebun</label>
+            <select class="form-select" id="kebun_id" name="kebun_id" required>
+                <option value="">Pilih Kebun</option>
+                {% for k in kebun %}
+                <option value="{{ k.id }}">{{ k.nama }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="mb-3">
+            <label for="komoditas_id" class="form-label">Jenis Komoditas</label>
+            <select class="form-select" id="komoditas_id" name="komoditas_id" required>
+                <option value="">Pilih Komoditas</option>
+                {% for k in komoditas %}
+                <option value="{{ k.id }}">{{ k.nama }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="mb-3">
+            <label for="tanggal_tanam" class="form-label">Tanggal Tanam</label>
+            <input type="date" class="form-control" id="tanggal_tanam" name="tanggal_tanam" required>
+        </div>
+        <div class="mb-3">
+            <label for="jumlah_bibit" class="form-label">Jumlah Bibit</label>
+            <input type="number" class="form-control" id="jumlah_bibit" name="jumlah_bibit" required>
+        </div>
+        <button type="submit" class="btn btn-primary">Simpan</button>
+    </form>
+</div>
+{% endblock %} 

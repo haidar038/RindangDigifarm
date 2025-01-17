@@ -1,0 +1,206 @@
+{% extends 'layout/expert_base.html' %}
+{% block title %}Dashboard Ahli - Forum{% endblock %}
+{% block page_title %}Manajemen Forum{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-lg-12 d-flex py-3">
+        <div class="d-flex flex-column mb-3">
+            <h2 class="fw-bold text-green">Daftar Pertanyaan</h2>
+        </div>
+    </div>
+
+    <!-- Filter Form -->
+    <form method="GET" action="{{ url_for('expert.forum') }}" class="row">
+        <div class="col-6">
+            <div class="input-group mb-3">
+                <input type="search" class="form-control" name="search" placeholder="Cari..." value="{{ search }}"
+                    aria-label="Search">
+                <button class="btn btn-outline-green" type="submit"><i class="fa fa-search"></i></button>
+            </div>
+        </div>
+        <div class="col-3">
+            <select class="form-select" name="time_filter" onchange="this.form.submit()">
+                <option value="" {% if not time_filter %}selected{% endif %}>Filter Waktu</option>
+                <option value="newest" {% if time_filter=='newest' %}selected{% endif %}>Terbaru</option>
+                <option value="latest" {% if time_filter=='latest' %}selected{% endif %}>Terlama</option>
+            </select>
+        </div>
+        <div class="col-3">
+            <select class="form-select" name="status_filter" onchange="this.form.submit()">
+                <option value="" {% if not status_filter %}selected{% endif %}>Filter Status</option>
+                <option value="terjawab" {% if status_filter=='terjawab' %}selected{% endif %}>Terjawab</option>
+                <option value="belum_terjawab" {% if status_filter=='belum_terjawab' %}selected{% endif %}>Belum
+                    Terjawab</option>
+            </select>
+        </div>
+    </form>
+</div>
+
+<!-- TABLE CONTENT -->
+<div class="row">
+    <div class="col-12">
+        <div class="card shadow-sm rounded-4">
+            <div class="card-body">
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th scope="col">#</th>
+                            <th scope="col">Username</th>
+                            <th scope="col">Tanggal</th>
+                            <th scope="col">Status</th>
+                            <th scope="col">Aksi</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for item in questions %}
+                        {% set user = User.query.get(item.created_by) %}
+                        <tr class="align-middle">
+                            <th scope="row">{{ loop.index }}</th>
+                            <td>
+                                <div>{{ user.username }}</div>
+                                <div class="text-muted">{{ user.email }}</div>
+                            </td>
+                            <td>{{ item.created_at.strftime('%d/%m/%Y | %H:%M') }}</td>
+                            <td>
+                                {% if item.answer %}
+                                <span class="badge bg-green">Terjawab</span>
+                                {% else %}
+                                <span class="badge bg-warning">Belum Terjawab</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <button type="button" class="btn btn-outline-light"
+                                    data-bs-target="#detailModal{{ item.id }}" data-bs-toggle="modal">
+                                    <i class="fa fa-fw fa-ellipsis-vertical"></i>
+                                </button>
+                            </td>
+                        </tr>
+
+                        <!-- Detail Modal for each question -->
+                        <div class="modal fade" id="detailModal{{ item.id }}" tabindex="-1" aria-hidden="true">
+                            <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable">
+                                <div class="modal-content">
+                                    <div class="modal-header">
+                                        <h1 class="modal-title fs-5">Detail Pertanyaan</h1>
+                                        <button type="button" class="btn-close" data-bs-dismiss="modal"
+                                            aria-label="Close"></button>
+                                    </div>
+                                    <div class="modal-body">
+                                        <div class="d-flex gap-2 align-items-center">
+                                            <img src="https://ui-avatars.com/api/?name={{ user.nama_lengkap }}&background=random&length=1&bold=true&rounded=true&size=40"
+                                                alt="Profil Pict" class="position-relative profile-pict" />
+                                            <span class="small text-muted fw-light">{{ user.username }}</span>
+                                        </div>
+                                        <div class="my-3">
+                                            <p class="fw-bold">{{ item.question }}</p>
+                                            {% if item.answer %}
+                                            <span class="badge bg-green">Terjawab</span>
+                                            {% else %}
+                                            <span class="badge bg-warning">Belum Terjawab</span>
+                                            {% endif %}
+                                        </div>
+                                        {% if item.answer %}
+                                        <p>{{ item.answer | safe }}</p>
+                                        {% endif %}
+                                    </div>
+                                    <div class="modal-footer justify-content-between">
+                                        {% if item.answer %}
+                                        <button type="button" class="btn btn-green" data-bs-toggle="modal"
+                                            data-bs-target="#updateModal{{ item.id }}">
+                                            Edit Jawaban
+                                        </button>
+                                        {% else %}
+                                        <button type="button" class="btn btn-green" data-bs-toggle="modal"
+                                            data-bs-target="#updateModal{{ item.id }}">
+                                            Berikan Jawaban
+                                        </button>
+                                        {% endif %}
+                                        <button type="button" class="btn btn-secondary"
+                                            data-bs-dismiss="modal">Tutup</button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Edit/Update Modal for each question -->
+                        <div class="modal fade" id="updateModal{{ item.id }}" tabindex="-1" aria-hidden="true">
+                            <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable">
+                                <div class="modal-content">
+                                    <div class="modal-header">
+                                        <h1 class="modal-title fs-5">
+                                            {% if item.answer %}Edit Jawaban{% else %}Berikan Jawaban{% endif %}
+                                        </h1>
+                                        <button type="button" class="btn-close" data-bs-dismiss="modal"
+                                            aria-label="Close"></button>
+                                    </div>
+                                    <div class="modal-body">
+                                        <div class="d-flex gap-2 align-items-center">
+                                            <img src="https://ui-avatars.com/api/?name={{ current_user.nama_lengkap }}&background=random&length=1&bold=true&rounded=true&size=40"
+                                                alt="Profil Pict" class="position-relative profile-pict" />
+                                            <span class="small text-muted fw-light">{{ current_user.username }}</span>
+                                        </div>
+                                        <div class="my-3">
+                                            <p class="fw-bold">{{ item.question }}</p>
+                                        </div>
+                                        <form action="{{ url_for('expert.answer_question', question_id=item.id) }}"
+                                            method="POST">
+                                            {{ ckeditor.create(value=item.answer) }}
+                                            <div class="modal-footer justify-content-between mt-3">
+                                                <button type="submit" class="btn btn-green">
+                                                    {% if item.answer %}Update Jawaban{% else %}Kirim Jawaban{% endif %}
+                                                </button>
+                                                <button type="button" class="btn btn-secondary"
+                                                    data-bs-dismiss="modal">Tutup</button>
+                                            </div>
+                                        </form>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </tbody>
+                </table>
+
+                <!-- Pagination -->
+                {% if questions.pages > 1 %}
+                <nav aria-label="Page navigation" class="mt-4">
+                    <ul class="pagination justify-content-center">
+                        <!-- Previous button -->
+                        <li class="page-item {% if not questions.has_prev %}disabled{% endif %}">
+                            <a class="page-link"
+                                href="{{ url_for('expert.forum', page=questions.prev_num, search=search, time_filter=time_filter, status_filter=status_filter) if questions.has_prev else '#' }}">
+                                Previous
+                            </a>
+                        </li>
+
+                        <!-- Page numbers -->
+                        {% for page_num in range(1, questions.pages + 1) %}
+                        <li class="page-item {% if page_num == questions.page %}active{% endif %}">
+                            <a class="page-link"
+                                href="{{ url_for('expert.forum', page=page_num, search=search, time_filter=time_filter, status_filter=status_filter) }}">
+                                {{ page_num }}
+                            </a>
+                        </li>
+                        {% endfor %}
+
+                        <!-- Next button -->
+                        <li class="page-item {% if not questions.has_next %}disabled{% endif %}">
+                            <a class="page-link"
+                                href="{{ url_for('expert.forum', page=questions.next_num, search=search, time_filter=time_filter, status_filter=status_filter) if questions.has_next else '#' }}">
+                                Next
+                            </a>
+                        </li>
+                    </ul>
+                </nav>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+{{ ckeditor.load() }}
+<script src="//cdn.ckeditor.com/4.24.0-lts/full/ckeditor.js"></script>
+{% endblock %}

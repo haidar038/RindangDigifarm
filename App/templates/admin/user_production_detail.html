@@ -1,0 +1,128 @@
+{% extends 'layout/admin_base.html' %}
+
+{% block title %}Detail Produksi - {{ user.nama_lengkap }}{% endblock %}
+{% block page_title %}Detail Produksi - {{ user.nama_lengkap }}{% endblock %}
+
+{% block content %}
+<div class="card">
+    <div class="card-body">
+        <!-- User Info -->
+        <div class="row mb-4">
+            <div class="col-md-6">
+                <h6 class="text-muted">Informasi Petani</h6>
+                <table class="table table-sm">
+                    <tr>
+                        <td class="fw-bold" width="150">Nama</td>
+                        <td>{{ user.nama_lengkap }}</td>
+                    </tr>
+                    <tr>
+                        <td class="fw-bold">Jumlah Kebun</td>
+                        <td>{{ user.kebun|length }}</td>
+                    </tr>
+                    <tr>
+                        <td class="fw-bold">Total Panen</td>
+                        <td>{{ total_harvest }}kg</td>
+                    </tr>
+                </table>
+            </div>
+            <div class="col-md-6 text-end">
+                <button class="btn btn-green" onclick="generateDetailedReport()">
+                    <i class="bi bi-file-pdf me-2"></i>Unduh Laporan Lengkap
+                </button>
+            </div>
+        </div>
+
+        <!-- Production Table -->
+        <div class="table-responsive">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <div class="d-flex gap-2">
+                    <input type="text" class="form-control form-control-sm" id="searchInput" placeholder="Cari...">
+                    <select class="form-select form-select-sm" id="filterGarden">
+                        <option value="">Semua Kebun</option>
+                        {% for garden in user.kebun %}
+                        <option value="{{ garden.id }}">{{ garden.nama }}</option>
+                        {% endfor %}
+                    </select>
+                    <select class="form-select form-select-sm" id="filterStatus">
+                        <option value="">Semua Status</option>
+                        <option value="Penanaman">Penanaman</option>
+                        <option value="Panen">Panen</option>
+                    </select>
+                </div>
+            </div>
+
+            <table class="table table-hover" id="productionTable">
+                <thead>
+                    <tr>
+                        <th>Kebun</th>
+                        <th>Komoditas</th>
+                        <th>Jumlah Bibit</th>
+                        <th>Tanggal Tanam</th>
+                        <th>Status</th>
+                        <th>Hasil Panen</th>
+                        <th>Tanggal Panen</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item in productions %}
+                    <tr>
+                        <td>{{ item.kebun.nama }}</td>
+                        <td>{{ item.komoditas_info.nama }}</td>
+                        <td>{{ item.jml_bibit }}</td>
+                        <td>{{ item.tanggal_bibit.strftime('%d/%m/%Y') }}</td>
+                        <td>
+                            <span class="badge {{ 'bg-warning' if item.status == 'Penanaman' else 'bg-success' }}">
+                                {{ item.status }}
+                            </span>
+                        </td>
+                        <td>{{ item.jml_panen }}kg</td>
+                        <td>{{ item.tanggal_panen.strftime('%d/%m/%Y') if item.tanggal_panen else '-' }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Pagination -->
+        <nav class="mt-4">
+            <ul class="pagination justify-content-center">
+                {{ pagination.links }}
+            </ul>
+        </nav>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        // Search functionality
+        document.getElementById('searchInput').addEventListener('input', filterTable);
+        document.getElementById('filterGarden').addEventListener('change', filterTable);
+        document.getElementById('filterStatus').addEventListener('change', filterTable);
+
+        function filterTable() {
+            const searchTerm = document.getElementById('searchInput').value.toLowerCase();
+            const selectedGarden = document.getElementById('filterGarden').value;
+            const selectedStatus = document.getElementById('filterStatus').value;
+            const rows = document.getElementById('productionTable').getElementsByTagName('tbody')[0].rows;
+
+            Array.from(rows).forEach(row => {
+                const text = row.textContent.toLowerCase();
+                const garden = row.cells[0].textContent;
+                const status = row.cells[4].textContent.trim();
+
+                const matchSearch = text.includes(searchTerm);
+                const matchGarden = !selectedGarden || garden === selectedGarden;
+                const matchStatus = !selectedStatus || status === selectedStatus;
+
+                row.style.display = (matchSearch && matchGarden && matchStatus) ? '' : 'none';
+            });
+        }
+    });
+
+    function generateDetailedReport() {
+        window.location.href = `/api/generate-detailed-report/{{ user.id }}`;
+    }
+</script>
+{% endblock %}

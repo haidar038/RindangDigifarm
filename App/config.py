@@ -32,6 +32,11 @@ else:
     print("Warning: MySQL environment variables are not full")
 
 class Config:
+    # Add these debug configurations
+    DEBUG = True
+    TEMPLATES_AUTO_RELOAD = True
+    SEND_FILE_MAX_AGE_DEFAULT = 0
+
     BASE_URL = os.environ.get('BASE_URL', 'http://localhost:8082')
     SECRET_KEY = os.environ.get("SECRET_KEY", "rindang123")    
     BASE_DIR = os.path.abspath(os.path.dirname(__file__))
@@ -44,11 +49,15 @@ class Config:
     SQLALCHEMY_TRACK_MODIFICATIONS = False
     SQLALCHEMY_ENGINE_OPTIONS = {
         "pool_pre_ping": True,
-        "pool_recycle": 280,
+        "pool_recycle": '3600',
         "pool_timeout": 20,
         "max_overflow": 5
     }
-    PERMANENT_SESSION_LIFETIME = timedelta(days=365)  # Maksimum lifetime
+    PERMANENT_SESSION_LIFETIME = timedelta(days=1)  # Default session timeout
+    REMEMBER_COOKIE_DURATION = timedelta(days=30)   # Remember me duration
+    REMEMBER_COOKIE_SECURE = True
+    REMEMBER_COOKIE_HTTPONLY = True
+    REMEMBER_COOKIE_SAMESITE = 'Lax'
     SESSION_COOKIE_SECURE = True
     SESSION_COOKIE_HTTPONLY = True
     SESSION_COOKIE_SAMESITE = 'Lax'

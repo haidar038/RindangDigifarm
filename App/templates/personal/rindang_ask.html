@@ -7,28 +7,38 @@
     <div class="row justify-content-lg-center">
         <div class="col-12 col-lg-8">
             <div class="d-flex flex-column align-items-center">
-                <img src="{{ url_for('static', filename='logo/RindangAskLogo.svg' ) }}" alt="RindangTalk" width="320px" class="mb-3" />
-                <p class="mb-5 h5 text-center">Diskusi dan tanya jawab tentang pertanian bersama <br /><strong>Rindang Ask</strong></p>
+                <img src="{{ url_for('static', filename='logo/RindangAskLogo.svg' ) }}" alt="RindangTalk" id="rAskLogo"
+                    width="320px" class="mb-3" />
+                <p class="mb-5 h5 text-center">Diskusi dan tanya jawab tentang pertanian bersama <br /><strong>Rindang
+                        Ask</strong></p>
 
                 <div class="card card-body shadow border-0 rounded-4 p-4">
                     <form action="" method="post">
                         <div class="mb-3">
-                            <label for="nama_lengkap" class="form-label text-center w-100 fw-bold text-dark">Nama</label>
-                            <input type="text" name="nama_lengkap" class="form-control bg-body-secondary text-center" id="nama_lengkap" placeholder="Nama Lengkap" value="{{ current_user.nama_lengkap }}" required />
+                            <label for="nama_lengkap"
+                                class="form-label text-center w-100 fw-bold text-dark">Nama</label>
+                            <input type="text" name="nama_lengkap" class="form-control bg-body-secondary text-center"
+                                id="nama_lengkap" placeholder="Nama Lengkap" value="{{ current_user.nama_lengkap }}"
+                                required />
                         </div>
                         <div class="mb-3">
-                            <label for="email" class="form-label text-center w-100 fw-bold text-dark">Alamat Email</label>
-                            <input type="email" name="email" class="form-control bg-body-secondary text-center" id="email" placeholder="nama@gmail.com" value="{{ current_user.email }}" required />
+                            <label for="email" class="form-label text-center w-100 fw-bold text-dark">Alamat
+                                Email</label>
+                            <input type="email" name="email" class="form-control bg-body-secondary text-center"
+                                id="email" placeholder="nama@gmail.com" value="{{ current_user.email }}" required />
                         </div>
                         <div class="mb-3">
-                            <label for="question" class="form-label fw-bold w-100 text-center">Tulis Pertanyaanmu</label>
+                            <label for="question" class="form-label fw-bold w-100 text-center">Tulis
+                                Pertanyaanmu</label>
                             <textarea class="form-control" name="question" id="question" rows="4" required></textarea>
                         </div>
                         <div class="m-b3">
                             <div class="alert alert-success d-flex gap-2">
                                 <i class="bi bi-exclamation-circle"></i>
                                 <small class="text-muted">
-                                    Pertanyaan akan dijawab oleh Ahli Pertanian melalui email Anda. Tim Rindang akan mempublikasikan pertanyaan dan jawaban ini di halaman Rindang TALK tanpa mencantumkan nama atau alamat email Anda.
+                                    Pertanyaan akan dijawab oleh Ahli Pertanian melalui email Anda. Tim Rindang akan
+                                    mempublikasikan pertanyaan dan jawaban ini di halaman Rindang TALK tanpa
+                                    mencantumkan nama atau alamat email Anda.
                                 </small>
                             </div>
                         </div>
@@ -43,23 +53,30 @@
             <p class="h5 mb-4">Diskusi Rindang Ask Terbaru</p>
             <div class="row">
                 <div class="col-12">
-                    {% if questions %} {% for item in questions %}
-                    <div class="d-flex gap-3 align-items-start justify-content-between mb-3">
-                        <div class="d-flex gap-3">
-                            <div class="position-relative d-flex align-items-start">
-                                <img src="https://ui-avatars.com/api/?name={{ current_user.nama_lengkap }}&background=random&length=1&bold=true&rounded=true" alt="Profil Pict" class="position-relative profile-pict" />
-                                {% if item.answer %}
-                                <div class="position-absolute end-0 bottom-0">
-                                    <img src="https://ui-avatars.com/api/?name={{ item.replied_by }}&background=random&length=1&bold=true&rounded=true" alt="" />
-                                </div>
-                                {% endif %}
+                    {% if questions %}
+                    {% for item in questions %}
+                    <div class="d-flex flex-column flex-lg-row gap-3 align-items-start justify-content-between mb-3">
+                        <div class="d-flex flex-column flex-lg-row gap-3">
+                            <div class="position-relative d-flex justify-content-start align-items-start">
+                                <img src="https://ui-avatars.com/api/?name={{ current_user.nama_lengkap }}&background=random&length=1&bold=true&rounded=true"
+                                    alt="Profil Pict" class="position-relative profile-pict" />
                             </div>
-                            <div class="d-flex flex-column">
-                                <a class="h5 mb-3 link-dark link-underline-opacity-0 link-underline-opacity-50-hover link-opacity-50-hover" href="{{ url_for('personal.questiondetails', id=item.id ) }}">{{ item.question }}</a>
-                                <div>
+                            <div class="d-flex flex-column align-items-start">
+                                <a class="h5 mb-3 nav-link link-underline-opacity-0 link-underline-opacity-50-hover link-opacity-50-hover w-auto"
+                                    href="{{ url_for('personal.questiondetails', id=item.id) }}">
+                                    {{ item.question }}
+                                </a>
+                                <div class="card card-body rounded-4">
                                     {% if item.answer %}
-                                    <p class="text-green">dijawab oleh <strong>{{ item.replied_by }}</strong></p>
-                                    <p class="text-wrap">{{ item.answer }}</p>
+                                    {% set replier = User.query.get(item.replied_by) %}
+                                    <span class="d-flex gap-3 align-items-center">
+                                        <img src="https://ui-avatars.com/api/?name={{ item.replier.nama_lengkap if item.replier else 'Unknown' }}&background=random&length=1&bold=true&rounded=true&size=24"
+                                            alt="" />
+                                        <p class="text-green mb-0"> dijawab oleh <strong>{{ replier.nama_lengkap if
+                                                replier
+                                                else'Unknown' }}</strong></p>
+                                    </span>
+                                    <p class="text-wrap">{{ item.answer | safe }}</p>
                                     {% else %}
                                     <span class="badge p-2 rounded-pill bg-yellow">Menunggu Jawaban</span>
                                     {% endif %}
@@ -68,7 +85,9 @@
                         </div>
                         <small class="date">{{ item.created_at }}</small>
                     </div>
-                    {% endfor %} {% else %}
+                    <hr>
+                    {% endfor %}
+                    {% else %}
                     <p class="opacity-50">-- Belum ada pertanyaan! --</p>
                     {% endif %}
                 </div>
@@ -94,5 +113,17 @@
             element.textContent = formattedDate;
         }
     });
+</script>
+<script>
+    const myHtml = document.documentElement; // Get the <html> element
+    const pageLogo = document.getElementById('rAskLogo');
+    const theme = myHtml.dataset.bsTheme;
+    console.log(theme);
+
+    if (theme == 'dark') {
+        pageLogo.src = '/static/logo/RindangAskLogoDark.svg';
+    } else {
+        pageLogo.src = '/static/logo/RindangAskLogo.svg';
+    }
 </script>
 {% endblock %}

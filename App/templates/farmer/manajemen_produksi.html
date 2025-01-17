@@ -1,0 +1,1244 @@
+{% extends 'layout/farmer_base.html' %}
+{% block title %}Produksi{% endblock %}
+{% block page_title %}Manajemen Produksi{% endblock %}
+{% block styles %}
+<style>
+    /* #productionChart, */
+    /* #distributionChart { */
+    /*     background: white; */
+    /* } */
+    #pdfLogo {
+        width: 100%;
+        /* Maksimalkan lebar */
+        height: auto;
+        /* Sesuaikan tinggi */
+        max-width: 150px;
+        /* Batas lebar maksimum */
+    }
+</style>
+{% endblock %}
+{% block content %}
+<div style="display: none;">
+    <img id="pdfLogo" src="{{ url_for('static', filename='logo/rindang_yellow.png') }}" />
+</div>
+<!-- Loading Overlay -->
+<div id="loadingOverlay" class="position-fixed top-0 start-0 w-100 h-100 bg-dark bg-opacity-50 d-none"
+    style="z-index: 9999">
+    <div class="position-absolute top-50 start-50 translate-middle text-light">
+        <div class="spinner-border" role="status">
+            <span class="visually-hidden">Loading...</span>
+        </div>
+    </div>
+</div>
+<!-- Toast Container -->
+<div id="toastContainer" class="position-fixed top-0 end-0 p-3" style="z-index: 1050"></div>
+
+<div class="row">
+    <div class="col-12 mb-3">
+        <div class="card">
+            <div class="card-body">
+                <h5>Statistik Panen Anda</h5>
+                <div class="row">
+                    <div class="col-md-3">
+                        <div class="mb-3 position-relative">
+                            <select class="form-select" id="fieldFilter">
+                                <option value="">Semua Kebun</option>
+                                {% for item in kebun %}
+                                <option value="{{ item.id }}">{{ item.nama }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="mb-3 position-relative">
+                            <select class="form-select" id="commodityFilter">
+                                <option value="">Semua Komoditas</option>
+                                {% for item in komoditas %}
+                                <option value="{{ item.id }}">{{ item.nama }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="mb-3 mb-lg-0">
+                            <input type="date" class="form-control" id="startDate" />
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="mb-3 mb-lg-0">
+                            <input type="date" class="form-control" id="endDate" />
+                        </div>
+                    </div>
+                    <div class="col-md-6 mb-1 mb-lg-0">
+                        <button class="btn btn-green w-100" id="filterBtn">Filter</button>
+                    </div>
+                    <div class="col-md-6">
+                        <button class="btn btn-secondary w-100" id="resetBtn">Reset</button>
+                    </div>
+                </div>
+                <div class="chart-container" style="position: relative; height: 300px">
+                    <canvas id="productionChart"></canvas>
+                </div>
+                <div class="mt-3">
+                    <button class="btn btn-success btn-sm" id="exportPNG">Export PNG</button>
+                    <button class="btn btn-info btn-sm" id="exportCSV">Export CSV</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-12 mb-3">
+        <div class="card">
+            <div class="card-body">
+                <p class="card-text fw-bold mb-4">Informasi Produksi Anda</p>
+                <div class="row">
+                    <div class="col-12 col-lg-6 mb-3 mb-lg-0">
+                        <p class="small text-muted mb-0">Informasi Bulan Ini</p>
+                        <p class="fw-bold h1 display-1 mb-3">{{ total_produksi }}kg</p>
+                        <div class="row">
+                            {% for item in komoditas %}
+                            <div class="col-6">
+                                <div class="badge text-bg-success rounded-pill mb-1">{{ item.nama }}</div>
+                                <p class="small">
+                                    {% if item.id in productivity_changes %}
+                                    <span
+                                        class="badge text-{{ 'success' if productivity_changes[item.id].trend == 'up' else 'danger' }}">
+                                        <i class="fa fa-arrow-trend-{{ productivity_changes[item.id].trend }}"></i>
+                                    </span>
+                                    {{ productivity_changes[item.id].persentase }}% dibandingkan panen sebelumnya {%
+                                    else %}
+                                    <span class="small text-secondary text-wrap">Belum ada data perbandingan</span>
+                                    {% endif %}
+                                </p>
+                            </div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                    <div class="col-12 col-lg-6">
+                        <div class="chart-container" style="position: relative">
+                            <canvas id="distributionChart" style="max-height: 320px"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-12">
+        <div class="card">
+            <div class="card-body">
+                <div class="d-flex align-items-center mb-4">
+                    <p class="card-text fw-bold mb-0">Laporan Hasil Penanaman - Panen</p>
+                    <!-- Dropdown button include Input Data and Import Data -->
+                    <div class="dropdown ms-auto">
+                        <button class="btn btn-green dropdown-toggle" type="button" id="dropdownMenuButton"
+                            data-bs-toggle="dropdown" aria-expanded="false">Tindakan</button>
+                        <ul class="dropdown-menu" aria-labelledby="dropdownMenuButton">
+                            <li>
+                                <a class="dropdown-item" href="#" data-bs-toggle="modal"
+                                    data-bs-target="#inputDataModal">Input Data</a>
+                            </li>
+                            <li><a class="dropdown-item" href="#">Import Data</a></li>
+                            <li>
+                                <button class="dropdown-item" id="generatePDF">
+                                    <i class="fas fa-file-pdf"></i> Cetak Laporan
+                                </button>
+                            </li>
+                        </ul>
+                    </div>
+                </div>
+                <!-- Table of data contains : checkbox, Kebun, Jumlah Bibit, Tanggal Penanaman, Status, Hasil Panen, Menu (contain detail button) -->
+                <div class="row mb-3">
+                    <div class="col-md-6 mb-3 mb-lg-0">
+                        <div class="input-group">
+                            <input type="text" id="searchTable" class="form-control" placeholder="Cari data..." />
+                            <button class="btn btn-outline-secondary" type="button">
+                                <i class="fas fa-search"></i>
+                            </button>
+                        </div>
+                    </div>
+                    <div class="col-md-3 mb-3 mb-lg-0">
+                        <select id="pageSize" class="form-select">
+                            <option value="10">10 per halaman</option>
+                            <option value="25">25 per halaman</option>
+                            <option value="50">50 per halaman</option>
+                        </select>
+                    </div>
+                    <div class="col-md-3 mb-3 mb-lg-0">
+                        <button id="deleteSelected" class="btn btn-danger w-100" disabled><i class="fas fa-trash"></i>
+                            Hapus Data Terpilih</button>
+                    </div>
+                </div>
+                <div class="table-responsive">
+                    <table id="dataTable" class="table table-hover">
+                        <thead>
+                            <tr>
+                                <th scope="col">
+                                    <input class="form-check-input" type="checkbox" name="check" id="check-all" />
+                                </th>
+                                <th scope="col">Kebun</th>
+                                <th scope="col">Jumlah Bibit</th>
+                                <th scope="col">Tanggal Bibit</th>
+                                <th scope="col">Status</th>
+                                <th scope="col">Hasil Panen</th>
+                                <th scope="col">Menu</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for item in produksi %}
+                            <tr class="align-middle">
+                                <td>
+                                    <input class="form-check-input" type="checkbox" name="check"
+                                        value="{{ item.id }}" />
+                                </td>
+                                <td>{{ item.kebun.nama }}</td>
+                                <td>{{ item.jml_bibit }}</td>
+                                <td>{{ format_date(item.tanggal_bibit, format='d MMM Y', locale='id') if
+                                    item.tanggal_bibit }}</td>
+                                <td>
+                                    <span
+                                        class="badge {{ 'text-bg-warning' if item.status == 'Penanaman' else 'text-bg-success' }}">{{
+                                        item.status }}</span>
+                                </td>
+                                <td>{% if item.jml_panen and item.tanggal_panen %} {{ item.jml_panen }}kg, {{
+                                    format_date(item.tanggal_panen, format='d MMM Y', locale='id') }} {% else %} Belum
+                                    panen {% endif %}</td>
+                                <td>
+                                    <button type="button" class="btn btn-light"
+                                        data-bs-target="#detailModal{{ item.id }}"
+                                        data-bs-toggle="modal">Detail</button>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Input Data -->
+<div class="modal fade" id="inputDataModal" tabindex="-1" aria-labelledby="inputDataModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="inputDataModalLabel">Input Data Produksi</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="formInputProduksi" action="{{ url_for('farmer.tambah_produksi') }}" method="POST">
+                    <div class="form-group mb-3">
+                        <label for="kebun_id">Kebun</label>
+                        <select id="kebun_id" name="kebun_id" class="form-control" required>
+                            <option value="">Pilih Kebun</option>
+                            {% for kebun in kebun %}
+                            <option value="{{ kebun.id }}">{{ kebun.nama }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="form-group mb-3">
+                        <label for="komoditas_id">Komoditas</label>
+                        <select id="komoditas_id" name="komoditas_id" class="form-control" required>
+                            <option value="">Pilih Komoditas</option>
+                            {% for komoditas in komoditas %}
+                            <option value="{{ komoditas.id }}">{{ komoditas.nama }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="form-group mb-3">
+                        <label for="jml_bibit">Jumlah Bibit</label>
+                        <input type="number" id="jml_bibit" name="jml_bibit" class="form-control" min="1" required />
+                    </div>
+                    <div class="form-group mb-3">
+                        <label for="tanggal_bibit">Tanggal Bibit</label>
+                        <input type="date" id="tanggal_bibit" name="tanggal_bibit" class="form-control" required />
+                    </div>
+                    <!-- Estimasi Panen akan dihitung otomatis, tidak perlu input -->
+                    <input type="hidden" id="estimasi_panen" name="estimasi_panen" />
+                    <button type="submit" class="btn btn-green">Tambah Produksi</button>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Tutup</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Update Panen -->
+{% for item in produksi %}
+<div class="modal fade" id="updatePanenModal{{ item.id }}" tabindex="-1" aria-labelledby="updatePanenModalLabel"
+    aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="updatePanenModalLabel">Update Data Panen</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="formUpdatePanen{{ item.id }}" action="{{ url_for('farmer.update_panen', id=item.id) }}"
+                    method="POST">
+                    <input type="hidden" id="updateProduksiId" name="produksi_id" value="{{ item.id }}" />
+                    <div class="mb-3">
+                        <label for="hasil_panen" class="form-label">Hasil Panen</label>
+                        <div class="input-group">
+                            <input type="number" step="0.01" value="{{ item.jml_panen }}" class="form-control"
+                                id="hasil_panen" name="hasil_panen" required />
+                            <span class="input-group-text" id="basic-addon2">kg</span>
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label for="tanggal_panen" class="form-label">Tanggal Panen</label>
+                        <input type="date" class="form-control" value="{{ item.tanggal_panen }}" id="tanggal_panen"
+                            name="tanggal_panen" required />
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-toggle="modal"
+                    data-bs-target="#updateProduksiModal{{ item.id }}">Kembali</button>
+                <button type="submit" form="formUpdatePanen{{ item.id }}" class="btn btn-green">Update Data</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="updateProduksiModal{{ item.id }}" tabindex="-1" aria-labelledby="updateProduksiModalLabel"
+    aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="updateProduksiModalLabel">Update Data Produksi</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="formUpdateProduksi{{ item.id }}" action="{{ url_for('farmer.update_produksi', id=item.id) }}"
+                    method="POST">
+                    <input type="hidden" id="updateProduksiId" name="produksi_id" value="{{ item.id }}" />
+                    <div class="form-group mb-3">
+                        <label for="kebun_id">Kebun</label>
+                        <select id="kebun_id" name="kebun_id" class="form-control" required>
+                            <option value="{{ item.kebun.id }}" selected>{{ item.kebun.nama }}</option>
+                        </select>
+                    </div>
+                    <div class="form-group mb-3">
+                        <label for="komoditas_id">Komoditas</label>
+                        <select id="komoditas_id" name="komoditas_id" class="form-control" required>
+                            <option value="{{ item.komoditas_info.id }}" selected>{{ item.komoditas_info.nama }}
+                            </option>
+                        </select>
+                    </div>
+                    <div class="form-group mb-3">
+                        <label for="update_jml_bibit">Jumlah Bibit</label>
+                        <input type="number" id="update_jml_bibit" name="update_jml_bibit" value="{{ item.jml_bibit }}"
+                            class="form-control" min="1" required />
+                    </div>
+                    <div class="form-group mb-3">
+                        <label for="update_tanggal_bibit">Tanggal Bibit</label>
+                        <input type="date" id="update_tanggal_bibit" name="update_tanggal_bibit"
+                            value="{{ item.tanggal_bibit }}" class="form-control" required />
+                    </div>
+                </form>
+                <button type="button" class="btn btn-green" data-bs-toggle="modal"
+                    data-bs-target="#updatePanenModal{{ item.id }}">Panen</button>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-toggle="modal"
+                    data-bs-target="#detailModal{{ item.id }}">Kembali</button>
+                <button type="submit" form="formUpdateProduksi{{ item.id }}" class="btn btn-green">Update Data</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endfor %}
+<!-- Modal Konfirmasi Delete -->
+{% for item in produksi %}
+
+<!-- Bulk Delete -->
+<div class="modal fade" id="deleteModal{{ item.id }}" tabindex="-1" aria-labelledby="deleteModal{{ item.id }}Label"
+    aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="deleteModal{{ item.id }}Label">Konfirmasi Hapus</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">Apakah Anda yakin ingin menghapus data yang anda pilih?</div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Batal</button>
+                <a href="{{ url_for('farmer.delete_produksi') }}" role="button" class="btn btn-danger">Hapus</a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Single Delete -->
+<div class="modal fade" id="singleDeleteModal{{ item.id }}" tabindex="-1"
+    aria-labelledby="singleDeleteModal{{ item.id }}Label" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="singleDeleteModal{{ item.id }}Label">Konfirmasi Hapus</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">Apakah Anda yakin ingin menghapus data produksi ini?</div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Batal</button>
+                <a href="{{ url_for('farmer.delete_single_produksi', id=item.id ) }}" role="button"
+                    class="btn btn-danger">Hapus</a>
+            </div>
+        </div>
+    </div>
+</div>
+{% endfor %}
+
+<!-- Modal Detail -->
+{% for item in produksi %}
+<div class="modal fade" id="detailModal{{ item.id }}" tabindex="-1" aria-labelledby="detailModal{{ item.id }}Label"
+    aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="detailModal{{ item.id }}Label">Detail Produksi</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <p><strong>Kebun:</strong> {{ item.kebun.nama }}</p>
+                <p><strong>Jumlah Bibit:</strong> {{ item.jml_bibit }} ({{ item.komoditas_info.nama }})</p>
+                <p><strong>Tanggal Bibit:</strong> {{ format_date(item.tanggal_bibit, format='d MMM Y', locale='id') if
+                    item.tanggal_bibit }}</p>
+                <p>
+                    <strong>Status:</strong>
+                    <span class="badge {{ 'text-bg-warning' if item.status == 'Penanaman' else 'text-bg-success' }}">{{
+                        item.status }}</span>
+                </p>
+                <p><strong>Hasil Panen:</strong> {{ item.jml_panen}}kg{% if item.tanggal_panen %}, {{
+                    format_date(item.tanggal_panen, format='d MMM Y', locale='id') }}{% endif %}</p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-green" data-bs-toggle="modal"
+                    data-bs-target="#updateProduksiModal{{ item.id }}">Ubah</button>
+                <button type="button" class="btn btn-danger" data-bs-toggle="modal"
+                    data-bs-target="#singleDeleteModal{{ item.id }}">Hapus</button>
+                <button type="button" class="btn btn-secondary ms-auto" data-bs-dismiss="modal">Tutup</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endfor %}
+
+<!-- Delete Modal -->
+<div class="modal fade" id="deleteModal" tabindex="-1" aria-labelledby="deleteModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="deleteModalLabel">Konfirmasi Hapus</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">Apakah Anda yakin ingin menghapus data yang dipilih?</div>
+            <div class="modal-footer">
+                <form id="deleteForm" action="{{ url_for('farmer.delete_produksi') }}" method="POST">
+                    <!-- Hidden inputs untuk menyimpan ID yang akan dihapus akan ditambahkan melalui JavaScript -->
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Batal</button>
+                    <button type="submit" class="btn btn-danger">Hapus</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+<!-- Script block -->
+{% block scripts %} {{ super() }}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.31/jspdf.plugin.autotable.min.js"></script>
+<script>
+    let productionChart;
+    let distributionChart;
+
+    function initCharts(data) {
+        // Bar Chart initialization
+        const ctx = document.getElementById('productionChart').getContext('2d');
+        if (productionChart) {
+            productionChart.destroy();
+        }
+
+        // Group data by date and commodity
+        const groupedData = {};
+        data.forEach((item) => {
+            if (!item.tanggal_panen || !item.hasil_panen) return;
+
+            const date = new Date(item.tanggal_panen);
+            const dateStr = date.toISOString().split('T')[0];
+
+            if (!groupedData[dateStr]) {
+                groupedData[dateStr] = {};
+            }
+            if (!groupedData[dateStr][item.komoditas]) {
+                groupedData[dateStr][item.komoditas] = 0;
+            }
+            groupedData[dateStr][item.komoditas] += item.hasil_panen;
+        });
+
+        // Sort dates
+        const sortedDates = Object.keys(groupedData).sort((a, b) => new Date(a) - new Date(b));
+
+        // Get unique commodities
+        const commodities = [...new Set(data.map((item) => item.komoditas))];
+        const colors = ['#4CAF50', '#2196F3', '#FFC107', '#9C27B0'];
+
+        // Prepare datasets for bar chart
+        const datasets = commodities.map((commodity, index) => ({
+            label: commodity,
+            data: sortedDates.map((date) => groupedData[date][commodity] || 0),
+            backgroundColor: colors[index % colors.length],
+            borderColor: colors[index % colors.length],
+            borderWidth: 1,
+        }));
+
+        // Bar Chart
+        productionChart = new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: sortedDates.map((date) => {
+                    const d = new Date(date);
+                    return d.toLocaleDateString('id-ID', {
+                        day: '2-digit',
+                        month: 'short',
+                        year: 'numeric',
+                    });
+                }),
+                datasets: datasets,
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        title: {
+                            display: true,
+                            text: 'Hasil Panen (kg)',
+                        },
+                    },
+                    x: {
+                        ticks: {
+                            maxRotation: 45,
+                            minRotation: 45,
+                        },
+                    },
+                },
+                plugins: {
+                    title: {
+                        display: true,
+                        text: 'Grafik Hasil Panen',
+                    },
+                    tooltip: {
+                        callbacks: {
+                            label: function (context) {
+                                return `${context.dataset.label}: ${context.raw} kg`;
+                            },
+                        },
+                    },
+                },
+            },
+        });
+
+        // Pie Chart
+        const pieCtx = document.getElementById('distributionChart').getContext('2d');
+        if (distributionChart) {
+            distributionChart.destroy();
+        }
+
+        // Calculate total harvest per commodity for pie chart
+        const commodityTotals = {};
+        data.forEach((item) => {
+            if (item.hasil_panen) {
+                if (!commodityTotals[item.komoditas]) {
+                    commodityTotals[item.komoditas] = 0;
+                }
+                commodityTotals[item.komoditas] += item.hasil_panen;
+            }
+        });
+
+        distributionChart = new Chart(pieCtx, {
+            type: 'pie',
+            data: {
+                labels: Object.keys(commodityTotals),
+                datasets: [
+                    {
+                        data: Object.values(commodityTotals),
+                        backgroundColor: colors.slice(0, Object.keys(commodityTotals).length),
+                        borderColor: '#fff',
+                        borderWidth: 2,
+                    },
+                ],
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    title: {
+                        display: true,
+                        text: 'Distribusi Hasil Panen',
+                    },
+                    legend: {
+                        position: 'bottom',
+                        labels: {
+                            padding: 20,
+                        },
+                    },
+                    tooltip: {
+                        callbacks: {
+                            label: function (context) {
+                                return `${context.label}: ${context.raw} kg`;
+                            },
+                        },
+                    },
+                },
+            },
+        });
+    }
+
+    // Function to export chart as PNG
+    document.getElementById('exportPNG').addEventListener('click', function () {
+        const link = document.createElement('a');
+        link.download = 'production-chart.png';
+        link.href = productionChart.toBase64Image();
+        link.click();
+    });
+
+    // Function to export data as CSV
+    document.getElementById('exportCSV').addEventListener('click', function () {
+        fetch('/api/produksi')
+            .then((response) => response.json())
+            .then((data) => {
+                // Prepare CSV content
+                const csvContent = [['Kebun', 'Komoditas', 'Tanggal Bibit', 'Jumlah Bibit', 'Tanggal Panen', 'Jumlah Panen']];
+
+                data.forEach((item) => {
+                    csvContent.push([item.kebun, item.komoditas, item.tanggal_bibit || '', item.jml_bibit || '', item.tanggal_panen || '', item.hasil_panen || '']);
+                });
+
+                // Convert to CSV string
+                const csv = csvContent.map((row) => row.join(',')).join('\n');
+                const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+                const link = document.createElement('a');
+                link.href = URL.createObjectURL(blob);
+                link.setAttribute('download', 'production_data.csv');
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+            });
+    });
+
+    // Load and refresh data
+    function loadData() {
+        const field = document.getElementById('fieldFilter').value;
+        const commodity = document.getElementById('commodityFilter').value;
+        const startDate = document.getElementById('startDate').value;
+        const endDate = document.getElementById('endDate').value;
+
+        fetch(`/api/produksi?field=${field}&commodity=${commodity}&start_date=${startDate}&end_date=${endDate}`)
+            .then((response) => response.json())
+            .then((data) => {
+                initCharts(data);
+                updateProductivityChanges(data);
+            });
+    }
+
+    // Add event listeners
+    document.getElementById('filterBtn').addEventListener('click', loadData);
+    document.getElementById('resetBtn').addEventListener('click', function () {
+        document.getElementById('fieldFilter').value = '';
+        document.getElementById('commodityFilter').value = '';
+        document.getElementById('startDate').value = '';
+        document.getElementById('endDate').value = '';
+        loadData();
+    });
+
+    // Initial load
+    loadData();
+</script>
+<script>
+    // create checkbox function that can check all checkboxes in the table
+    const checkAll = document.getElementById('check-all');
+    const checkboxes = document.querySelectorAll('input[name="check"]');
+    checkAll.addEventListener('change', function () {
+        checkboxes.forEach((checkbox) => {
+            checkbox.checked = checkAll.checked;
+        });
+    });
+</script>
+<!-- Script untuk menangani bulk delete -->
+<script>
+    document.getElementById('deleteSelected').addEventListener('click', function () {
+        const checkboxes = document.querySelectorAll('input[name="check"]:checked');
+        if (checkboxes.length === 0) {
+            return;
+        }
+
+        // Buat form untuk delete
+        const form = document.getElementById('deleteForm');
+
+        // Hapus input hidden yang mungkin sudah ada sebelumnya
+        form.querySelectorAll('input[type="hidden"]').forEach((input) => input.remove());
+
+        // Tambahkan input hidden untuk setiap ID yang dipilih
+        checkboxes.forEach((checkbox) => {
+            const input = document.createElement('input');
+            input.type = 'hidden';
+            input.name = 'check';
+            input.value = checkbox.value;
+            form.appendChild(input);
+        });
+
+        // Tampilkan modal konfirmasi
+        new bootstrap.Modal(document.getElementById('deleteModal')).show();
+    });
+
+    // Handle "check all" functionality
+    document.getElementById('check-all').addEventListener('change', function () {
+        document.querySelectorAll('input[name="check"]').forEach((checkbox) => {
+            checkbox.checked = this.checked;
+        });
+    });
+</script>
+
+<script>
+    // Handle delete confirmation
+    function confirmDelete(id) {
+        const form = document.getElementById('formDelete');
+        form.action = form.action.replace('/0', `/${id}`);
+        new bootstrap.Modal(document.getElementById('deleteModal')).show();
+    }
+
+    // Handle update panen modal
+    function showUpdatePanen(id) {
+        document.getElementById('updateProduksiId').value = id;
+        new bootstrap.Modal(document.getElementById('updatePanenModal')).show();
+    }
+
+    // Form validation
+    document.getElementById('formInputProduksi').addEventListener('submit', function (e) {
+        if (!this.checkValidity()) {
+            e.preventDefault();
+            e.stopPropagation();
+        }
+        this.classList.add('was-validated');
+    });
+
+    document.getElementById('formUpdatePanen').addEventListener('submit', function (e) {
+        if (!this.checkValidity()) {
+            e.preventDefault();
+            e.stopPropagation();
+        }
+        this.classList.add('was-validated');
+    });
+</script>
+<script>
+    document.getElementById('tanggal_bibit').addEventListener('change', function () {
+        const tanggalBibit = new Date(this.value);
+        if (!isNaN(tanggalBibit)) {
+            const estimasiPanen = new Date(tanggalBibit);
+            estimasiPanen.setDate(estimasiPanen.getDate() + 60);
+            document.getElementById('estimasi_panen').value = estimasiPanen.toISOString().split('T')[0];
+        }
+    });
+    document.getElementById('update_tanggal_bibit').addEventListener('change', function () {
+        const tanggalBibit = new Date(this.value);
+        if (!isNaN(tanggalBibit)) {
+            const estimasiPanen = new Date(tanggalBibit);
+            estimasiPanen.setDate(estimasiPanen.getDate() + 60);
+            document.getElementById('update_estimasi_panen').value = estimasiPanen.toISOString().split('T')[0];
+        }
+    });
+</script>
+<script>
+    // Contoh untuk menampilkan modal detail
+    document.querySelectorAll('.btn-light').forEach((button) => {
+        button.addEventListener('click', function () {
+            const modalId = this.getAttribute('data-bs-target');
+            const modal = new bootstrap.Modal(document.getElementById(modalId));
+            modal.show();
+        });
+    });
+</script>
+<script>
+    // Utility functions
+    function debounce(func, wait) {
+        let timeout;
+        return function executedFunction(...args) {
+            const later = () => {
+                clearTimeout(timeout);
+                func(...args);
+            };
+            clearTimeout(timeout);
+            timeout = setTimeout(later, wait);
+        };
+    }
+
+    // Table Manager Class
+    class TableManager {
+        constructor(tableId, searchId, pageSizeId) {
+            this.table = document.getElementById(tableId);
+            this.searchInput = document.getElementById(searchId);
+            this.pageSizeSelect = document.getElementById(pageSizeId);
+            this.currentPage = 1;
+            this.pageSize = parseInt(this.pageSizeSelect.value);
+            this.initializeListeners();
+            this.updateTable();
+        }
+
+        initializeListeners() {
+            // Debounce search input
+            this.searchInput.addEventListener(
+                'input',
+                debounce(() => {
+                    this.currentPage = 1;
+                    this.filterTable();
+                }, 300)
+            );
+
+            // Page size change
+            this.pageSizeSelect.addEventListener('change', () => {
+                this.pageSize = parseInt(this.pageSizeSelect.value);
+                this.currentPage = 1;
+                this.updateTable();
+            });
+        }
+
+        filterTable() {
+            const searchText = this.searchInput.value.toLowerCase();
+            const rows = Array.from(this.table.querySelectorAll('tbody tr'));
+
+            rows.forEach((row) => {
+                const text = Array.from(row.cells)
+                    .map((cell) => cell.textContent.toLowerCase())
+                    .join(' ');
+                const match = text.includes(searchText);
+                row.dataset.searchMatch = match;
+                row.classList.toggle('d-none', !match);
+            });
+
+            this.updateTable();
+        }
+
+        updateTable() {
+            const rows = Array.from(this.table.querySelectorAll('tbody tr:not([data-search-match="false"])'));
+            const totalPages = Math.ceil(rows.length / this.pageSize);
+
+            rows.forEach((row, index) => {
+                const shouldShow = index >= (this.currentPage - 1) * this.pageSize && index < this.currentPage * this.pageSize;
+                row.classList.toggle('d-none', !shouldShow);
+            });
+
+            this.updatePagination(totalPages);
+            this.updatePageInfo(rows.length);
+        }
+
+        updatePageInfo(totalRows) {
+            const startIndex = (this.currentPage - 1) * this.pageSize + 1;
+            const endIndex = Math.min(startIndex + this.pageSize - 1, totalRows);
+
+            const pageInfo = document.getElementById('pageInfo');
+            if (pageInfo) {
+                pageInfo.textContent = `Menampilkan ${startIndex}-${endIndex} dari ${totalRows} data`;
+            }
+        }
+
+        updatePagination(totalPages) {
+            const paginationContainer = document.getElementById('tablePagination');
+            paginationContainer.innerHTML = '';
+
+            if (totalPages <= 1) return;
+
+            const container = document.createElement('div');
+            container.className = 'btn-group';
+
+            // First page button
+            if (this.currentPage > 1) {
+                container.appendChild(this.createPageButton(1, '<<'));
+            }
+
+            // Previous page button
+            if (this.currentPage > 1) {
+                container.appendChild(this.createPageButton(this.currentPage - 1, '<'));
+            }
+
+            // Page numbers
+            for (let i = Math.max(1, this.currentPage - 2); i <= Math.min(totalPages, this.currentPage + 2); i++) {
+                container.appendChild(this.createPageButton(i));
+            }
+
+            // Next page button
+            if (this.currentPage < totalPages) {
+                container.appendChild(this.createPageButton(this.currentPage + 1, '>'));
+            }
+
+            // Last page button
+            if (this.currentPage < totalPages) {
+                container.appendChild(this.createPageButton(totalPages, '>>'));
+            }
+
+            paginationContainer.appendChild(container);
+        }
+
+        createPageButton(pageNum, text = pageNum) {
+            const button = document.createElement('button');
+            button.className = `btn btn-sm ${pageNum === this.currentPage ? 'btn-green' : 'btn-outline-primary'}`;
+            button.textContent = text;
+            button.onclick = () => {
+                this.currentPage = pageNum;
+                this.updateTable();
+            };
+            return button;
+        }
+    }
+
+    // Initialize table manager when document is ready
+    document.addEventListener('DOMContentLoaded', function () {
+        const tableManager = new TableManager('dataTable', 'searchTable', 'pageSize');
+    });
+</script>
+<script>
+    class FormValidator {
+        static initialize() {
+            document.querySelectorAll('form').forEach((form) => {
+                form.addEventListener('submit', this.handleSubmit.bind(this));
+            });
+        }
+
+        static handleSubmit(event) {
+            const form = event.target;
+            if (!form.checkValidity()) {
+                event.preventDefault();
+                event.stopPropagation();
+                this.showValidationMessages(form);
+            }
+            form.classList.add('was-validated');
+        }
+
+        static showValidationMessages(form) {
+            form.querySelectorAll('input, select, textarea').forEach((input) => {
+                if (!input.validity.valid) {
+                    const feedback = document.createElement('div');
+                    feedback.className = 'invalid-feedback';
+                    feedback.textContent = input.validationMessage;
+                    input.parentNode.appendChild(feedback);
+                }
+            });
+        }
+
+        static showToast(message, type = 'success') {
+            const toast = document.createElement('div');
+            toast.className = `toast align-items-center text-white bg-${type} border-0`;
+            toast.setAttribute('role', 'alert');
+            toast.innerHTML = `
+            <div class="d-flex">
+                <div class="toast-body">${message}</div>
+                <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
+            </div>
+        `;
+
+            const container = document.getElementById('toastContainer');
+            container.appendChild(toast);
+            const bsToast = new bootstrap.Toast(toast);
+            bsToast.show();
+
+            toast.addEventListener('hidden.bs.toast', () => toast.remove());
+        }
+    }
+
+    // Initialize form validation
+    FormValidator.initialize();
+</script>
+<script>
+    class DeleteManager {
+        constructor() {
+            this.checkAll = document.getElementById('check-all');
+            this.deleteButton = document.getElementById('deleteSelected');
+            this.initializeListeners();
+        }
+
+        initializeListeners() {
+            // Event listener untuk checkbox "check all"
+            if (this.checkAll) {
+                this.checkAll.addEventListener('change', () => {
+                    const checkboxes = document.querySelectorAll('input[name="check"]');
+                    checkboxes.forEach((checkbox) => {
+                        checkbox.checked = this.checkAll.checked;
+                    });
+                    this.updateDeleteButtonState();
+                });
+            }
+
+            // Event listener untuk setiap checkbox individual
+            document.querySelectorAll('input[name="check"]').forEach((checkbox) => {
+                checkbox.addEventListener('change', () => {
+                    this.updateCheckAllState();
+                    this.updateDeleteButtonState();
+                });
+            });
+
+            // Event listener untuk tombol delete
+            if (this.deleteButton) {
+                this.deleteButton.addEventListener('click', () => {
+                    this.confirmDelete();
+                });
+            }
+        }
+
+        updateCheckAllState() {
+            const checkboxes = document.querySelectorAll('input[name="check"]');
+            const checkedBoxes = document.querySelectorAll('input[name="check"]:checked');
+            if (this.checkAll) {
+                this.checkAll.checked = checkboxes.length === checkedBoxes.length;
+            }
+        }
+
+        updateDeleteButtonState() {
+            const checkedBoxes = document.querySelectorAll('input[name="check"]:checked');
+            if (this.deleteButton) {
+                this.deleteButton.disabled = checkedBoxes.length === 0;
+            }
+        }
+
+        confirmDelete() {
+            const checkedBoxes = document.querySelectorAll('input[name="check"]:checked');
+            if (checkedBoxes.length === 0) return;
+
+            const ids = Array.from(checkedBoxes).map((cb) => cb.value);
+
+            Swal.fire({
+                title: 'Apakah Anda yakin?',
+                text: 'Data yang dihapus tidak dapat dikembalikan!',
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonColor: '#d33',
+                cancelButtonColor: '#3085d6',
+                confirmButtonText: 'Ya, hapus!',
+                cancelButtonText: 'Batal',
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    this.deleteData(ids);
+                }
+            });
+        }
+
+        async deleteData(ids) {
+            try {
+                const formData = new FormData();
+                ids.forEach((id) => formData.append('ids[]', id));
+
+                const response = await fetch('/petani/produksi/delete', {
+                    method: 'POST',
+                    body: formData,
+                });
+
+                if (!response.ok) throw new Error('Network response was not ok');
+
+                // Refresh halaman atau update tabel
+                window.location.reload();
+            } catch (error) {
+                console.error('Error:', error);
+                FormValidator.showToast('Gagal menghapus data', 'danger');
+            }
+        }
+    }
+
+    // Initialize delete manager when document is ready
+    document.addEventListener('DOMContentLoaded', function () {
+        const deleteManager = new DeleteManager();
+    });
+</script>
+
+<!-- EXPORT LAPORAN -->
+<script>
+    const logoPath = `{{ url_for('static', filename='logo/rindang_yellow.png') }}`;
+    const userData = JSON.parse(`{{ user_data| tojson | safe }}`);
+
+    function formatDate(date) {
+        return new Date(date).toLocaleDateString('id-ID', {
+            day: '2-digit',
+            month: 'long',
+            year: 'numeric'
+        });
+    }
+
+    // Definisikan fungsi untuk generate PDF
+    function generatePDF() {
+        const { jsPDF } = window.jspdf;
+        const doc = new jsPDF('p', 'mm', 'a4');
+        const pageWidth = doc.internal.pageSize.width;
+        const pageHeight = doc.internal.pageSize.height;
+        const margin = 15;
+        const contentWidth = pageWidth - (2 * margin);
+
+        // Function to maintain image aspect ratio
+        function calculateAspectRatioFit(srcWidth, srcHeight, maxWidth, maxHeight) {
+            const ratio = Math.min(maxWidth / srcWidth, maxHeight / srcHeight);
+            return { width: srcWidth * ratio, height: srcHeight * ratio };
+        }
+
+        // Add logo with proper aspect ratio
+        const logo = document.getElementById('pdfLogo');
+        if (logo) {
+            const logoMaxWidth = 30;
+            const logoMaxHeight = 30;
+            const logoDimensions = calculateAspectRatioFit(
+                logo.naturalWidth,
+                logo.naturalHeight,
+                logoMaxWidth,
+                logoMaxHeight
+            );
+            doc.addImage(
+                logo,
+                'PNG',
+                margin,
+                margin,
+                logoDimensions.width,
+                logoDimensions.height
+            );
+        }
+
+        // Header information with right alignment for date
+        doc.setFontSize(10);
+        const dateText = formatDate(new Date());
+        const dateWidth = doc.getStringUnitWidth(dateText) * 10 / doc.internal.scaleFactor;
+        doc.text(dateText, pageWidth - margin - dateWidth, margin + 5);
+
+        // Informasi petani with proper spacing
+        const startY = margin + 35;
+        console.log(userData.kelurahan);
+        doc.setFontSize(11);
+        doc.text(`Lokasi: ${userData.kelurahan || '-'}, ${userData.kota || '-'}`, margin, startY);
+        doc.text(`Nama: ${userData.nama_lengkap || '-'}`, margin, startY + 7);
+        doc.text(`Luas Lahan: ${userData.luas_lahan || 0} ha`, margin, startY + 14);
+
+        // Judul with centered alignment
+        doc.setFontSize(14);
+        doc.setFont(undefined, 'bold');
+        const title = 'Laporan Hasil Penanaman - Panen';
+        const titleWidth = doc.getStringUnitWidth(title) * 14 / doc.internal.scaleFactor;
+        doc.text(title, (pageWidth - titleWidth) / 2, startY + 30);
+        doc.setFont(undefined, 'normal');
+
+        // Table data with full width
+        const tableColumn = ['Kebun', 'Jml Bibit', 'Tanggal Bibit', 'Status', 'Hasil Panen'];
+        const tableRows = [];
+
+        // Collect table data
+        document.querySelectorAll('#dataTable tbody tr').forEach(row => {
+            const rowData = [];
+            row.querySelectorAll('td').forEach((cell, index) => {
+                if (index > 0 && index < 6) {
+                    rowData.push(cell.textContent.trim());
+                }
+            });
+            if (rowData.length > 0) {
+                tableRows.push(rowData);
+            }
+        });
+
+        // Generate table with full width
+        doc.autoTable({
+            head: [tableColumn],
+            body: tableRows,
+            startY: startY + 35,
+            margin: { left: margin, right: margin },
+            styles: {
+                fontSize: 9,
+                cellPadding: 3
+            },
+            columnStyles: {
+                0: { cellWidth: contentWidth * 0.25 },
+                1: { cellWidth: contentWidth * 0.15 },
+                2: { cellWidth: contentWidth * 0.2 },
+                3: { cellWidth: contentWidth * 0.15 },
+                4: { cellWidth: contentWidth * 0.25 }
+            },
+            headStyles: {
+                fillColor: [40, 84, 48],
+                fontSize: 10,
+                fontStyle: 'bold',
+                halign: 'center'
+            },
+            alternateRowStyles: {
+                fillColor: [245, 245, 245]
+            }
+        });
+
+        // Get final Y position after table
+        const finalY = doc.lastAutoTable.finalY + 10;
+
+        // Add analysis section
+        doc.setFontSize(11);
+        doc.setFont(undefined, 'bold');
+        doc.text('Analisis Produksi:', margin, finalY);
+        doc.setFont(undefined, 'normal');
+
+        // Calculate total harvest
+        const totalPanen = tableRows.reduce((sum, row) => {
+            const panen = row[4].match(/\d+/);
+            return sum + (panen ? parseInt(panen[0]) : 0);
+        }, 0);
+
+        doc.text(`Total Hasil Panen: ${totalPanen} kg`, margin + 5, finalY + 7);
+
+        // Add new page for charts
+        doc.addPage();
+
+        // Function to handle chart rendering with proper sizing
+        async function addChartsToPage() {
+            // Render bar chart
+            const barCanvas = await html2canvas(document.getElementById('productionChart'));
+            const barChartDimensions = calculateAspectRatioFit(
+                barCanvas.width,
+                barCanvas.height,
+                contentWidth,
+                100
+            );
+            doc.addImage(
+                barCanvas.toDataURL('image/png'),
+                'PNG',
+                margin,
+                20,
+                barChartDimensions.width,
+                barChartDimensions.height
+            );
+
+            // Render pie chart
+            const pieCanvas = await html2canvas(document.getElementById('distributionChart'));
+            const pieChartDimensions = calculateAspectRatioFit(
+                pieCanvas.width,
+                pieCanvas.height,
+                contentWidth,
+                100
+            );
+            doc.addImage(
+                pieCanvas.toDataURL('image/png'),
+                'PNG',
+                margin,
+                140,
+                pieChartDimensions.width,
+                pieChartDimensions.height
+            );
+
+            // Save the PDF
+            doc.save(`laporan_produksi_${new Date().toISOString().split('T')[0]}.pdf`);
+        }
+
+        // Execute chart rendering
+        addChartsToPage().catch(error => {
+            console.error('Error generating charts:', error);
+        });
+    }
+
+    // Add event listener
+    document.getElementById('generatePDF').addEventListener('click', generatePDF);
+</script>
+{% endblock %}

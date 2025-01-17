@@ -1,44 +1,44 @@
 {% extends 'layout/admin_base.html' %}
-<!-- Head Block -->
-{% block title %} Dashboard Admin {% endblock %}
+<!-- Title Block -->
+{% block title %}Dashboard Admin{% endblock %}
+<!-- Page Title Block -->
+{% block page_title %}Overview{% endblock %}
 <!-- Content Block -->
 {% block content %}
-<div class="container">
-    <h2 class="mb-3 fw-bold">Selamat Datang di Dashboard Admin</h2>
-    <p class="text-muted">Gunakan menu di sidebar untuk mengelola berbagai fitur sistem.</p>
+<h2 class="fw-bold mb-0">Selamat Datang di Dashboard Admin</h2>
+<p class="text-muted mb-3">Gunakan menu di sidebar untuk mengelola berbagai fitur sistem.</p>
 
-    <!-- Contoh Statistik atau Informasi Dasbor -->
-    <div class="row">
-        <div class="col-md-3">
-            <div class="card bg-green-secondary text-center">
-                <div class="card-body">
-                    <h5 class="card-title">Pengguna</h5>
-                    <p class="card-text">{{ users | length }}</p>
-                </div>
+<!-- Contoh Statistik atau Informasi Dasbor -->
+<div class="row">
+    <div class="col-md-3 mb-3 mb-lg-0">
+        <div class="card bg-green-secondary text-center">
+            <div class="card-body">
+                <p class="card-title">Pengguna</p>
+                <h2 class="card-text">{{ users | length }}</h2>
             </div>
         </div>
-        <div class="col-md-3">
-            <div class="card bg-green-secondary text-center">
-                <div class="card-body">
-                    <h5 class="card-title">Artikel</h5>
-                    <p class="card-text">{{ articles | length }}</p>
-                </div>
+    </div>
+    <div class="col-md-3 mb-3 mb-lg-0">
+        <div class="card bg-green-secondary text-center">
+            <div class="card-body">
+                <p class="card-title">Artikel</p>
+                <h2 class="card-text">{{ articles | length }}</h2>
             </div>
         </div>
-        <div class="col-md-3">
-            <div class="card bg-green-secondary text-center">
-                <div class="card-body">
-                    <h5 class="card-title">Produksi</h5>
-                    <p class="card-text">30</p>
-                </div>
+    </div>
+    <div class="col-md-3 mb-3 mb-lg-0">
+        <div class="card bg-green-secondary text-center">
+            <div class="card-body">
+                <p class="card-title">Produksi</p>
+                <h2 class="card-text">30</h2>
             </div>
         </div>
-        <div class="col-md-3">
-            <div class="card bg-green-secondary text-center">
-                <div class="card-body">
-                    <h5 class="card-title">Pengaturan</h5>
-                    <p class="card-text">Aktif</p>
-                </div>
+    </div>
+    <div class="col-md-3 mb-3 mb-lg-0">
+        <div class="card bg-green-secondary text-center">
+            <div class="card-body">
+                <p class="card-title">Pengaturan</p>
+                <h2 class="card-text">Aktif</h2>
             </div>
         </div>
     </div>

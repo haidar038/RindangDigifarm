@@ -1,0 +1,175 @@
+{% extends 'layout/admin_base.html' %}
+<!-- Page Title block -->
+{% block title %}Dashboard Admin - Komoditas{% endblock %}
+<!-- Title block -->
+{% block page_title %}Komoditas{% endblock %}
+<!-- Content block -->
+{% block content %}
+<button type="button" class="btn btn-sm btn-green rounded-pill mb-3" data-bs-toggle="modal"
+    data-bs-target="#modalTambahKomoditas"><i class="fa fa-plus-circle me-1"></i> Tambah
+    Komoditas</button>
+<div class="row">
+    <div class="col">
+        <div class="card">
+            <div class="card-header justify-content-between align-items-center d-flex">
+                <h6 class="card-title mb-0">Daftar Komoditas Saat Ini</h6>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table">
+                        <thead>
+                            <tr>
+                                <th>Nama</th>
+                                <th>Kategori</th>
+                                <th>Detail</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% if komoditas %} {% for item in komoditas %}
+                            <tr class="align-middle">
+                                <td>{{ item.nama }}</td>
+                                <td class="text-capitalize">{{ item.kategori }}</td>
+                                <td>
+                                    <button type="button" class="btn btn-light" data-bs-toggle="modal"
+                                        data-bs-target="#modalDetailKomoditas{{ item.id }}">Detail</button>
+                                </td>
+                            </tr>
+                            {% endfor %} {% else %}
+                            <tr>
+                                <td colspan="3" class="text-center text-muted small"><em>Belum ada komoditas</em></td>
+                            </tr>
+                            {% endif %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal tambah -->
+<div class="modal fade" id="modalTambahKomoditas" tabindex="-1" aria-labelledby="modalTambahKomoditasLabel"
+    aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="modalTambahKomoditasLabel">Tambah Komoditas</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form action="{{ url_for('admin.add_commodity') }}" method="post">
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label for="nama" class="form-label">Nama Komoditas</label>
+                        <input type="text" class="form-control" id="nama" name="nama" required />
+                    </div>
+                    <div class="mb-3">
+                        <label for="kategori" class="form-label">Kategori</label>
+                        <select class="form-select" id="kategori" name="kategori" required>
+                            <option value="sayuran">Sayuran</option>
+                            <option value="buah">Buah</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Batal</button>
+                    <button type="submit" class="btn btn-green">Simpan</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+{% for item in komoditas %}
+<!-- Modal detail -->
+<div class="modal fade" id="modalDetailKomoditas{{ item.id }}" tabindex="-1"
+    aria-labelledby="modalDetailKomoditas{{ item.id }}Label" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="modalDetailKomoditas{{ item.id }}Label">Detail Komoditas</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <label for="nama" class="form-label">Nama Komoditas</label>
+                    <input type="text" class="form-control" id="nama" value="{{ item.nama }}" readonly />
+                </div>
+                <div class="mb-3">
+                    <label for="kategori" class="form-label">Kategori</label>
+                    <input type="text" class="form-control text-capitalize" id="kategori" value="{{ item.kategori }}"
+                        readonly />
+                </div>
+            </div>
+            <div class="modal-footer justify-content-between">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Tutup</button>
+                <div>
+                    <button type="button" class="btn btn-green" data-bs-toggle="modal"
+                        data-bs-target="#modalUpdateKomoditas{{ item.id }}">Update</button>
+                    <button type="button" class="btn btn-danger" data-bs-toggle="modal"
+                        data-bs-target="#modalDeleteKomoditas{{ item.id }}">Hapus</button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal update -->
+<div class="modal fade" id="modalUpdateKomoditas{{ item.id }}" tabindex="-1"
+    aria-labelledby="modalUpdateKomoditasLabel{{ item.id }}" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="modalUpdateKomoditasLabel">Update Komoditas</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form action="{{ url_for('admin.update_commodity', id=item.id) }}" method="post">
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label for="nama" class="form-label">Nama Komoditas</label>
+                        <input type="text" class="form-control" id="nama" name="nama" value="{{ item.nama }}"
+                            required />
+                    </div>
+                    <div class="mb-3">
+                        <label for="kategori" class="form-label">Kategori</label>
+                        <select class="form-select" id="kategori" name="kategori" required>
+                            {% if item.kategori == 'sayuran' %}
+                            <option value="sayuran" selected>Sayuran</option>
+                            <option value="buah">Buah</option>
+                            {% else %}
+                            <option value="buah" selected>Buah</option>
+                            <option value="sayuran">Sayuran</option>
+                            {% endif %}
+                        </select>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Batal</button>
+                    <button type="submit" class="btn btn-green">Simpan</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Modal delete -->
+<div class="modal fade" id="modalDeleteKomoditas{{ item.id }}" tabindex="-1"
+    aria-labelledby="modalDeleteKomoditasLabel{{ item.id }}" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="modalDeleteKomoditasLabel{{ item.id }}">Hapus Komoditas</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form action="{{ url_for('admin.delete_commodity', id=item.id) }}" method="post">
+                <div class="modal-body">
+                    <p>Apakah Anda yakin ingin menghapus komoditas ini?</p>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Batal</button>
+                    <button type="submit" class="btn btn-danger">Hapus</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endfor %} {% endblock %}

@@ -5,13 +5,12 @@ from flask_mail import Message
 from flask_login import login_user, logout_user, login_required, current_user
 from datetime import datetime, timedelta
 from werkzeug.security import check_password_hash, generate_password_hash
-from werkzeug.utils import secure_filename
 from functools import wraps
 
 from App import login_manager, db, mail
 from App.utils import confirm_token, generate_confirmation_token, send_password_reset_email, send_otp_email
 from App.models import User, Role
-from App.forms.auth_forms import LoginForm, RegistrationForm, UpgradeRequestForm, ForgotPasswordForm, OTPVerificationForm, ResetPasswordForm
+from App.forms.auth_forms import LoginForm, RegistrationForm, ForgotPasswordForm, OTPVerificationForm, ResetPasswordForm
 
 import random, string
 
@@ -37,6 +36,10 @@ def personal_unique_id(prefix="PRSNL_", string_length=2, number_length=4):
 
 @auth.route('/auth/register', methods=['GET', 'POST'])
 def register():
+    if current_user.is_authenticated:
+        flash('Anda sudah login.', category='info')
+        return redirect_based_on_role(current_user)
+
     form = RegistrationForm()
 
     if request.method == 'POST':
@@ -209,71 +212,6 @@ def reset_password(token):
         
     return render_template('auth/reset_password.html', form=form)
 
-# @auth.route('/auth/request-upgrade/<int:id>', methods=['POST'])
-# @login_required
-# def request_upgrade(id):
-#     # Pastikan pengguna hanya dapat mengajukan upgrade untuk akun mereka sendiri
-#     if current_user.id != id:
-#         flash('Anda tidak dapat mengajukan upgrade untuk akun lain.', category='danger')
-#         return redirect(url_for('personal.settings'))
-    
-#     # Pastikan pengguna memiliki peran 'personal' sebelum mengajukan upgrade
-#     if current_user.type != UserRole.PERSONAL.value:
-#         flash('Anda tidak memiliki akses untuk melakukan upgrade akun.', category='danger')
-#         return redirect(url_for('public.index'))
-    
-#     form = UpgradeRequestForm()
-    
-#     if form.validate_on_submit():
-#         upgrade_type = form.upgrade_type.data
-#         reason = form.reason.data
-#         attachment_file = form.attachments.data
-#         attachment_filename = None
-        
-#         # Menangani upload file jika ada
-#         if attachment_file:
-#             if allowed_file(attachment_file.filename):
-#                 filename = secure_filename(attachment_file.filename)
-#                 # Menambahkan timestamp atau identifier unik untuk mencegah konflik nama file
-#                 filename = f"upgrade_{current_user.id}_{int(datetime.utcnow().timestamp())}_{filename}"
-#                 upload_folder = os.path.join(current_app.root_path, 'static', 'uploads', 'upgrade_attachments')
-#                 os.makedirs(upload_folder, exist_ok=True)
-#                 attachment_path = os.path.join(upload_folder, filename)
-#                 attachment_file.save(attachment_path)
-#                 attachment_filename = f"upgrade_attachments/{filename}"
-#             else:
-#                 flash('Format file tidak diizinkan. Harap unggah file dengan format .pdf, .jpg, .jpeg, atau .png.', category='danger')
-#                 return redirect(request.referrer)
-        
-#         # Membuat instance UpgradeRequest
-#         upgrade_request = UpgradeRequest(
-#             user_id=current_user.id,
-#             upgrade_type=UpgradeTypeEnum(upgrade_type),
-#             reason=reason,
-#             attachment=attachment_filename,
-#             status='pending'  # Status awal adalah pending
-#         )
-        
-#         try:
-#             db.session.add(upgrade_request)
-#             db.session.commit()
-#             flash('Permintaan upgrade akun telah dikirim dan sedang dalam proses verifikasi.', category='success')
-            
-#             # Opsional: Mengirim notifikasi email ke admin
-#             send_admin_upgrade_request_notification(upgrade_request)
-            
-#         except Exception as e:
-#             db.session.rollback()
-#             current_app.logger.error(f"Error saat mengajukan permintaan upgrade: {str(e)}")
-#             flash('Terjadi kesalahan saat mengirim permintaan upgrade. Silakan coba lagi.', category='danger')
-#             return redirect(request.referrer)
-        
-#         return redirect(url_for('personal.profile'))
-    
-#     else:
-#         flash('Formulir tidak valid. Silakan periksa kembali input Anda.', category='danger')
-#         return redirect(request.referrer)
-
 @auth.route('/auth/forgot-password', methods=['GET', 'POST'])
 def forgot_password():
     form = ForgotPasswordForm()
@@ -367,54 +305,76 @@ def send_forgot_password_token(user_email):
 @auth.route('/auth/login', methods=['GET', 'POST'])
 def login():
     if current_user.is_authenticated:
-        if user.roles == 'admin':
-            flash('Berhasil login', 'success')
-            return redirect(url_for('admin.index'))
-        else:
-            flash('Berhasil login', 'success')
-            return redirect(url_for('public.index'))
+        return redirect_based_on_role(current_user)
     
     form = LoginForm()
         
     if request.method == 'POST':
-        email = request.form['email']
+        login_identifier = request.form['email']
         password = request.form['password']
         remember = True if request.form.get('remember') else False
         
-        user = User.query.filter_by(email=email).first()
+        # Allow login with either email or username
+        user = User.query.filter((User.email == login_identifier) | (User.username == login_identifier)).first()
         
-        if not user:
-            flash('Email tidak ditemukan.', category='danger')
-            return redirect(url_for('auth.login'))
-            
-        if not check_password_hash(user.password, password):
-            flash('Password salah.', category='danger')
+        if not user or not check_password_hash(user.password, password):
+            flash('Email/Username atau password salah.', category='danger')
             return redirect(url_for('auth.login'))
             
         if not user.is_confirmed:
             flash('Silakan konfirmasi email Anda terlebih dahulu.', category='warning')
             return redirect(url_for('auth.login'))
-            
-        login_user(user, remember=remember)
         
-        # Redirect berdasarkan role
-        if user.roles == 'admin':
-            print(f'Berhasil Login Sebagai {user.roles}')
-            return redirect(url_for('admin.index'))
-        elif user.roles == 'petani':
-            print(f'Berhasil Login Sebagai {user.roles}')
-            return redirect(url_for('farmer.index'))
-        elif user.roles == 'ahli':
-            print(f'Berhasil Login Sebagai {user.roles}')
-            return redirect(url_for('expert.index'))
-        elif user.roles == 'personal':
-            print(f'Berhasil Login Sebagai {user.roles}')
-            return redirect(url_for('personal.index'))
+        # Set session duration based on remember me
+        if remember:
+            # Set permanent session with 30 days duration
+            session.permanent = True
+            login_user(user, remember=True, duration=timedelta(days=30))
         else:
-            print(f'Berhasil Login Sebagai {user.roles}')
-            return redirect(url_for('public.index'))
+            # Set permanent session with 1 day duration
+            session.permanent = True
+            login_user(user, remember=False, duration=timedelta(days=1))
+        
+        return redirect_based_on_role(user)
             
     return render_template('auth/login.html', form=form)
+
+def redirect_based_on_role(user):
+    """Helper function to handle role-based redirects"""
+    if user.roles[0].name == 'admin':
+        return redirect(url_for('admin.index'))
+    elif user.roles[0].name == 'petani':
+        return redirect(url_for('farmer.index'))
+    elif user.roles[0].name == 'ahli':
+        return redirect(url_for('expert.index'))
+    elif user.roles[0].name == 'personal':
+        return redirect(url_for('personal.index'))
+    else:
+        return redirect(url_for('public.index'))
+
+@auth.before_app_request
+def check_session_expiration():
+    if current_user.is_authenticated:
+        # Get the last activity timestamp
+        last_activity = session.get('last_activity')
+        now = datetime.now()
+        
+        if last_activity:
+            last_activity = datetime.fromisoformat(last_activity)
+            # Calculate expiration based on remember cookie
+            remember_cookie = request.cookies.get('remember_token')
+            expiration = last_activity + (
+                timedelta(days=30) if remember_cookie 
+                else timedelta(days=1)
+            )
+            
+            if now > expiration:
+                logout_user()
+                flash('Sesi Anda telah berakhir. Silakan login kembali.', 'info')
+                return redirect(url_for('auth.login'))
+        
+        # Update last activity
+        session['last_activity'] = now.isoformat()
 
 @auth.route('/auth/logout')
 @login_required

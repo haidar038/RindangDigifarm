@@ -9,7 +9,7 @@ from flask_mail import Mail, Message
 from datetime import datetime
 
 from App import db, mail
-from App.models import User, Kebun, Artikel, Forum, UpgradeRequest
+from App.models import User, Kebun, Artikel, Forum, UpgradeRequest, Role
 from App.forms.auth_forms import UpgradeRequestForm
 
 personal = Blueprint('personal', __name__)
@@ -21,25 +21,35 @@ def picture_allowed_file(filename):
             filename.rsplit('.', 1)[1].lower() in PICTURE_ALLOWED_EXTENSIONS
 
 @personal.route('/personal')
+@login_required
 def index():
     users = User.query.filter_by(id=current_user.id)
 
     pagination_pages = 5
     page = request.args.get('page', 1, type=int)
-    articles_pagination = Artikel.query.paginate(page=page, per_page=pagination_pages) #<-- MOVE THIS LINE OUT OF IF BLOCK!
-    forum_pagination = Forum.query.paginate(page=page, per_page=pagination_pages) #<-- MOVE THIS LINE OUT OF IF BLOCK!
+    articles_pagination = Artikel.query.filter_by(created_by=current_user.id).paginate(page=page, per_page=pagination_pages)
+    
+    # Tambahkan filter untuk forum
+    forum_pagination = Forum.query.filter_by(created_by=current_user.id).paginate(page=page, per_page=pagination_pages)
 
-    if not articles_pagination.items: #Check if articles exist on the CURRENT page
-        articles = []  # If not any article found for the page assign an empty array and handle no data condition at template
+    if not articles_pagination.items:
+        articles = []
     else:
         articles = articles_pagination.items
 
-    if not forum_pagination.items: #Check if articles exist on the CURRENT page
-        forum = []  # If not any article found for the page assign an empty array and handle no data condition at template
+    if not forum_pagination.items:
+        forum = []
     else:
         forum = forum_pagination.items
 
-    return render_template('personal/index.html', users=users, articles=articles, forum=forum, min=min, max=max, articles_pagination=articles_pagination, forum_pagination=forum_pagination)
+    return render_template('personal/index.html', 
+                            users=users, 
+                            articles=articles, 
+                            forum=forum, 
+                            min=min, 
+                            max=max, 
+                            articles_pagination=articles_pagination, 
+                            forum_pagination=forum_pagination)
 
 @personal.route('/rindang-ask', methods=['GET', 'POST'])
 @login_required
@@ -48,11 +58,10 @@ def rindang_ask():
         flash('Anda harus login terlebih dahulu', 'warning')
         return redirect(url_for('auth.login'))
 
+    # Gunakan relationship langsung
     questions = Forum.query.filter_by(created_by=current_user.id).all()
-    fetch_ahli_email = User.query.filter_by(role='ahli').all()
+    fetch_ahli_email = User.query.filter(User.roles.any(Role.name == 'ahli')).all()
     ahli_emails = fetch_ahli_email
-
-    print(ahli_emails)
 
     if request.method == 'POST':
         nama = request.form['nama_lengkap']
@@ -69,7 +78,8 @@ def rindang_ask():
         except:
             flash('Terjadi kesalahan saat mengirimkan pertanyaan, silakan coba kembali', 'danger')
             return redirect(request.referrer)
-    return render_template('personal/rindang_ask.html', questions=questions)
+            
+    return render_template('personal/rindang_ask.html', questions=questions, User=User)
 
 @personal.route('/avatar/<string:name>', methods=['GET', 'POST'])
 def get_avatar(name):
@@ -121,7 +131,7 @@ def forum_email_to_ahli(user_email, user_name, question):
 @login_required
 def questiondetails(id):
     data = Forum.query.get_or_404(id)
-    return render_template('personal/question_details.html', data=data)
+    return render_template('personal/question_details.html', data=data, User=User)
 
 @personal.route('/rindangtalk/update_question/<int:id>', methods=['GET', 'POST'])
 @login_required
@@ -136,7 +146,7 @@ def delete_question(id):
     db.session.delete(question)
     db.session.commit()
     flash('Berhasil menghapus pertanyaan!', 'warning')
-    return redirect(url_for('views.personal'))
+    return redirect(url_for('personal.index'))
 
 @personal.route('/personal/article-preview/<int:id>', methods=['GET'])
 @login_required
@@ -204,7 +214,11 @@ def update_article(id):
             article.is_drafted = True
         db.session.commit()
         flash('Berhasil memperbarui artikel', 'success')
-        return redirect(url_for('personal.index'))
+
+        if current_user.has_role('admin'):
+            return redirect(url_for('admin.articles_management'))
+        else:
+            return redirect(url_for('personal.index'))
     return render_template('personal/update_article.html', article=article)
 
 @personal.route('/personal/delete_article/<int:id>', methods=['GET', 'POST'])
@@ -220,7 +234,6 @@ def delete_article(id):
 @login_required
 def profile():
     form = UpgradeRequestForm()
-    print(current_user.roles)
     return render_template('personal/profile.html', form=form)
 
 @personal.route('/personal/profile/update/<int:id>', methods=['GET', 'POST'])

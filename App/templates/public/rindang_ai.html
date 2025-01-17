@@ -17,6 +17,7 @@
         background-color: #e0e0e0;
         border-radius: 20px;
     }
+
     .typing-indicator span {
         height: 8px;
         width: 8px;
@@ -27,15 +28,19 @@
         border-radius: 50%;
         opacity: 0.4;
     }
+
     .typing-indicator span:nth-of-type(1) {
         animation: 1s blink infinite 0.3333s;
     }
+
     .typing-indicator span:nth-of-type(2) {
         animation: 1s blink infinite 0.6666s;
     }
+
     .typing-indicator span:nth-of-type(3) {
         animation: 1s blink infinite 0.9999s;
     }
+
     @keyframes blink {
         50% {
             opacity: 1;
@@ -46,7 +51,7 @@
 <!-- Content Block -->
 {% block content %}
 <input type="hidden" name="userName" id="userName" value="{{ current_user.nama_lengkap }}" />
-<main class="container d-flex flex-column flex-grow-1 flex-shrink-1 py-3">
+<main class="container d-flex align-items-center flex-column flex-grow-1 flex-shrink-1 py-3">
     <div class="row flex-column align-items-center flex-grow-1 w-100">
         <div class="col-md-8 d-flex flex-column flex-grow-1">
             <div class="chatbox flex-grow-1 mb-3" style="overflow-y: auto; scroll-behavior: smooth" id="chatbox">
@@ -54,8 +59,11 @@
             </div>
             <div class="rounded-pill border-1 border p-1">
                 <div class="input-group">
-                    <input type="text" id="user_input" class="form-control focus-ring rounded-start-pill border-0" style="--bs-focus-ring-color: rgba(var(--accent-green-color-rgb), 0.25)" placeholder="Tanyakan apapun disini..." />
-                    <button class="btn btn-green fw-bold text-white rounded-pill" onclick="sendMessage()">Kirim<i class="bi bi-send-fill ms-2"></i></button>
+                    <input type="text" id="user_input" class="form-control focus-ring rounded-start-pill border-0"
+                        style="--bs-focus-ring-color: rgba(var(--accent-green-color-rgb), 0.25)"
+                        placeholder="Tanyakan apapun disini..." />
+                    <button class="btn btn-green fw-bold text-white rounded-pill" onclick="sendMessage()">Kirim<i
+                            class="bi bi-send-fill ms-2"></i></button>
                 </div>
             </div>
         </div>

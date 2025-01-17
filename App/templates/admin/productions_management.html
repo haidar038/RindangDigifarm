@@ -1,0 +1,333 @@
+{% extends 'layout/admin_base.html' %}
+
+{% block title %}Manajemen Produksi{% endblock %}
+{% block page_title %}Manajemen Produksi{% endblock %}
+
+{% block content %}
+<div class="row">
+    <!-- Overview Stats -->
+    <div class="col-12 mb-4">
+        <div class="row">
+            <div class="col-md-4 mb-1 mb-lg-0">
+                <div class="card bg-green-secondary">
+                    <div class="card-body text-center">
+                        <h6 class="card-title mb-2">Total Petani</h6>
+                        <h2 class="mb-0">{{ total_farmers }}</h2>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4 mb-1 mb-lg-0">
+                <div class="card bg-green-secondary">
+                    <div class="card-body text-center">
+                        <h6 class="card-title mb-2">Total Kebun</h6>
+                        <h2 class="mb-0">{{ total_gardens }}</h2>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="card bg-green-secondary">
+                    <div class="card-body text-center">
+                        <h6 class="card-title mb-2">Total Hasil Panen</h6>
+                        <h2 class="mb-0">{{ total_harvest }}kg</h2>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Chart -->
+    <div class="col-12 mb-4">
+        <div class="card">
+            <div class="card-body" style="position: relative; height: 300px; overflow: hidden;">
+                <div class="d-flex justify-content-between align-items-center mb-4">
+                    <h5 class="card-title mb-0">Tren Hasil Panen</h5>
+                    <div class="btn-group">
+                        <button class="btn btn-outline-secondary btn-sm"
+                            onclick="updateChart('weekly')">Mingguan</button>
+                        <button class="btn btn-outline-secondary btn-sm"
+                            onclick="updateChart('monthly')">Bulanan</button>
+                        <button class="btn btn-outline-secondary btn-sm"
+                            onclick="updateChart('yearly')">Tahunan</button>
+                    </div>
+                </div>
+                <canvas id="harvestChart" style="width: 100%; height: 100%;"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <!-- User List -->
+    <div class="col-12">
+        <div class="card">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center mb-4">
+                    <h5 class="card-title mb-0">Daftar Petani</h5>
+                    <div class="btn-group gap-1">
+                        <input type="text" id="searchInput" class="form-control form-control-sm"
+                            placeholder="Cari petani...">
+                        <select id="sortSelect" class="form-select form-select-sm">
+                            <option value="name">Nama</option>
+                            <option value="gardens">Jumlah Kebun</option>
+                            <option value="harvest">Hasil Panen</option>
+                        </select>
+                    </div>
+                </div>
+
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th>Nama</th>
+                            <th>Jumlah Kebun</th>
+                            <th>Total Hasil Panen</th>
+                            <th>Aksi</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for user in users %}
+                        <tr>
+                            <td>{{ user.nama_lengkap }}</td>
+                            <td>{{ user.kebun|length }}</td>
+                            <td>{{ user.total_harvest }}kg</td>
+                            <td>
+                                <a role="button" class="btn btn-sm btn-green" href="#"
+                                    onclick="viewDetails(`{{ user.id }}`)">
+                                    <i class="bi bi-eye me-2"></i>Detail
+                                </a>
+
+                                <button type="button" class="btn btn-sm btn-green"
+                                    onclick="downloadReport(`{{ user.id }}`)">
+                                    <i class="bi bi-download me-2"></i>Unduh Laporan
+                                </button>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+
+                <!-- Pagination -->
+                <nav aria-label="Page navigation" class="mt-4">
+                    <ul class="pagination justify-content-center">
+                        {{ pagination.links }}
+                    </ul>
+                </nav>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- User Details Modal -->
+<div class="modal fade" id="userDetailsModal" tabindex="-1">
+    <div class="modal-dialog modal-lg modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Detail Produksi Petani</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <!-- Content will be loaded dynamically -->
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+    let harvestChart;
+
+    // Initialize chart
+    function initChart(data) {
+        const ctx = document.getElementById('harvestChart').getContext('2d');
+
+        if (harvestChart) {
+            harvestChart.destroy();
+        }
+
+        harvestChart = new Chart(ctx, {
+            type: 'line',
+            data: data,
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                layout: {
+                    padding: {
+                        left: 10,
+                        right: 10,
+                        top: 10,
+                        bottom: 10
+                    }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        title: {
+                            display: true,
+                            text: 'Hasil Panen (kg)'
+                        }
+                    },
+                    x: {
+                        ticks: {
+                            maxRotation: 45,
+                            minRotation: 45
+                        },
+                        title: {
+                            display: true,
+                            text: 'Periode'
+                        }
+                    }
+                },
+                plugins: {
+                    tooltip: {
+                        mode: 'index',
+                        intersect: false,
+                    },
+                    legend: {
+                        position: 'bottom',
+                        labels: {
+                            usePointStyle: true,
+                        }
+                    }
+                }
+            }
+        });
+    }
+
+    // Update chart based on timeframe
+    async function updateChart(timeframe) {
+        const response = await fetch(`/api/harvest-data?timeframe=${timeframe}`);
+        const data = await response.json();
+        initChart(data);
+    }
+
+    // View user details
+    async function viewDetails(userId) {
+        const modal = document.getElementById('userDetailsModal');
+        const modalBody = modal.querySelector('.modal-body');
+
+        try {
+            const response = await fetch(`/api/user-production/${userId}`);
+            const data = await response.json();
+
+            modalBody.innerHTML = `
+            <div class="row">
+                <div class="col-md-6">
+                    <h6>Informasi Petani</h6>
+                    <p>Nama: ${data.user.nama_lengkap}</p>
+                    <p>Total Kebun: ${data.user.total_gardens}</p>
+                    <p>Total Panen: ${data.user.total_harvest}kg</p>
+                </div>
+                <div class="col-md-6">
+                    <canvas id="userProductionChart"></canvas>
+                </div>
+            </div>
+            <div class="table-responsive mt-4">
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th>Kebun</th>
+                            <th>Komoditas</th>
+                            <th>Hasil Panen</th>
+                            <th>Tanggal Panen</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${data.harvests.map(h => `
+                            <tr>
+                                <td>${h.garden_name}</td>
+                                <td>${h.commodity_name}</td>
+                                <td>${h.amount}kg</td>
+                                <td>${new Date(h.harvest_date).toLocaleDateString()}</td>
+                            </tr>
+                        `).join('')}
+                    </tbody>
+                </table>
+            </div>
+        `;
+
+            new bootstrap.Modal(modal).show();
+
+            // Initialize user's production chart
+            const ctx = document.getElementById('userProductionChart').getContext('2d');
+            new Chart(ctx, {
+                type: 'bar',
+                data: data.chartData,
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        title: {
+                            display: true,
+                            text: 'Produksi per Komoditas'
+                        }
+                    }
+                }
+            });
+
+        } catch (error) {
+            console.error('Error loading user details:', error);
+        }
+    }
+
+    // Download production report
+    async function downloadReport(userId) {
+        try {
+            const response = await fetch(`/api/generate-report/${userId}`);
+            const blob = await response.blob();
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `production-report-${userId}.pdf`;
+            document.body.appendChild(a);
+            a.click();
+            window.URL.revokeObjectURL(url);
+        } catch (error) {
+            console.error('Error downloading report:', error);
+        }
+    }
+
+    // Initialize page
+    document.addEventListener('DOMContentLoaded', function () {
+        // Initial chart load
+        updateChart('monthly');
+
+        // Search functionality
+        document.getElementById('searchInput').addEventListener('input', function (e) {
+            const searchTerm = e.target.value.toLowerCase();
+            const tableRows = document.querySelectorAll('tbody tr');
+
+            tableRows.forEach(row => {
+                const text = row.textContent.toLowerCase();
+                row.style.display = text.includes(searchTerm) ? '' : 'none';
+            });
+        });
+
+        // Sorting functionality
+        document.getElementById('sortSelect').addEventListener('change', function (e) {
+            const sortBy = e.target.value;
+            const tableBody = document.querySelector('tbody');
+            const rows = Array.from(tableBody.querySelectorAll('tr'));
+
+            rows.sort((a, b) => {
+                let aVal, bVal;
+
+                switch (sortBy) {
+                    case 'name':
+                        aVal = a.cells[0].textContent;
+                        bVal = b.cells[0].textContent;
+                        return aVal.localeCompare(bVal);
+                    case 'gardens':
+                        aVal = parseInt(a.cells[1].textContent);
+                        bVal = parseInt(a.cells[1].textContent);
+                        return bVal - aVal;
+                    case 'harvest':
+                        aVal = parseFloat(a.cells[2].textContent);
+                        bVal = parseFloat(a.cells[2].textContent);
+                        return bVal - aVal;
+                }
+            });
+
+            rows.forEach(row => tableBody.appendChild(row));
+        });
+    });
+</script>
+{% endblock %}

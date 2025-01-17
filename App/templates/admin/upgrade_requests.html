@@ -1,128 +1,215 @@
 {% extends 'layout/admin_base.html' %} {% block title %} Permintaan Upgrade Akun {% endblock %} {% block content %}
-<main class="container py-4">
+<main class="container">
     <!-- Header Section -->
-    <div class="d-flex justify-content-between align-items-center mb-4">
-        <h1 class="h3 mb-0">Permintaan Upgrade Akun</h1>
-        <div class="d-flex gap-2">
+    <div class="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center mb-4 gap-3">
+        <h5 class="fw-bold mb-0">Permintaan Upgrade Akun</h5>
+        <div class="d-flex gap-2 flex-wrap">
+            <!-- Search Form -->
+            <form class="d-flex" method="get">
+                <input type="hidden" name="status" value="{{ current_status }}" />
+                <input type="hidden" name="sort" value="{{ current_sort }}" />
+                <div class="input-group">
+                    <input type="search" name="search" class="form-control form-control-sm" placeholder="Cari..." value="{{ search }}" />
+                    <button type="submit" class="btn btn-sm btn-green fw-bold"><i class="bi bi-search"></i></button>
+                </div>
+            </form>
+
+            <!-- Sort Dropdown -->
             <div class="dropdown">
-                <button class="btn btn-outline-secondary dropdown-toggle" type="button" data-bs-toggle="dropdown">Filter Status</button>
+                <button class="btn btn-sm btn-outline-secondary dropdown-toggle" type="button" data-bs-toggle="dropdown">{{ 'Terbaru' if current_sort == 'newest' else 'Terlama' }}</button>
                 <ul class="dropdown-menu">
-                    <li><a class="dropdown-item" href="?status=all">Semua</a></li>
-                    <li><a class="dropdown-item" href="?status=pending">Pending</a></li>
-                    <li><a class="dropdown-item" href="?status=approved">Disetujui</a></li>
-                    <li><a class="dropdown-item" href="?status=rejected">Ditolak</a></li>
+                    <li><a class="dropdown-item {{ 'active' if current_sort == 'newest' }}" href="{{ url_for('admin.view_upgrade_requests', status=current_status, sort='newest', search=search) }}">Terbaru</a></li>
+                    <li><a class="dropdown-item {{ 'active' if current_sort == 'oldest' }}" href="{{ url_for('admin.view_upgrade_requests', status=current_status, sort='oldest', search=search) }}">Terlama</a></li>
+                </ul>
+            </div>
+
+            <!-- Status Filter -->
+            <div class="dropdown">
+                <button class="btn btn-sm btn-outline-secondary dropdown-toggle" type="button" data-bs-toggle="dropdown">Filter Status</button>
+                <ul class="dropdown-menu">
+                    <li>
+                        <a
+                            class="dropdown-item d-flex justify-content-between align-items-center {{ 'active' if current_status == 'all' }}"
+                            href="{{ url_for('admin.view_upgrade_requests', status='all', sort=current_sort, search=search) }}"
+                        >
+                            Semua
+                            <span class="badge bg-secondary rounded-pill ms-2">{{ status_counts.all }}</span>
+                        </a>
+                    </li>
+                    <li>
+                        <a
+                            class="dropdown-item d-flex justify-content-between align-items-center {{ 'active' if current_status == 'pending' }}"
+                            href="{{ url_for('admin.view_upgrade_requests', status='pending', sort=current_sort, search=search) }}"
+                        >
+                            Pending
+                            <span class="badge bg-yellow rounded-pill ms-2">{{ status_counts.pending }}</span>
+                        </a>
+                    </li>
+                    <li>
+                        <a
+                            class="dropdown-item d-flex justify-content-between align-items-center {{ 'active' if current_status == 'approved' }}"
+                            href="{{ url_for('admin.view_upgrade_requests', status='approved', sort=current_sort, search=search) }}"
+                        >
+                            Disetujui
+                            <span class="badge bg-green rounded-pill ms-2">{{ status_counts.approved }}</span>
+                        </a>
+                    </li>
+                    <li>
+                        <a
+                            class="dropdown-item d-flex justify-content-between align-items-center {{ 'active' if current_status == 'rejected' }}"
+                            href="{{ url_for('admin.view_upgrade_requests', status='rejected', sort=current_sort, search=search) }}"
+                        >
+                            Ditolak
+                            <span class="badge bg-red rounded-pill ms-2">{{ status_counts.rejected }}</span>
+                        </a>
+                    </li>
                 </ul>
             </div>
         </div>
     </div>
 
     <!-- Table Section -->
-    <div class="card">
+    <div class="card mb-3">
         <div class="card-body">
             {% if requests %}
-            <div class="table-responsive">
-                <table class="table table-hover">
-                    <thead class="table-light">
-                        <tr>
-                            <th scope="col">#</th>
-                            <th scope="col">Username</th>
-                            <th scope="col">Email</th>
-                            <th scope="col">Tipe Upgrade</th>
-                            <th scope="col">Alasan</th>
-                            <th scope="col">Lampiran</th>
-                            <th scope="col">Tanggal Pengajuan</th>
-                            <th scope="col">Status</th>
-                            <th scope="col">Aksi</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for request in requests %}
-                        <tr class="align-middle">
-                            <td>{{ loop.index }}</td>
-                            <td>{{ request.user.username }}</td>
-                            <td>
-                                <a href="mailto:{{ request.user.email }}" class="text-decoration-none"> {{ request.user.email }} </a>
-                            </td>
-                            <td>
-                                <span class="badge bg-info"> {{ request.requested_role }} </span>
-                            </td>
-                            <td>
-                                <span data-bs-toggle="tooltip" data-bs-placement="top" title="{{ request.reason }}"> {{ shorten(request.reason, width=56, placeholder='...') }} </span>
-                            </td>
-                            <td>
-                                {% if request.attachment %}
-                                <a href="{{ url_for('static', filename='uploads/'+request.attachment) }}" class="btn btn-sm btn-outline-primary" target="_blank"> <i class="bi bi-file-earmark-text"></i> Lihat </a>
-                                {% else %}
-                                <span class="text-muted">Tidak Ada</span>
-                                {% endif %}
-                            </td>
-                            <td>{{ request.created_at.strftime('%d/%m/%Y %H:%M') }}</td>
-                            <td>
+            <table class="table table-hover">
+                <thead>
+                    <tr>
+                        <th scope="col">#</th>
+                        <th scope="col">Name</th>
+                        <th scope="col">Tipe Upgrade</th>
+                        <th scope="col">Tanggal Pengajuan</th>
+                        <th scope="col">Status</th>
+                        <th scope="col">Aksi</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for request in requests %}
+                    <tr class="align-middle">
+                        <td>{{ loop.index }}</td>
+                        <td>
+                            <p class="mb-0">{{ request.user.nama_lengkap }}</p>
+                            <a href="mailto:{{ request.user.email }}" class="text-decoration-none small"> {{ request.user.email }} </a>
+                        </td>
+                        <td>
+                            <span class="badge text-bg-info text-capitalize"> {{ request.requested_role }} </span>
+                        </td>
+                        <td>{{ request.created_at.strftime('%d/%m/%Y %H:%M') }}</td>
+                        <td>
+                            {% if request.status == 'pending' %}
+                            <span class="badge bg-yellow">Pending</span>
+                            {% elif request.status == 'approved' %}
+                            <span class="badge bg-green">Disetujui</span>
+                            {% else %}
+                            <span class="badge bg-red">Ditolak</span>
+                            {% endif %}
+                        </td>
+                        <td class="dropdown">
+                            <button class="btn btn-sm btn-light" type="button" data-bs-toggle="dropdown" aria-expanded="false"><i class="bi bi-three-dots-vertical"></i></button>
+                            <ul class="dropdown-menu">
+                                <li>
+                                    <a role="button" href="#" class="dropdown-item" data-bs-toggle="modal" data-bs-target="#detailsModal{{ request.id }}"><i class="bi bi-info-circle me-1"></i> Detail</a>
+                                </li>
+                                <hr />
                                 {% if request.status == 'pending' %}
-                                <span class="badge bg-warning text-dark">Pending</span>
-                                {% elif request.status == 'approved' %}
-                                <span class="badge bg-success">Disetujui</span>
+                                <li>
+                                    <a role="button" href="#" class="dropdown-item" data-bs-toggle="modal" data-bs-target="#approveModal{{ request.id }}"><i class="bi bi-check-lg me-1"></i> Setujui</a>
+                                </li>
+                                <li>
+                                    <a role="button" href="#" class="dropdown-item" data-bs-toggle="modal" data-bs-target="#rejectModal{{ request.id }}"><i class="bi bi-x-lg me-1"></i> Tolak</a>
+                                </li>
                                 {% else %}
-                                <span class="badge bg-danger">Ditolak</span>
+                                <li>
+                                    <a role="button" href="#" class="dropdown-item disabled">---</a>
+                                </li>
                                 {% endif %}
-                            </td>
-                            <td>
-                                {% if request.status == 'pending' %}
-                                <div class="btn-group" role="group">
-                                    <button type="button" class="btn btn-sm btn-success" data-bs-toggle="modal" data-bs-target="#approveModal{{ request.id }}"><i class="bi bi-check-lg"></i> Setujui</button>
-                                    <button type="button" class="btn btn-sm btn-danger" data-bs-toggle="modal" data-bs-target="#rejectModal{{ request.id }}"><i class="bi bi-x-lg"></i> Tolak</button>
-                                </div>
-                                {% else %}
-                                <span class="text-muted">---</span>
-                                {% endif %}
-                            </td>
-                        </tr>
+                            </ul>
+                        </td>
+                    </tr>
 
-                        <!-- Approve Modal -->
-                        <div class="modal fade" id="approveModal{{ request.id }}" tabindex="-1">
-                            <div class="modal-dialog">
-                                <div class="modal-content">
-                                    <div class="modal-header">
-                                        <h5 class="modal-title">Konfirmasi Persetujuan</h5>
-                                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-                                    </div>
-                                    <div class="modal-body">
-                                        <p>Apakah Anda yakin ingin menyetujui permintaan upgrade akun dari <strong>{{ request.user.username }}</strong>?</p>
-                                    </div>
-                                    <div class="modal-footer">
-                                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Batal</button>
-                                        <form action="{{ url_for('admin.approve_upgrade_request', id=request.id) }}" method="POST">
-                                            <button type="submit" class="btn btn-success">Setujui</button>
-                                        </form>
-                                    </div>
+                    <!-- Details Modal -->
+                    <div class="modal fade" id="detailsModal{{ request.id }}" tabindex="-1">
+                        <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable">
+                            <div class="modal-content">
+                                <div class="modal-header">
+                                    <h5 class="modal-title">Detail Request</h5>
+                                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                                </div>
+                                <div class="modal-body">
+                                    <p><span class="fw-bold">Nama: </span>{{ request.user.nama_lengkap }}</p>
+                                    <p><span class="fw-bold">Email: </span><a href="mailto:{{ request.user.email }}" class="text-decoration-none"> {{ request.user.email }} </a></p>
+                                    <p><span class="fw-bold">Tipe Upgrade: </span><span class="badge text-bg-info text-capitalize">{{ request.requested_role }}</span></p>
+                                    <p><span class="fw-bold">Alasan: </span>{{ request.reason | safe }}</p>
+                                    <p><span class="fw-bold">Tanggal Pengajuan: </span>{{ request.created_at.strftime('%d/%m/%Y %H:%M') }}</p>
+                                    <p>
+                                        <span class="fw-bold">Status: </span>{% if request.status == 'pending' %}
+                                        <span class="badge bg-yellow">Pending</span>
+                                        {% elif request.status == 'approved' %}
+                                        <span class="badge bg-green">Disetujui</span>
+                                        {% else %}
+                                        <span class="badge bg-red">Ditolak</span>
+                                        {% endif %}
+                                    </p>
+                                    <p>
+                                        <span class="fw-bold">Lampiran: </span>
+                                        {% if request.attachment %}
+                                        <a href="{{ url_for('static', filename='uploads/'+request.attachment) }}" class="btn btn-sm btn-outline-primary" target="_blank"> <i class="bi bi-file-earmark-text"></i> Lihat </a>
+                                        {% else %}
+                                        <span class="text-muted">Tidak Ada</span>
+                                        {% endif %}
+                                    </p>
+                                </div>
+                                <div class="modal-footer">
+                                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Tutup</button>
                                 </div>
                             </div>
                         </div>
+                    </div>
 
-                        <!-- Reject Modal -->
-                        <div class="modal fade" id="rejectModal{{ request.id }}" tabindex="-1">
-                            <div class="modal-dialog">
-                                <div class="modal-content">
-                                    <div class="modal-header">
-                                        <h5 class="modal-title">Konfirmasi Penolakan</h5>
-                                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-                                    </div>
-                                    <div class="modal-body">
-                                        <p>Apakah Anda yakin ingin menolak permintaan upgrade akun dari <strong>{{ request.user.username }}</strong>?</p>
-                                    </div>
-                                    <div class="modal-footer">
-                                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Batal</button>
-                                        <form action="{{ url_for('admin.reject_upgrade_request', id=request.id) }}" method="POST">
-                                            <button type="submit" class="btn btn-danger">Tolak</button>
-                                        </form>
-                                    </div>
+                    <!-- Approve Modal -->
+                    <div class="modal fade" id="approveModal{{ request.id }}" tabindex="-1">
+                        <div class="modal-dialog modal-dialog-centered">
+                            <div class="modal-content">
+                                <div class="modal-header">
+                                    <h5 class="modal-title">Konfirmasi Persetujuan</h5>
+                                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                                </div>
+                                <div class="modal-body">
+                                    <p>Apakah Anda yakin ingin menyetujui permintaan upgrade akun dari <strong>{{ request.user.username }}</strong>?</p>
+                                </div>
+                                <div class="modal-footer">
+                                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Batal</button>
+                                    <form action="{{ url_for('admin.approve_upgrade_request', id=request.id) }}" method="POST">
+                                        <button type="submit" class="btn btn-success">Setujui</button>
+                                    </form>
                                 </div>
                             </div>
                         </div>
-                        {% endfor %}
-                    </tbody>
-                </table>
-            </div>
+                    </div>
+
+                    <!-- Reject Modal -->
+                    <div class="modal fade" id="rejectModal{{ request.id }}" tabindex="-1">
+                        <div class="modal-dialog modal-dialog-centered">
+                            <div class="modal-content">
+                                <div class="modal-header">
+                                    <h5 class="modal-title">Konfirmasi Penolakan</h5>
+                                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                                </div>
+                                <div class="modal-body">
+                                    <p>Apakah Anda yakin ingin menolak permintaan upgrade akun dari <strong>{{ request.user.username }}</strong>?</p>
+                                </div>
+                                <div class="modal-footer">
+                                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Batal</button>
+                                    <form action="{{ url_for('admin.reject_upgrade_request', id=request.id) }}" method="POST">
+                                        <button type="submit" class="btn btn-danger">Tolak</button>
+                                    </form>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </tbody>
+            </table>
             {% else %}
             <div class="text-center py-4">
                 <i class="bi bi-inbox h1 text-muted"></i>
@@ -131,5 +218,65 @@
             {% endif %}
         </div>
     </div>
+    <!-- Pagination -->
+    {% if pagination.pages > 1 %}
+    <nav aria-label="Page navigation" class="mt-4">
+        <ul class="pagination justify-content-center">
+            <!-- Previous button -->
+            <li class="page-item {{ 'disabled' if not pagination.has_prev }}">
+                <a
+                    class="page-link"
+                    href="{{ url_for('admin.view_upgrade_requests', page=pagination.prev_num, 
+                   status=current_status, sort=current_sort, search=search) if pagination.has_prev else '#' }}"
+                >
+                    Previous
+                </a>
+            </li>
+
+            <!-- Page numbers -->
+            {% for page_num in pagination.iter_pages(left_edge=2, left_current=2, right_current=3, right_edge=2) %} {% if page_num %}
+            <li class="page-item {{ 'active' if page_num == pagination.page }}">
+                <a
+                    class="page-link"
+                    href="{{ url_for('admin.view_upgrade_requests', page=page_num,
+                           status=current_status, sort=current_sort, search=search) }}"
+                >
+                    {{ page_num }}
+                </a>
+            </li>
+            {% else %}
+            <li class="page-item disabled"><span class="page-link">...</span></li>
+            {% endif %} {% endfor %}
+
+            <!-- Next button -->
+            <li class="page-item {{ 'disabled' if not pagination.has_next }}">
+                <a
+                    class="page-link"
+                    href="{{ url_for('admin.view_upgrade_requests', page=pagination.next_num,
+                   status=current_status, sort=current_sort, search=search) if pagination.has_next else '#' }}"
+                >
+                    Next
+                </a>
+            </li>
+        </ul>
+    </nav>
+    {% endif %}
 </main>
+
+<!-- Modal -->
+<div class="modal fade" id="exampleModal" tabindex="-1" aria-labelledby="exampleModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h1 class="modal-title fs-5" id="exampleModalLabel">Modal title</h1>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">...</div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                <button type="button" class="btn btn-primary">Save changes</button>
+            </div>
+        </div>
+    </div>
+</div>
 {% endblock %}

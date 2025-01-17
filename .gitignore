@@ -2,7 +2,11 @@
 /test.py
 /venv
 /__pycache__
+__pycache__/
 /static
 /migrations
 __pycache__
 /App/__pycache__
+*.pyc
+.pytest_cache/
+instance/

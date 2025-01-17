@@ -1,9 +1,597 @@
-{% extends 'layout/dashboard_base.html' %}
+{% extends 'layout/farmer_base.html' %}
+<!-- Head Script -->
+{% block head_scripts %}
+<script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+<script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+<script async src="https://unpkg.com/prop-types/prop-types.min.js"></script>
+<script async src="https://cdn.jsdelivr.net/npm/apexcharts"></script>
+<link rel="preload" href="https://cdn.jsdelivr.net/npm/color-calendar/dist/css/theme-basic.css" as="style" />
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/color-calendar/dist/css/theme-basic.css" />
+{% endblock %}
 <!-- Title Block -->
-{% block title %} Dashboard Petani {% endblock %}
+{% block title %} Beranda {% endblock %}
+<!-- Page Title Block -->
+{% block page_title %} Overview {% endblock %}
 <!-- Content Block -->
 {% block content %}
-<main class="container">
-    <h1>Dashboard Petani</h1>
-</main>
+<div class="row py-3 py-lg-0">
+    <div class="col-lg-12 d-flex">
+        <div class="d-flex flex-column mb-3">
+            <h2 class="fw-bold text-green">Selamat Datang di Dashboard Petani</h2>
+            <p class="fw-light text-muted">Dashboard satu pintu untuk pemantauan aktivitas Rindang</p>
+        </div>
+    </div>
+    <h5 class="text-body-secondary fw-bold mb-3">Overview</h5>
+    <div class="col-lg-12 mb-3">
+        <div class="row align-items-start">
+            <div class="col-12 col-lg-4">
+                <a href="{{ url_for('public.commodity_price' ) }}" target="_blank" class="nav-link">
+                    <div class="card card-body personal-feature-card border shadow-sm rounded-4 mb-3">
+                        <div class="d-flex gap-3 align-items-center">
+                            <i class="fa fa-tag fa-fw display-4 bg-yellow p-3 rounded-3" loading="lazy"></i>
+                            <div class="d-flex flex-column justify-content-center">
+                                <p class="text-yellow fw-bold">Harga Pangan</p>
+                                <h3 class="cabai-price fw-bold">Loading</h3>
+                                <p class="mb-0 align-middle text-muted small">
+                                    Informasi lebih lanjut
+                                    <i class="ti ti-arrow-right align-middle"></i>
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                </a>
+            </div>
+            <div class="col-12 col-lg-4">
+                <a href="{{ url_for('farmer.manajemen_produksi' ) }}" target="_blank" class="nav-link">
+                    <div class="card card-body personal-feature-card border shadow-sm rounded-4 mb-3">
+                        <div class="d-flex gap-3 align-items-center">
+                            <i class="fa fa-seedling bg-red fa-fw display-4 p-3 rounded-3" loading="lazy"></i>
+                            <div class="d-flex flex-column justify-content-center">
+                                <p class="text-red fw-bold">Jumlah Panen</p>
+                                <h3 class="fw-bold">{{ total_panen }} kg</h3>
+                                <p class="mb-0 text-muted small">
+                                    Informasi lebih lanjut
+                                    <i class="ti ti-arrow-right align-middle"></i>
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                </a>
+            </div>
+            <!-- Card produktivitas yang sudah ada -->
+            <div class="col-12 col-lg-4">
+                <a href="{{ url_for('farmer.manajemen_produksi') }}" class="nav-link">
+                    <div class="card card-body personal-feature-card border shadow-sm rounded-4 mb-3">
+                        <div class="d-flex gap-3 align-items-center">
+                            <i class="fa fa-chart-line bg-green fa-fw display-4 p-3 rounded-3" loading="lazy"></i>
+                            <div class="d-flex flex-column justify-content-center">
+                                <p class="text-green fw-bold">Produktivitas</p>
+                                <div class="productivity-value">
+                                    <h3 class="fw-bold">
+                                        <i class="fa fa-spinner fa-spin"></i>
+                                    </h3>
+                                </div>
+                                <p class="mb-0 text-muted small">
+                                    Dibandingkan panen sebelumnya
+                                    <i class="ti ti-arrow-right align-middle"></i>
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                </a>
+            </div>
+        </div>
+    </div>
+    <h5 class="text-body-secondary mb-3">
+        <strong>Statistik & Informasi Produksi</strong>
+    </h5>
+    <div class="col-lg-12 mb-4">
+        <div class="row align-items-start">
+            <div class="col-12 col-lg-6">
+                <div class="card card-body border shadow-sm rounded-4 mb-3">
+                    <div class="d-flex gap-3 align-items-center">
+                        <i class="fa fa-bell display-4 bg-body-tertiary p-3 rounded-3" loading="lazy"></i>
+                        <div class="d-flex flex-column justify-content-center w-100">
+                            <p class="text-green-accent fw-bold">Pengingat</p>
+                            <div class="row d-flex flex-row">
+                                <div class="col-lg-6 col-sm-12">
+                                    <p class="mb-1">Panen Cabai</p>
+                                    {% if next_harvest_days is not none %}
+                                    <h5 class="fw-bold">{{ next_harvest_days }} hari lagi</h5>
+                                    {% else %}
+                                    <h5 class="fw-bold">Tidak ada estimasi panen</h5>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="card card-body border shadow-sm rounded-4 mb-3 mb-lg-0">
+                    <div class="row">
+                        <div class="col-12 mb-3">
+                            <div id="color-calendar"></div>
+                        </div>
+                        <div class="col-12">
+                            <p class=""><strong>Keterangan</strong></p>
+                            <ul id="events-list"></ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-12 col-lg-6">
+                <div class="card card-body border shadow-sm rounded-4 mb-3" id="current-weather-data"></div>
+                <div class="card card-body border shadow-sm rounded-4 mb-3">
+                    <div id="chart"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+<!-- Script block -->
+{% block scripts %}
+<script src="https://cdn.jsdelivr.net/npm/color-calendar/dist/bundle.js"></script>
+<script>
+    const harvestData = JSON.parse(`{{ harvest_data | safe }}`);
+
+    // Create events from harvestData
+    const myEventsData = harvestData.map((item) => {
+        return {
+            start: item.date.split('T')[0],
+            end: item.date.split('T')[0],
+            name: 'Estimasi Panen',
+        };
+    });
+
+    // Perbaikan fungsi calendar
+    let myCal = new Calendar({
+        id: '#color-calendar',
+        calendarSize: 'small',
+        theme: 'basic',
+        headerColor: '#5faa4e',
+        customWeekdayValues: ['Min', 'Sen', 'Sel', 'Rab', 'Kam', 'Jum', 'Sab'],
+        dateChanged: (currentDate, events) => {
+            const formattedDate = currentDate.toLocaleDateString('id-ID', {
+                weekday: 'long',
+                year: 'numeric',
+                month: 'long',
+                day: 'numeric'
+            });
+
+            const dayEvents = events.map(event => ({
+                ...event,
+                formattedDate: new Date(event.start).toLocaleDateString('id-ID', {
+                    day: 'numeric',
+                    month: 'long'
+                })
+            }));
+
+            updateEventsList(dayEvents);
+        }
+    });
+
+    function updateEventsList(events) {
+        const eventsList = document.getElementById('events-list');
+        eventsList.innerHTML = '';
+
+        if (!events || events.length === 0) {
+            eventsList.innerHTML = '<li class="text-muted">Tidak ada estimasi panen yang akan datang</li>';
+            return;
+        }
+
+        events
+            .sort((a, b) => new Date(a.start) - new Date(b.start))
+            .forEach(event => {
+                const li = document.createElement('li');
+                li.className = 'mb-2';
+                li.innerHTML = `
+                    <div class="d-flex flex-column align-items-start">
+                        <span class="badge bg-success mb-1">Estimasi Panen</span>
+                        <small class="text-muted">${event.kebun} - ${event.komoditas}</small>
+                        <small class="text-muted">${new Date(event.start).toLocaleDateString('id-ID', {
+                    day: 'numeric',
+                    month: 'long',
+                    year: 'numeric'
+                })
+                    }</small>
+                        <small class="text-muted">${event.days_remaining} hari lagi</small>
+                    </div>
+                `;
+                eventsList.appendChild(li);
+            });
+    }
+
+    // Set event data ke kalender
+    myCal.setEventsData(harvestData.map(event => ({
+        start: event.date,
+        end: event.date,
+        name: 'Estimasi Panen'
+    })));
+
+    console.log(myEventsData); // Check if events are correct
+
+    // Display events in a list
+    let eventsList = document.getElementById('events-list');
+    myEventsData.forEach((event) => {
+        let listItem = document.createElement('li');
+        listItem.textContent = `${event.start}`;
+        eventsList.appendChild(listItem);
+    });
+
+    // Untuk card pengingat, buat fungsi rotasi teks
+    function updateReminderText(events) {
+        if (!events || events.length === 0) return;
+
+        const upcomingHarvests = events.filter(event => event.days_remaining > 0)
+            .sort((a, b) => a.days_remaining - b.days_remaining);
+
+        const reminderElement = document.querySelector('.pengingat-panen');
+        if (!reminderElement) return;
+
+        if (upcomingHarvests.length === 0) {
+            reminderElement.innerHTML = `
+                <div class="alert alert-info">
+                    Belum ada estimasi panen yang akan datang
+                </div>
+            `;
+            return;
+        }
+
+        const nextHarvest = upcomingHarvests[0];
+        reminderElement.innerHTML = `
+            <div class="alert alert-success">
+                <strong>Pengingat Panen Berikutnya:</strong><br>
+                ${nextHarvest.days_remaining} hari lagi
+                (${new Date(nextHarvest.start).toLocaleDateString('id-ID', {
+            day: 'numeric',
+            month: 'long',
+            year: 'numeric'
+        })})
+            </div>
+        `;
+    }
+
+    updateReminderText();
+</script>
+
+<!-- WEATHER SCRIPTS -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/axios/1.7.7/axios.min.js"
+    integrity="sha512-DdX/YwF5e41Ok+AI81HI8f5/5UsoxCVT9GKYZRIzpLxb8Twz4ZwPPX+jQMwMhNQ9b5+zDEefc+dcvQoPWGNZ3g=="
+    crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+<script type="module" src="https://unpkg.com/ionicons@7.1.0/dist/ionicons/ionicons.esm.js"></script>
+<script nomodule src="https://unpkg.com/ionicons@7.1.0/dist/ionicons/ionicons.js"></script>
+<script>
+    const apiUrl = 'https://api.bmkg.go.id/publik/prakiraan-cuaca?adm2=82.71';
+
+    function formatDateTime(dateTimeStr) {
+        const date = new Date(dateTimeStr);
+        return date.toLocaleTimeString('en-US', { hour: 'numeric', hour12: true });
+    }
+
+    function updateWeatherData(data) {
+        const currentWeather = data.data[0].cuaca[1][0];
+        console.log(data);
+        const html = `
+        <div class="d-flex gap-3 align-items-center">
+            <img src="${currentWeather.image}" alt="${currentWeather.weather_desc}" style="min-width: 96px; min-height: 96px;">
+            <div class="d-flex flex-column justify-content-center">
+                <p class="fw-bold text-green-accent">
+                    Cuaca Hari Ini
+                </p>
+                <h3>
+                    <strong>${currentWeather.t}°C (${currentWeather.weather_desc})</strong>
+                </h3>
+                <a target='_blank' href='{{ url_for('public.weather' ) }}' class="nav-link small hover-fade">
+                    Informasi lebih lanjut &#8594;
+                    <i class="ti ti-arrow-right align-middle"></i>
+                </a>
+            </div>
+        </div>
+        `;
+        document.getElementById('current-weather-data').innerHTML = html;
+    }
+
+    const CACHE_TIME = 1800000; // 30 menit dalam milliseconds
+
+    async function fetchWeatherData() {
+        try {
+            // Check cache first
+            const cachedData = localStorage.getItem('weatherData');
+            const cachedTime = localStorage.getItem('weatherDataTime');
+
+            if (cachedData && cachedTime) {
+                const now = new Date().getTime();
+                if (now - parseInt(cachedTime) < CACHE_TIME) {
+                    updateWeatherData(JSON.parse(cachedData));
+                    return;
+                }
+            }
+
+            const response = await axios.get(apiUrl);
+            // Save to cache
+            localStorage.setItem('weatherData', JSON.stringify(response.data));
+            localStorage.setItem('weatherDataTime', new Date().getTime().toString());
+
+            updateWeatherData(response.data);
+        } catch (error) {
+            console.error('Error fetching weather data:', error);
+        }
+    }
+
+    fetchWeatherData();
+</script>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        // Tambahkan debounce untuk menghindari multiple calls
+        const fetchPriceData = debounce(() => {
+            fetch('/api/get-price-data')
+                .then((response) => {
+                    if (!response.ok) throw new Error('Network response was not ok');
+                    return response.json();
+                })
+                .then((data) => {
+                    const priceElement = document.querySelector('.cabai-price');
+                    const filteredData = data.filter((item) => item.name === 'Cabai Rawit Merah');
+                    if (filteredData.length > 0) {
+                        priceElement.textContent = filteredData[filteredData.length - 1].price + '/kg';
+                    }
+                })
+        }, 500);
+
+        fetchPriceData();
+    });
+
+    // Debounce helper function
+    function debounce(func, wait) {
+        let timeout;
+        return function executedFunction(...args) {
+            const later = () => {
+                clearTimeout(timeout);
+                func(...args);
+            };
+            clearTimeout(timeout);
+            timeout = setTimeout(later, wait);
+        };
+    }
+</script>
+<script>
+    // Ganti opsi chart yang ada dengan konfigurasi yang lebih sesuai
+    // Chart configuration
+    const chartOptions = {
+        chart: {
+            type: 'line',
+            height: 350,
+            toolbar: {
+                show: true,
+                tools: {
+                    download: true,
+                    selection: true,
+                    zoom: true,
+                    zoomin: true,
+                    zoomout: true,
+                    pan: true,
+                    reset: true
+                }
+            }
+        },
+        series: [{
+            name: 'Produktivitas Cabai Rawit',
+            data: []
+        }],
+        title: {
+            text: 'Tren Produktivitas Panen Cabai Rawit',
+            align: 'left'
+        },
+        xaxis: {
+            type: 'datetime',
+            labels: {
+                formatter: function (value) {
+                    return new Date(value).toLocaleDateString('id-ID', {
+                        day: '2-digit',
+                        month: 'short'
+                    });
+                }
+            },
+            title: {
+                text: 'Tanggal Panen'
+            }
+        },
+        yaxis: {
+            title: {
+                text: 'Perubahan Produktivitas (%)'
+            },
+            labels: {
+                formatter: function (value) {
+                    return value.toFixed(1) + '%';
+                }
+            }
+        },
+        tooltip: {
+            enabled: true,
+            shared: true,
+            followCursor: true,
+            intersect: false,
+            theme: document.body.getAttribute('data-bs-theme') === 'dark' ? 'dark' : 'light',
+            style: {
+                fontSize: '14px',
+                fontFamily: 'Plus Jakarta Sans, sans-serif'
+            },
+            x: {
+                format: 'dd MMM yyyy'
+            },
+            y: {
+                formatter: (value) => `${value.toFixed(1)}% perubahan`,
+                title: {
+                    formatter: (seriesName) => seriesName
+                }
+            },
+            marker: {
+                show: true
+            },
+            fixed: {
+                enabled: false
+            }
+        }
+    };
+
+    const chart = new ApexCharts(document.querySelector('#chart'), chartOptions);
+    chart.render();
+
+    document.addEventListener('themeChanged', function () {
+        const currentTheme = document.body.getAttribute('data-bs-theme');
+        chart.updateOptions({
+            tooltip: {
+                theme: currentTheme === 'dark' ? 'dark' : 'light',
+            },
+        });
+    });
+
+    // Add this at the beginning of your DOMContentLoaded event listener
+    document.addEventListener('DOMContentLoaded', function () {
+        // Fetch productivity data
+        fetch('/api/productivity/cabai-rawit')
+            .then(response => response.json())
+            .then(data => {
+                updateProductivityCard(data);
+            })
+            .catch(error => console.error('Error:', error));
+
+        // Load productivity chart
+        loadProductivityChart();
+    });
+
+    // Fungsi untuk memuat dan menghitung data produktivitas
+    function loadProductivityData() {
+        fetch('/api/produksi')
+            .then(response => response.json())
+            .then(data => {
+                // Urutkan data berdasarkan tanggal panen
+                data.sort((a, b) => new Date(a.tanggal_panen) - new Date(b.tanggal_panen));
+
+                // Hitung produktivitas
+                const productivityData = data.map((item, index, arr) => {
+                    // Untuk data pertama, set perubahan 0%
+                    if (index === 0) {
+                        return [new Date(item.tanggal_panen).getTime(), 0];
+                    }
+
+                    const currentPanen = item.hasil_panen;
+                    const prevPanen = arr[index - 1].hasil_panen;
+
+                    // Rumus: ((hasil_panen_sekarang - hasil_panen_sebelumnya) / hasil_panen_sebelumnya) * 100
+                    const productivity = prevPanen > 0 ?
+                        ((currentPanen - prevPanen) / prevPanen * 100) : 0;
+
+                    return [
+                        new Date(item.tanggal_panen).getTime(),
+                        parseFloat(productivity.toFixed(1))
+                    ];
+                });
+
+                // Update chart
+                chartOptions.series[0].data = productivityData;
+                chart.updateOptions(chartOptions);
+            })
+            .catch(error => console.error('Error:', error));
+    }
+
+    // Panggil fungsi saat halaman dimuat
+    // Calendar functionality
+    document.addEventListener('DOMContentLoaded', function () {
+        fetch('/api/calendar-data')
+            .then(response => {
+                if (!response.ok) throw new Error('Network response was not ok');
+                return response.json();
+            })
+            .then(harvestData => {
+                initializeCalendar(harvestData);
+            })
+            .catch(error => {
+                console.error('Error fetching calendar data:', error);
+                initializeCalendar([]);
+            });
+    });
+
+    function initializeCalendar(harvestData) {
+        let myCal = new Calendar({
+            id: '#color-calendar',
+            calendarSize: 'small',
+            theme: 'basic',
+            headerColor: '#5faa4e',
+            customWeekdayValues: ['Min', 'Sen', 'Sel', 'Rab', 'Kam', 'Jum', 'Sab'],
+            dateChanged: (currentDate, events) => {
+                const dayEvents = events.map(event => ({
+                    ...event,
+                    formattedDate: new Date(event.start).toLocaleDateString('id-ID', {
+                        day: 'numeric',
+                        month: 'long'
+                    })
+                }));
+                updateEventsList(dayEvents);
+            }
+        });
+
+        // Ensure harvestData is array and has content
+        const calendarEvents = Array.isArray(harvestData) ? harvestData.map(item => ({
+            start: item.date.split('T')[0],
+            end: item.date.split('T')[0],
+            name: 'Estimasi Panen',
+            kebun: item.kebun,
+            komoditas: item.komoditas,
+            days_remaining: item.days_remaining
+        })) : [];
+
+        myCal.setEventsData(calendarEvents);
+        updateEventsList(calendarEvents);
+        updateReminderText(calendarEvents);
+
+        return myCal;
+    }
+
+    function updateProductivityCard(data) {
+        const productivityElement = document.querySelector('.productivity-value');
+        if (productivityElement) {
+            const value = data.productivity;
+            const trend = data.trend;
+
+            let trendIcon = '';
+            let trendClass = '';
+
+            if (trend === 'up') {
+                trendIcon = '<i class="fa fa-arrow-trend-up text-success"></i>';
+                trendClass = 'text-success';
+            } else if (trend === 'down') {
+                trendIcon = '<i class="fa fa-arrow-trend-down text-danger"></i>';
+                trendClass = 'text-danger';
+            } else {
+                trendIcon = '<i class="fa fa-minus text-muted"></i>';
+                trendClass = 'text-muted';
+            }
+
+            productivityElement.innerHTML = `
+                <h3 class="fw-bold ${trendClass}">
+                    ${value > 0 ? '+' : ''}${value}% ${trendIcon}
+                </h3>
+            `;
+        }
+    }
+
+    function loadProductivityChart() {
+        fetch('/api/daily-productivity/cabai-rawit')
+            .then(response => response.json())
+            .then(data => {
+                const chartData = data.map(item => ({
+                    x: new Date(item.date).getTime(),
+                    y: item.value
+                }));
+
+                chart.updateSeries([{
+                    name: 'Produktivitas Cabai Rawit',
+                    data: chartData
+                }]);
+            })
+            .catch(error => console.error('Error loading productivity chart:', error));
+    }
+</script>
 {% endblock %}

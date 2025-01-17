@@ -1,61 +1,91 @@
 {% extends 'layout/admin_base.html' %}
 <!-- Head Block -->
-{% block title %} Dashboard Admin - Manajemen Pengguna {% endblock %}
+{% block title %}Dashboard Admin - Pengguna{% endblock %}
 <!-- Content Block -->
 {% block content %}
 <main class="container">
     <h3 class="mb-3 fw-bold">Manajemen Pengguna</h3>
-    <table class="table table-striped">
-        <thead>
-            <tr>
-                <th>ID</th>
-                <th>Username</th>
-                <th>Email</th>
-                <th>Role</th>
-                <th>Aksi</th>
-            </tr>
-        </thead>
-        <tbody>
-            {% for item in users %}
-            <tr class="align-middle">
-                <td>{{ loop.index }}</td>
-                <td>{{ item.username }}</td>
-                <td>{{ item.email }}</td>
-                <td>
-                    <div class="d-flex gap-1">
-                        {% for role in item.roles %}
-                        <span class="badge bg-outline-green rounded-pill text-capitalize">{{ role.name }}</span>
+    <a href="{{ url_for('admin.add_user') }}" class="btn btn-green text-white btn-sm rounded-pill mb-3"><i
+            class="bi bi-plus-lg"></i> Tambah User Baru</a>
+    <div class="card">
+        <div class="card-header justify-content-between align-items-center d-flex">
+            <h6 class="card-title mb-0">Daftar Pengguna Saat Ini</h6>
+        </div>
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-striped">
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Username</th>
+                            <th>Email</th>
+                            <th>Role</th>
+                            <th>Aksi</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for item in users %}
+                        <tr class="align-middle">
+                            <td>{{ loop.index }}</td>
+                            <td>{{ item.username }}</td>
+                            <td>{{ item.email }}</td>
+                            <td>
+                                <div class="d-flex gap-1">
+                                    {% for role in item.roles %}
+                                    <span class="badge bg-outline-green rounded-pill text-capitalize">{{ role.name
+                                        }}</span>
+                                    {% endfor %}
+                                </div>
+                            </td>
+                            <td>
+                                <!-- Button trigger modal -->
+                                <div class="dropdown">
+                                    <button class="btn btn-light position-relative" type="button"
+                                        data-bs-toggle="dropdown" aria-expanded="false">
+                                        {% for requests in user_req %} {% if requests.status == 'pending' and
+                                        requests.user_id ==
+                                        item.id %}
+                                        <span
+                                            class="position-absolute top-0 start-100 translate-middle p-2 bg-danger border border-light rounded-circle">
+                                            <span class="visually-hidden">New alerts</span>
+                                        </span>
+                                        {% endif %} {% endfor %}
+                                        <i class="bi bi-three-dots-vertical"></i>
+                                    </button>
+                                    <ul class="dropdown-menu">
+                                        <li>
+                                            <a class="dropdown-item position-relative"
+                                                href="{{ url_for('admin.view_upgrade_requests' ) }}">
+                                                Upgrade Requests {% for requests in user_req %} {% if requests.status ==
+                                                'pending'
+                                                and requests.user_id == item.id %}
+                                                <span
+                                                    class="position-absolute top-0 start-100 translate-middle p-2 bg-danger border border-light rounded-circle">
+                                                    <span class="visually-hidden">New alerts</span>
+                                                </span>
+                                                {% endif %} {% endfor %}
+                                            </a>
+                                        </li>
+                                        <hr />
+                                        <li><a class="dropdown-item" href="#">Edit</a></li>
+                                        <li><a class="dropdown-item" href="#">Hapus</a></li>
+                                    </ul>
+                                </div>
+                            </td>
+                        </tr>
                         {% endfor %}
-                    </div>
-                </td>
-                <td>
-                    <!-- Button trigger modal -->
-                    <div class="dropdown">
-                        <button class="btn btn-light position-relative" type="button" data-bs-toggle="dropdown" aria-expanded="false">
-                            {% for requests in user_req %} {% if requests.status == 'pending' %}
-                            <span class="position-absolute top-0 start-100 translate-middle p-2 bg-danger border border-light rounded-circle">
-                                <span class="visually-hidden">New alerts</span>
-                            </span>
-                            {% endif %} {% endfor %}
-                            <i class="bi bi-three-dots-vertical"></i>
-                        </button>
-                        <ul class="dropdown-menu">
-                            <li><a class="dropdown-item" href="{{ url_for('admin.view_upgrade_requests' ) }}">Upgrade Requests</a></li>
-                            <hr />
-                            <li><a class="dropdown-item" href="#">Edit</a></li>
-                            <li><a class="dropdown-item" href="#">Hapus</a></li>
-                        </ul>
-                    </div>
-                </td>
-            </tr>
-            {% endfor %}
-        </tbody>
-    </table>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
 </main>
 
 <!-- Modal -->
 {% for item in users %}
-<div class="modal fade" id="detailsModal{{ item.id }}" tabindex="-1" aria-labelledby="detailsModal{{ item.id }}Label" aria-hidden="true">
+<div class="modal fade" id="detailsModal{{ item.id }}" tabindex="-1" aria-labelledby="detailsModal{{ item.id }}Label"
+    aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content">
             <div class="modal-header">
