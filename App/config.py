@@ -83,3 +83,21 @@ class Config:
 
     # Admin Email untuk Notifikasi Upgrade
     ADMIN_EMAIL = os.environ.get('ADMIN_EMAIL', 'admin@rindang.net')
+
+class ProductionConfig(Config):
+    DEBUG = False
+    TESTING = False
+    TEMPLATES_AUTO_RELOAD = False
+    BASE_URL = 'https://rindang.net'  # Sesuaikan
+
+class DevelopmentConfig(Config):
+    DEBUG = True
+    TEMPLATES_AUTO_RELOAD = True
+    BASE_URL = 'http://localhost:8082'
+
+# Dictionary untuk memilih konfigurasi
+config = {
+    'development': DevelopmentConfig,
+    'production': ProductionConfig,
+    'default': DevelopmentConfig
+}

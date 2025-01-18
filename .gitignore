@@ -14,5 +14,7 @@ instance/
 .vscode
 /.vscode
 .flaskenv
+/logs
+logs
 app.log
 *.log
