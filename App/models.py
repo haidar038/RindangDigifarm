@@ -22,30 +22,9 @@ class UserRole(str, Enum):
     AHLI = 'ahli'
     PETANI = 'petani'
 
-class QueryWithSoftDelete(orm.Query):
-    def get(self, *args, **kwargs):
-        # Include condition to filter soft-deleted records
-        return super().filter_by(is_deleted=False).get(*args, **kwargs)
-
-    def __iter__(self):
-        # Include condition to filter soft-deleted records in iteration
-        return super().filter_by(is_deleted=False).__iter__()
-
-    def with_deleted(self):
-        # Return unfiltered query
-        return self
-
-    def without_deleted(self):
-        # Return filtered query
-        return self.filter_by(is_deleted=False)
-
-    def _get(self, *args, **kwargs):
-        # Include default filter in base query
-        return super().filter_by(is_deleted=False)._get(*args, **kwargs)
-
-    def update(self, values):
-        # Preserve normal update behavior
-        return super().update(values)
+class BaseQueryWithSoftDelete(orm.Query):
+    def get(self, ident):
+        return super().filter(User.is_deleted == False).get(ident)
 
 class User(db.Model, UserMixin):
     __tablename__ = 'users'
@@ -89,7 +68,7 @@ class User(db.Model, UserMixin):
                             lazy='joined')
                             
     # Query Class
-    query_class = QueryWithSoftDelete
+    query_class = BaseQueryWithSoftDelete
 
     def __init__(self, **kwargs):
         super(User, self).__init__(**kwargs)
