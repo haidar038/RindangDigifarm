@@ -249,10 +249,12 @@
                     {% endif %}
                 </div>
                 <div class="card-body px-0">
+                    {% if featured_articles %}
                     <h3 class="fw-bold">{{ featured_articles.judul }}</h3>
                     <p>{{ shorten(featured_articles.content, width=120) | safe }}</p>
                     <a href="{{ url_for('public.read_article', id=featured_articles.id ) }}"
                         class="link-color-primary fw-bold">Baca selengkapnya &rarr;</a>
+                    {% endif %}
                 </div>
             </div>
         </div>
