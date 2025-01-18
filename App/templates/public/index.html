@@ -234,6 +234,7 @@
     <div class="row">
         <h5 class="fw-bold text-yellow mb-3 text-center">Artikel</h5>
         <p class="fw-bold text-center h1 mb-4">Jelajahi Tren Terbaru <br> Tentang Pertanian </p>
+        {% if articles %}
         {% if featured_articles %}
         <div class="col-12 col-lg-7 mb-4">
             <div class="card border-0 h-100">
@@ -271,10 +272,11 @@
             <hr class="my-3">
             {% endif %}
             {% endfor %}
-            {% else %}
-            <p>No articles available</p>
             {% endif %}
         </div>
+        {% else %}
+        <p class="text-center"><em>Belum ada artikel yang tersedia</em></p>
+        {% endif %}
     </div>
 </section>
 
