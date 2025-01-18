@@ -79,11 +79,11 @@ def create_app(config_class=Config):
     from App.routes.expert_routes import expert
     from App.routes.personal_routes import personal
     from App.routes.public_routes import public
-    app.register_blueprint(auth)
-    app.register_blueprint(admin)
-    app.register_blueprint(farmer)
-    app.register_blueprint(expert)
-    app.register_blueprint(personal)
+    app.register_blueprint(auth, url_prefix='/auth/login')
+    app.register_blueprint(admin, url_prefix='/admin')
+    app.register_blueprint(farmer, url_prefix='/petani')
+    app.register_blueprint(expert, url_prefix='/ahli')
+    app.register_blueprint(personal, url_prefix='/personal')
     app.register_blueprint(public, url_prefix='/')
     
     if not os.path.exists('logs'):
