@@ -20,15 +20,12 @@ from logging.handlers import RotatingFileHandler
 
 from App.config import Config
 
-app = Flask(__name__)
-
 socketio = SocketIO(cors_allowed_origins="*")
 db = SQLAlchemy()
 login_manager = LoginManager()
 toastr = Toastr()
 admin = Admin(name='admin')
 buffer = io.BytesIO()
-migrate = Migrate(app, db)
 ext = Sitemap()
 mail = Mail()
 ckeditor = CKEditor()
@@ -57,6 +54,8 @@ def seed_roles():
             db.session.add(role)
 
 def create_app(config_class=Config):
+    app = Flask(__name__)
+    migrate = Migrate(app, db)
     app.config.from_object(config_class)
     db.init_app(app)
     socketio.init_app(app)
