@@ -75,6 +75,12 @@ def fetch_red_chili_data(target_date):
         flash(f"Error fetching data: {e}", category='error')
         return {"error": "Error fetching data"}
 
+# In public_routes.py or __init__.py
+@public.template_filter('safe_filename')
+def safe_filename(s):
+    from urllib.parse import quote
+    return quote(s)
+
 @public.route('/')
 def index():
     kebun = Kebun.query.all()

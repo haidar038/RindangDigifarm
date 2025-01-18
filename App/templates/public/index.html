@@ -507,24 +507,24 @@
                         <div class="col-4 ps-5 pt-5">
                             <div class="ratio ratio-1x1">
                                 <img class="object-fit-cover rounded-top-5"
-                                    src="{{ url_for('static', filename='img/bibit.jpg' ) }}" alt="">
+                                    src="{{ url_for('static', filename='img/bibit.jpg') }}" alt="">
                             </div>
                         </div>
                     </div>
                 </div>
                 <div class="card bg-red border-0 rounded-4 d-lg-none d-block">
                     <div class="ratio ratio-16x9">
-                        <img src="{{ url_for('static', filename='img/bibit.jpg' ) }}"
+                        <img src="{{ url_for('static', filename='img/bibit.jpg') }}"
                             class="card-img-top object-fit-cover rounded-top-" alt="...">
                     </div>
                     <div class="card-body">
                         <div class="h5 card-title text-light text-center mb-5">Gabung Bersama Kami Untuk Memulai
                             Pertanian Berkelanjutan</div>
                         <div class="d-flex flex-column gap-2">
-                            <a role="button" target="_blank" href="{{ url_for('auth.register' ) }}"
+                            <a role="button" target="_blank" href="{{ url_for('auth.register') }}"
                                 class="btn btn-light">Gabung Sekarang</a>
                             <a role="button"
-                                href="{{ url_for('static', filename='pdf/BOOKLET_RINDANG_ESSENTIALS_PRINT.pdf' ) }}"
+                                href="{{ url_for('static', filename='pdf/BOOKLET_RINDANG_ESSENTIALS_PRINT.pdf') }}"
                                 onclick="downloadNotif()" download="BOOKLET_RINDANG_ESSENTIALS_PRINT.pdf"
                                 class="btn btn-outline-light">Pelajari Lebih Lanjut</a>
                         </div>
@@ -546,7 +546,7 @@
                 ] %}
                 {% for logo in partners %}
                 <div class="col text-center">
-                    <img src="{{ url_for('static', filename='logo/' + logo) }}" class="img-fluid"
+                    <img src="{{ url_for('static', filename='logo/' + logo|safe_filename) }}" class="img-fluid"
                         style="max-height: 40px;" alt="">
                 </div>
                 {% endfor %}
