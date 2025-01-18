@@ -1,6 +1,6 @@
 import requests, google.generativeai as genai, os, markdown2
 
-from flask import Blueprint, render_template, url_for, redirect, request, jsonify, flash, json
+from flask import Blueprint, render_template, url_for, redirect, request, jsonify, flash, json, current_app
 from textwrap import shorten
 from babel.numbers import format_currency
 from datetime import datetime, timedelta
@@ -90,11 +90,10 @@ def index():
     total_prod = sum(prod.jml_panen for prod in produksi if prod.jml_panen is not None)
 
     # Maps
-    data_kebun = Kebun.query.join(User).all() or None
+    data_kebun = Kebun.query.join(User).all() or []
     koordinat = []
     
     for kebun_item in data_kebun:
-        # Periksa apakah kebun memiliki users yang terkait
         if not kebun_item.users:
             continue
             
@@ -116,11 +115,18 @@ def index():
                 }
             })
         except (IndexError, AttributeError) as e:
-            # Log error jika diperlukan
-            print(f"Error processing kebun {kebun_item.id}: {str(e)}")
+            current_app.logger.error(f"Error processing kebun {kebun_item.id}: {str(e)}")
             continue
 
-    return render_template('public/index.html', page='home', koordinat=json.dumps(koordinat), kebun=kebun, total_prod=total_prod, articles=articles, featured_articles=featured_articles, shorten=shorten, table_data=table_data)
+    return render_template('public/index.html',
+                            page='home', 
+                            koordinat=json.dumps(koordinat), 
+                            kebun=kebun,
+                            total_prod=total_prod,
+                            articles=articles,
+                            featured_articles=featured_articles,
+                            shorten=shorten,
+                            table_data=table_data)
 
 @public.route('/prakiraan-cuaca')
 def weather():
