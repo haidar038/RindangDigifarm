@@ -21,27 +21,14 @@ class UserRole(str, Enum):
     AHLI = 'ahli'
     PETANI = 'petani'
 
-class TimestampMixin:
-    created_at = db.Column(db.DateTime, default=datetime.now())
-    updated_at = db.Column(db.DateTime, default=datetime.now(), onupdate=datetime.now())
-
-class SoftDeleteMixin:
-    is_deleted = db.Column(db.Boolean, default=False)
-    deleted_at = db.Column(db.DateTime, nullable=True)
-
-    def soft_delete(self):
-        self.is_deleted = True
-        self.deleted_at = datetime.now()
-
-class User(db.Model, UserMixin, SoftDeleteMixin):
+class User(db.Model, UserMixin):
     __tablename__ = 'users'
     id = db.Column(db.Integer, primary_key=True)
     username = db.Column(db.String(255), nullable=False, unique=True)
     email = db.Column(db.String(255), nullable=False, unique=True, index=True)
     password = db.Column(db.String(255), nullable=False)
-    is_confirmed = db.Column(db.Boolean, nullable=False, default=False)
-    is_deleted = db.Column(db.Boolean, default=False, index=True)  # Add is_deleted attribute
     created_at = db.Column(db.DateTime, nullable=False, default=datetime.now())
+    is_confirmed = db.Column(db.Boolean, nullable=False, default=False)
     deleted_at = db.Column(db.DateTime, nullable=True)
     otp = db.Column(db.String(6))
     otp_created_at = db.Column(db.DateTime)
@@ -94,16 +81,6 @@ class User(db.Model, UserMixin, SoftDeleteMixin):
         except Exception as e:
             current_app.logger.error(f"Error verifying reset token: {str(e)}")
             return None
-        
-    def soft_delete(self):
-        """Soft delete the user and all related data"""
-        self.is_deleted = True 
-        self.deleted_at = datetime.now()
-        # Soft delete related data
-        for kebun in self.kebun:
-            kebun.is_deleted = True
-            kebun.deleted_at = datetime.now()
-        db.session.commit()
 
     def set_otp(self):
         """Generate and set new OTP"""
@@ -370,3 +347,15 @@ class UpgradeRequest(db.Model):
 
     def __repr__(self):
         return f"UpgradeRequest(User: {self.user.username}, Role: {self.requested_role}, Status: {self.status})"
+
+class TimestampMixin:
+    created_at = db.Column(db.DateTime, default=datetime.now())
+    updated_at = db.Column(db.DateTime, default=datetime.now(), onupdate=datetime.now())
+
+class SoftDeleteMixin:
+    is_deleted = db.Column(db.Boolean, default=False)
+    deleted_at = db.Column(db.DateTime, nullable=True)
+
+    def soft_delete(self):
+        self.is_deleted = True
+        self.deleted_at = datetime.now()
