@@ -141,7 +141,8 @@ def add_user():
             
     return render_template('admin/User/add_user.html', users=users, roles=roles)
 
-@admin.route('/admin/users-management/edit/<int:user_id>', methods=['GET', 'POST'])
+# In admin_routes.py
+@admin.route('/admin/users-management/<int:user_id>/edit', methods=['GET', 'POST'])
 @login_required
 @roles_required('admin')
 def edit_user(user_id):
@@ -153,8 +154,7 @@ def edit_user(user_id):
         try:
             user.username = request.form['username']
             user.email = request.form['email']
-
-            # Update roles
+            
             selected_roles = request.form.getlist('roles')
             user.roles.clear()
             for role_name in selected_roles:
