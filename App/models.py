@@ -23,31 +23,29 @@ class UserRole(str, Enum):
     PETANI = 'petani'
 
 class QueryWithSoftDelete(orm.Query):
-    """Custom query class that automatically filters out soft-deleted records"""
-    
-    def __new__(cls, *args, **kwargs):
-        obj = super(QueryWithSoftDelete, cls).__new__(cls)
-        with_deleted = kwargs.pop('_with_deleted', False)
-        if len(args) > 0:
-            super(QueryWithSoftDelete, obj).__init__(*args, **kwargs)
-            return obj.filter(args[0].is_deleted == False) if not with_deleted else obj
-        return obj
+    def get(self, *args, **kwargs):
+        # Include condition to filter soft-deleted records
+        return super().filter_by(is_deleted=False).get(*args, **kwargs)
 
-    def __init__(self, *args, **kwargs):
-        with_deleted = kwargs.pop('_with_deleted', False)
-        super(QueryWithSoftDelete, self).__init__(*args, **kwargs)
-        if not with_deleted and len(args) > 0:
-            self._criterion = self._criterion & (args[0].is_deleted == False) if self._criterion is not None \
-                else (args[0].is_deleted == False)
+    def __iter__(self):
+        # Include condition to filter soft-deleted records in iteration
+        return super().filter_by(is_deleted=False).__iter__()
 
     def with_deleted(self):
-        """Include soft-deleted records in the query"""
-        return self.__class__(self._only_full_mapper_zero('get'),
-                            session=db.session(), _with_deleted=True)
+        # Return unfiltered query
+        return self
 
-    def only_deleted(self):
-        """Only include soft-deleted records in the query"""
-        return self.filter(self._only_full_mapper_zero('get').is_deleted == True)
+    def without_deleted(self):
+        # Return filtered query
+        return self.filter_by(is_deleted=False)
+
+    def _get(self, *args, **kwargs):
+        # Include default filter in base query
+        return super().filter_by(is_deleted=False)._get(*args, **kwargs)
+
+    def update(self, values):
+        # Preserve normal update behavior
+        return super().update(values)
 
 class User(db.Model, UserMixin):
     __tablename__ = 'users'
