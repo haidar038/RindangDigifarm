@@ -1,0 +1,100 @@
+📦RindangDigifarm
+ ┣ 📂App
+ ┃ ┣ 📂forms
+ ┃ ┃ ┗ 📜auth_forms.py
+ ┃ ┣ 📂models
+ ┃ ┣ 📂routes
+ ┃ ┃ ┣ 📜admin_routes.py
+ ┃ ┃ ┣ 📜auth_routes.py
+ ┃ ┃ ┣ 📜expert_routes.py
+ ┃ ┃ ┣ 📜farmer_routes.py
+ ┃ ┃ ┣ 📜personal_routes.py
+ ┃ ┃ ┗ 📜public_routes.py
+ ┃ ┣ 📂static
+ ┃ ┃ ┣ 📂css
+ ┃ ┃ ┃ ┗ 📜style.css
+ ┃ ┃ ┣ 📂favicon
+ ┃ ┃ ┣ 📂img
+ ┃ ┃ ┃ ┣ 📂services
+ ┃ ┃ ┣ 📂js
+ ┃ ┃ ┃ ┗ 📜weather.js
+ ┃ ┃ ┣ 📂logo
+ ┃ ┃ ┃ ┣ 📂features
+ ┃ ┃ ┣ 📂pdf
+ ┃ ┃ ┃ ┗ 📜BOOKLET_RINDANG_ESSENTIALS_PRINT.pdf
+ ┃ ┃ ┣ 📂sass
+ ┃ ┃ ┃ ┗ 📜custom.scss
+ ┃ ┃ ┗ 📂uploads
+ ┃ ┃ ┃ ┣ 📂foto_kebun
+ ┃ ┃ ┃ ┣ 📂upgrade_attachments
+ ┃ ┣ 📂templates
+ ┃ ┃ ┣ 📂admin
+ ┃ ┃ ┃ ┣ 📂User
+ ┃ ┃ ┃ ┃ ┣ 📜add_user.html
+ ┃ ┃ ┃ ┃ ┗ 📜edit_user.html
+ ┃ ┃ ┃ ┣ 📜articles_management.html
+ ┃ ┃ ┃ ┣ 📜create_articles.html
+ ┃ ┃ ┃ ┣ 📜create_role.html
+ ┃ ┃ ┃ ┣ 📜edit_role.html
+ ┃ ┃ ┃ ┣ 📜index.html
+ ┃ ┃ ┃ ┣ 📜manage_commodity.html
+ ┃ ┃ ┃ ┣ 📜manage_roles.html
+ ┃ ┃ ┃ ┣ 📜productions_management.html
+ ┃ ┃ ┃ ┣ 📜upgrade_requests.html
+ ┃ ┃ ┃ ┣ 📜users_management.html
+ ┃ ┃ ┃ ┗ 📜user_production_detail.html
+ ┃ ┃ ┣ 📂auth
+ ┃ ┃ ┃ ┣ 📜activate_email.html
+ ┃ ┃ ┃ ┣ 📜forgot_password.html
+ ┃ ┃ ┃ ┣ 📜login.html
+ ┃ ┃ ┃ ┣ 📜otp_email.html
+ ┃ ┃ ┃ ┣ 📜register.html
+ ┃ ┃ ┃ ┣ 📜reset_password.html
+ ┃ ┃ ┃ ┣ 📜verify_otp.html
+ ┃ ┃ ┃ ┣ 📜_login.html
+ ┃ ┃ ┃ ┗ 📜_register.html
+ ┃ ┃ ┣ 📂expert
+ ┃ ┃ ┃ ┣ 📂partials
+ ┃ ┃ ┃ ┣ 📜index.html
+ ┃ ┃ ┃ ┗ 📜manajemen_forum.html
+ ┃ ┃ ┣ 📂farmer
+ ┃ ┃ ┃ ┣ 📂modals
+ ┃ ┃ ┃ ┣ 📜index.html
+ ┃ ┃ ┃ ┣ 📜informasi_kebun.html
+ ┃ ┃ ┃ ┣ 📜input_produksi.html
+ ┃ ┃ ┃ ┗ 📜manajemen_produksi.html
+ ┃ ┃ ┣ 📂layout
+ ┃ ┃ ┃ ┣ 📜admin_base.html
+ ┃ ┃ ┃ ┣ 📜auth_base.html
+ ┃ ┃ ┃ ┣ 📜expert_base.html
+ ┃ ┃ ┃ ┣ 📜farmer_base.html
+ ┃ ┃ ┃ ┗ 📜public_base.html
+ ┃ ┃ ┣ 📂personal
+ ┃ ┃ ┃ ┣ 📜article_preview.html
+ ┃ ┃ ┃ ┣ 📜base.html
+ ┃ ┃ ┃ ┣ 📜index.html
+ ┃ ┃ ┃ ┣ 📜profile.html
+ ┃ ┃ ┃ ┣ 📜question_details.html
+ ┃ ┃ ┃ ┣ 📜rindang_ask.html
+ ┃ ┃ ┃ ┣ 📜settings.html
+ ┃ ┃ ┃ ┣ 📜update_article.html
+ ┃ ┃ ┃ ┗ 📜write_article.html
+ ┃ ┃ ┗ 📂public
+ ┃ ┃ ┃ ┣ 📜article.html
+ ┃ ┃ ┃ ┣ 📜harga_komoditas.html
+ ┃ ┃ ┃ ┣ 📜index.html
+ ┃ ┃ ┃ ┣ 📜maintenance.html
+ ┃ ┃ ┃ ┣ 📜maps.html
+ ┃ ┃ ┃ ┣ 📜rindang_ai.html
+ ┃ ┃ ┃ ┣ 📜rindang_pedia.html
+ ┃ ┃ ┃ ┗ 📜weather.html
+ ┃ ┣ 📜config.py
+ ┃ ┣ 📜models.py
+ ┃ ┣ 📜utils.py
+ ┃ ┗ 📜__init__.py
+ ┣ 📂migrations
+ ┣ 📜.env
+ ┣ 📜.flaskenv
+ ┣ 📜.gitignore
+ ┣ 📜app.py
+ ┗ 📜requirements.txt
