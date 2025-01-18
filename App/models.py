@@ -35,22 +35,20 @@ class User(db.Model, UserMixin):
     email = db.Column(db.String(255), nullable=False, unique=True, index=True)
     password = db.Column(db.String(255), nullable=False)
     
-    # Status fields
+    # Status and timestamps
     is_confirmed = db.Column(db.Boolean, nullable=False, default=False)
-    is_deleted = db.Column(db.Boolean, nullable=False, default=False, index=True)
-    
-    # Timestamps
+    is_deleted = db.Column(db.Boolean, default=False, index=True)
     created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
     deleted_at = db.Column(db.DateTime, nullable=True)
     
-    # OTP fields
+    # Authentication
     otp = db.Column(db.String(6))
     otp_created_at = db.Column(db.DateTime)
     
-    # Profile fields  
+    # Profile 
     nama_lengkap = db.Column(db.String(255))
     phone = db.Column(db.String(20))
-    pekerjaan = db.Column(db.String(128))
+    pekerjaan = db.Column(db.String(128)) 
     bio = db.Column(db.String(255))
     profile_pic = db.Column(db.String(255))
     kec = db.Column(db.String(255))
@@ -58,25 +56,23 @@ class User(db.Model, UserMixin):
     kelurahan = db.Column(db.String(255))
     
     # Relationships
-    petani_profile = db.relationship('PetaniProfile', back_populates='user', uselist=False, 
-                                    cascade='all, delete-orphan')
-    ahli_profile = db.relationship('AhliProfile', back_populates='user', uselist=False,
-                                    cascade='all, delete-orphan')
-    kebun = db.relationship('Kebun', backref='user', lazy=True, cascade='all, delete-orphan')
-    roles = db.relationship('Role', secondary='user_roles', 
+    petani_profile = db.relationship('PetaniProfile', back_populates='user', 
+                                    uselist=False, cascade='all, delete-orphan')
+    ahli_profile = db.relationship('AhliProfile', back_populates='user',
+                                    uselist=False, cascade='all, delete-orphan')
+    kebun = db.relationship('Kebun', backref='user', lazy=True, 
+                            cascade='all, delete-orphan')
+    roles = db.relationship('Role', secondary='user_roles',
                             backref=db.backref('users', lazy='dynamic'),
                             lazy='joined')
-                            
-    # Query Class
-    query_class = BaseQueryWithSoftDelete
 
     def __init__(self, **kwargs):
-        super(User, self).__init__(**kwargs)
+        super().__init__(**kwargs)
         if not any(role.name == 'personal' for role in self.roles):
-            personal_role = Role.query.filter_by(name='personal').first()
-            if personal_role:
+            if personal_role := Role.query.filter_by(name='personal').first():
                 self.roles.append(personal_role)
 
+    # Authentication methods
     def get_reset_password_token(self, expires_in=3600):
         try:
             return jwt.encode(
@@ -93,7 +89,7 @@ class User(db.Model, UserMixin):
         try:
             id = jwt.decode(token, current_app.config['SECRET_KEY'], 
                             algorithms=['HS256'])['reset_password']
-            return User.query.get(id)
+            return User.query.filter_by(id=id, is_deleted=False).first()
         except Exception as e:
             current_app.logger.error(f"Token verification error: {e}")
             return None
@@ -110,44 +106,41 @@ class User(db.Model, UserMixin):
             return False
         return self.otp == otp
 
+    # Validation
     @validates('email')
     def validate_email(self, key, address):
-        if not '@' in address:
+        if '@' not in address:
             raise ValueError('Invalid email address')
         return address
-
+    
+    # Role methods
     def has_role(self, role_name):
         return any(role.name == role_name for role in self.roles)
 
     def get_role_names(self):
         return [role.name for role in self.roles]
 
+    # Soft delete methods
     def soft_delete(self):
-        """Soft delete the user and associated records"""
         self.is_deleted = True 
         self.deleted_at = datetime.utcnow()
-        # Soft delete associated records if needed
         for kebun in self.kebun:
             kebun.soft_delete()
         db.session.commit()
     
     def restore(self):
-        """Restore a soft-deleted user"""
         self.is_deleted = False
         self.deleted_at = None
         db.session.commit()
 
+    # Query methods 
     @classmethod
-    def get_active_users(cls):
-        return cls.query.all()
-
-    @classmethod 
-    def get_all_including_deleted(cls):
-        return cls.query.with_deleted().all()
+    def get_active(cls):
+        return cls.query.filter_by(is_deleted=False)
 
     @classmethod
-    def get_only_deleted(cls):
-        return cls.query.filter_by(is_deleted=True).all()
+    def get_deleted(cls):
+        return cls.query.filter_by(is_deleted=True)
 
     def __repr__(self):
         return f"<User {self.username}>"
