@@ -3,7 +3,6 @@ import random, string, jwt
 from time import time
 from flask import current_app
 from flask_login import UserMixin
-from sqlalchemy import orm
 from sqlalchemy.orm import validates
 from werkzeug.security import generate_password_hash, check_password_hash
 from datetime import datetime, timedelta
@@ -21,10 +20,6 @@ class UserRole(str, Enum):
     PERSONAL = 'personal'
     AHLI = 'ahli'
     PETANI = 'petani'
-
-class BaseQueryWithSoftDelete(orm.Query):
-    def get(self, ident):
-        return super().filter(User.is_deleted == False).get(ident)
 
 class User(db.Model, UserMixin):
     __tablename__ = 'users'
