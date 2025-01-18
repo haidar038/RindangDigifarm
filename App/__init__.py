@@ -84,7 +84,7 @@ def create_app(config_class=Config):
     app.register_blueprint(farmer)
     app.register_blueprint(expert)
     app.register_blueprint(personal)
-    app.register_blueprint(public)
+    app.register_blueprint(public, url_prefix='/')
     
     if not os.path.exists('logs'):
         os.makedirs('logs')
