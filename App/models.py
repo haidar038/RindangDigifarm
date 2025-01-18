@@ -131,11 +131,11 @@ class User(db.Model, UserMixin):
     # Query methods 
     @classmethod
     def get_active(cls):
-        return cls.query.filter_by(is_deleted=False)
+        return cls.query.filter(cls.is_deleted == False)
 
     @classmethod
     def get_deleted(cls):
-        return cls.query.filter_by(is_deleted=True)
+        return cls.query.filter(cls.is_deleted == True)
 
     def __repr__(self):
         return f"<User {self.username}>"
