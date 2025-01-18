@@ -21,124 +21,121 @@ class UserRole(str, Enum):
     AHLI = 'ahli'
     PETANI = 'petani'
 
-class User(db.Model, UserMixin):
+class TimestampMixin:
+    created_at = db.Column(db.DateTime, default=datetime.now())
+    updated_at = db.Column(db.DateTime, default=datetime.now(), onupdate=datetime.now())
+
+class SoftDeleteMixin:
+    is_deleted = db.Column(db.Boolean, default=False)
+    deleted_at = db.Column(db.DateTime, nullable=True)
+
+    def soft_delete(self):
+        self.is_deleted = True
+        self.deleted_at = datetime.now()
+
+class User(db.Model, UserMixin, SoftDeleteMixin):
     __tablename__ = 'users'
-    
-    # Core fields
     id = db.Column(db.Integer, primary_key=True)
     username = db.Column(db.String(255), nullable=False, unique=True)
     email = db.Column(db.String(255), nullable=False, unique=True, index=True)
     password = db.Column(db.String(255), nullable=False)
-    
-    # Status and timestamps
     is_confirmed = db.Column(db.Boolean, nullable=False, default=False)
-    is_deleted = db.Column(db.Boolean, default=False, index=True)
-    created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
+    is_deleted = db.Column(db.Boolean, default=False, index=True)  # Add is_deleted attribute
+    created_at = db.Column(db.DateTime, nullable=False, default=datetime.now())
     deleted_at = db.Column(db.DateTime, nullable=True)
-    
-    # Authentication
     otp = db.Column(db.String(6))
     otp_created_at = db.Column(db.DateTime)
     
-    # Profile 
-    nama_lengkap = db.Column(db.String(255))
-    phone = db.Column(db.String(20))
-    pekerjaan = db.Column(db.String(128)) 
-    bio = db.Column(db.String(255))
-    profile_pic = db.Column(db.String(255))
-    kec = db.Column(db.String(255))
-    kota = db.Column(db.String(255))
-    kelurahan = db.Column(db.String(255))
+    # Shared profile data
+    nama_lengkap = db.Column(db.String(255), nullable=True)
+    phone = db.Column(db.String(20), nullable=True)
+    pekerjaan = db.Column(db.String(128), nullable=True)
+    bio = db.Column(db.String(255), nullable=True)
+    profile_pic = db.Column(db.String(255), nullable=True)
+    kec = db.Column(db.String(255), nullable=True)
+    kota = db.Column(db.String(255), nullable=True)
+    kelurahan = db.Column(db.String(255), nullable=True)
     
-    # Relationships
-    petani_profile = db.relationship('PetaniProfile', back_populates='user', 
-                                    uselist=False, cascade='all, delete-orphan')
-    ahli_profile = db.relationship('AhliProfile', back_populates='user',
-                                    uselist=False, cascade='all, delete-orphan')
-    kebun = db.relationship('Kebun', backref='user', lazy=True, 
-                            cascade='all, delete-orphan')
-    roles = db.relationship('Role', secondary='user_roles',
-                            backref=db.backref('users', lazy='dynamic'),
-                            lazy='joined')
+    # Add the relationships to profiles
+    petani_profile = db.relationship('PetaniProfile', back_populates='user', uselist=False)
+    ahli_profile = db.relationship('AhliProfile', back_populates='user', uselist=False)
+    
+    # Existing relationships
+    kebun = db.relationship('Kebun', backref='user', lazy=True, cascade="all, delete-orphan")
+    roles = db.relationship('Role', secondary='user_roles', 
+                            backref=db.backref('users', lazy='dynamic'))
 
-    def __init__(self, **kwargs):
-        super().__init__(**kwargs)
-        if not any(role.name == 'personal' for role in self.roles):
-            if personal_role := Role.query.filter_by(name='personal').first():
-                self.roles.append(personal_role)
-
-    # Authentication methods
     def get_reset_password_token(self, expires_in=3600):
+        """Generate a JWT token for password reset"""
         try:
+            payload = {
+                'reset_password': self.id,
+                'exp': time() + expires_in
+            }
             return jwt.encode(
-                {'reset_password': self.id, 'exp': time() + expires_in},
+                payload,
                 current_app.config['SECRET_KEY'],
                 algorithm='HS256'
             )
         except Exception as e:
-            current_app.logger.error(f"Token generation error: {e}")
+            current_app.logger.error(f"Error generating reset token: {str(e)}")
             return None
 
     @staticmethod
     def verify_reset_password_token(token):
+        """Verify the reset password token"""
         try:
-            id = jwt.decode(token, current_app.config['SECRET_KEY'], 
-                            algorithms=['HS256'])['reset_password']
-            return User.query.filter_by(id=id, is_deleted=False).first()
+            payload = jwt.decode(
+                token,
+                current_app.config['SECRET_KEY'],
+                algorithms=['HS256']
+            )
+            return User.query.get(payload['reset_password'])
         except Exception as e:
-            current_app.logger.error(f"Token verification error: {e}")
+            current_app.logger.error(f"Error verifying reset token: {str(e)}")
             return None
+        
+    def soft_delete(self):
+        """Soft delete the user and all related data"""
+        self.is_deleted = True 
+        self.deleted_at = datetime.now()
+        # Soft delete related data
+        for kebun in self.kebun:
+            kebun.is_deleted = True
+            kebun.deleted_at = datetime.now()
+        db.session.commit()
 
     def set_otp(self):
+        """Generate and set new OTP"""
         self.otp = ''.join(random.choices(string.digits, k=6))
-        self.otp_created_at = datetime.utcnow()
+        self.otp_created_at = datetime.now()
         db.session.commit()
 
     def verify_otp(self, otp):
+        """Verify OTP and check if it's still valid (10 minutes)"""
         if not self.otp or not self.otp_created_at:
             return False
-        if datetime.utcnow() - self.otp_created_at > timedelta(minutes=10):
+        
+        # Check if OTP is expired (10 minutes)
+        if datetime.now() - self.otp_created_at > timedelta(minutes=10):
             return False
+        
         return self.otp == otp
 
-    # Validation
     @validates('email')
     def validate_email(self, key, address):
-        if '@' not in address:
-            raise ValueError('Invalid email address')
+        assert '@' in address
         return address
-    
-    # Role methods
+
+    # Role checking methods
     def has_role(self, role_name):
         return any(role.name == role_name for role in self.roles)
 
     def get_role_names(self):
         return [role.name for role in self.roles]
 
-    # Soft delete methods
-    def soft_delete(self):
-        self.is_deleted = True 
-        self.deleted_at = datetime.utcnow()
-        for kebun in self.kebun:
-            kebun.soft_delete()
-        db.session.commit()
-    
-    def restore(self):
-        self.is_deleted = False
-        self.deleted_at = None
-        db.session.commit()
-
-    # Query methods 
-    @classmethod
-    def get_active(cls):
-        return cls.query.filter(cls.is_deleted == False)
-
-    @classmethod
-    def get_deleted(cls):
-        return cls.query.filter(cls.is_deleted == True)
-
     def __repr__(self):
-        return f"<User {self.username}>"
+        return f"<User('{self.username}', '{self.email}', '{self.nama_lengkap}', '{self.ahli_profile}', '{self.petani_profile}', '{self.kebun}')>"
 
 # Tabel asosiasi untuk user-role many-to-many relationship
 user_roles = db.Table('user_roles',
@@ -373,15 +370,3 @@ class UpgradeRequest(db.Model):
 
     def __repr__(self):
         return f"UpgradeRequest(User: {self.user.username}, Role: {self.requested_role}, Status: {self.status})"
-
-class TimestampMixin:
-    created_at = db.Column(db.DateTime, default=datetime.now())
-    updated_at = db.Column(db.DateTime, default=datetime.now(), onupdate=datetime.now())
-
-class SoftDeleteMixin:
-    is_deleted = db.Column(db.Boolean, default=False)
-    deleted_at = db.Column(db.DateTime, nullable=True)
-
-    def soft_delete(self):
-        self.is_deleted = True
-        self.deleted_at = datetime.now()

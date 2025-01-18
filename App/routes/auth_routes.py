@@ -411,10 +411,7 @@ def logout():
 
 @login_manager.user_loader
 def load_user(user_id):
-    return User.query.filter(
-        User.id == int(user_id),
-        User.is_deleted == False
-    ).first()
+    return User.query.get(int(user_id))
 
 # Decorator untuk mengecek role
 def role_required(*roles):
