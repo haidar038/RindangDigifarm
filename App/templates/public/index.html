@@ -546,7 +546,7 @@
                 ] %}
                 {% for logo in partners %}
                 <div class="col text-center">
-                    <img src="{{ url_for('static', filename='logo/' + logo|safe) }}" class="img-fluid"
+                    <img src="{{ url_for('static', filename='logo/' + logo) | safe }}" class="img-fluid"
                         style="max-height: 40px;" alt="">
                 </div>
                 {% endfor %}
