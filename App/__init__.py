@@ -35,14 +35,10 @@ ckeditor = CKEditor()
 flatpages = FlatPages()
 cache = Cache(config={'CACHE_TYPE': 'simple'})
 limiter = Limiter(
-    app,
+    # Jangan set app di sini, gunakan init_app nanti
     key_func=get_remote_address,
-    default_limits=["200 per day", "50 per hour"]
-)
-file_handler = RotatingFileHandler(
-    'logs/app.log', 
-    maxBytes=1024 * 1024,
-    backupCount=10
+    default_limits=["200 per day", "50 per hour"],
+    storage_uri="memory://"  # Gunakan memory storage untuk development
 )
 
 def seed_roles():
@@ -62,7 +58,6 @@ def seed_roles():
 
 def create_app(config_class=Config):
     app.config.from_object(config_class)
-
     db.init_app(app)
     socketio.init_app(app)
     login_manager.init_app(app)
@@ -71,6 +66,7 @@ def create_app(config_class=Config):
     flatpages.init_app(app)
     mail.init_app(app)
     ext.init_app(app)
+    limiter.init_app(app)
     CORS(app, resources={r"/api/*": {"origins": "*"}})
 
     login_manager.login_view = 'auth.login'
@@ -89,6 +85,23 @@ def create_app(config_class=Config):
     app.register_blueprint(expert)
     app.register_blueprint(personal)
     app.register_blueprint(public)
+    
+    if not os.path.exists('logs'):
+        os.makedirs('logs')
+
+    file_handler = RotatingFileHandler(
+        'logs/app.log', 
+        maxBytes=1024 * 1024,
+        backupCount=10
+    )
+    file_handler.setFormatter(logging.Formatter(
+        '%(asctime)s %(levelname)s: %(message)s '
+        '[in %(pathname)s:%(lineno)d]'
+    ))
+    file_handler.setLevel(logging.INFO)
+    app.logger.addHandler(file_handler)
+    app.logger.setLevel(logging.INFO)
+    app.logger.info('Rindang startup')
 
     with app.app_context():
         db.create_all()

@@ -159,6 +159,10 @@ body {
     color: #333;
 }
 
+[data-bs-theme='dark'] .text-light {
+    color: #fff !important;
+}
+
 .link-color-primary {
     color: var(--primary-color) !important;
     -webkit-text-decoration-color: var(--primary-color) !important;

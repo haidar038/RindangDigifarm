@@ -30,7 +30,7 @@
                     <img src="{{ url_for('static', filename='uploads/'+item.thumbnail ) }}"
                         class="img-fluid w-100 rounded-4 object-fit-cover" alt="" />
                 </div>
-                <h3 class="text-light">{{ item.judul }}</h3>
+                <h3 class="fw-bold text-light">{{ item.judul }}</h3>
             </a>
             <p>{{ shorten(item.content, width=120) | safe }}</p>
             <hr>
