@@ -5,10 +5,12 @@
 __pycache__/
 /static
 /migrations
+migrations
 __pycache__
 /App/__pycache__
 *.pyc
 .pytest_cache/
 instance/
 .vscode
+/.vscode
 .flaskenv
