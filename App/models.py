@@ -3,6 +3,7 @@ import random, string, jwt
 from time import time
 from flask import current_app
 from flask_login import UserMixin
+from sqlalchemy import orm
 from sqlalchemy.orm import validates
 from werkzeug.security import generate_password_hash, check_password_hash
 from datetime import datetime, timedelta
@@ -21,6 +22,33 @@ class UserRole(str, Enum):
     AHLI = 'ahli'
     PETANI = 'petani'
 
+class QueryWithSoftDelete(orm.Query):
+    """Custom query class that automatically filters out soft-deleted records"""
+    
+    def __new__(cls, *args, **kwargs):
+        obj = super(QueryWithSoftDelete, cls).__new__(cls)
+        with_deleted = kwargs.pop('_with_deleted', False)
+        if len(args) > 0:
+            super(QueryWithSoftDelete, obj).__init__(*args, **kwargs)
+            return obj.filter(args[0].is_deleted == False) if not with_deleted else obj
+        return obj
+
+    def __init__(self, *args, **kwargs):
+        with_deleted = kwargs.pop('_with_deleted', False)
+        super(QueryWithSoftDelete, self).__init__(*args, **kwargs)
+        if not with_deleted and len(args) > 0:
+            self._criterion = self._criterion & (args[0].is_deleted == False) if self._criterion is not None \
+                else (args[0].is_deleted == False)
+
+    def with_deleted(self):
+        """Include soft-deleted records in the query"""
+        return self.__class__(self._only_full_mapper_zero('get'),
+                            session=db.session(), _with_deleted=True)
+
+    def only_deleted(self):
+        """Only include soft-deleted records in the query"""
+        return self.filter(self._only_full_mapper_zero('get').is_deleted == True)
+
 class User(db.Model, UserMixin):
     __tablename__ = 'users'
     id = db.Column(db.Integer, primary_key=True)
@@ -29,6 +57,7 @@ class User(db.Model, UserMixin):
     password = db.Column(db.String(255), nullable=False)
     created_at = db.Column(db.DateTime, nullable=False, default=datetime.now())
     is_confirmed = db.Column(db.Boolean, nullable=False, default=False)
+    is_deleted = db.Column(db.Boolean, default=False)  # Added field
     deleted_at = db.Column(db.DateTime, nullable=True)
     otp = db.Column(db.String(6))
     otp_created_at = db.Column(db.DateTime)
@@ -51,6 +80,8 @@ class User(db.Model, UserMixin):
     kebun = db.relationship('Kebun', backref='user', lazy=True, cascade="all, delete-orphan")
     roles = db.relationship('Role', secondary='user_roles', 
                             backref=db.backref('users', lazy='dynamic'))
+    
+    query_class = QueryWithSoftDelete
 
     def get_reset_password_token(self, expires_in=3600):
         """Generate a JWT token for password reset"""
@@ -81,6 +112,22 @@ class User(db.Model, UserMixin):
         except Exception as e:
             current_app.logger.error(f"Error verifying reset token: {str(e)}")
             return None
+        
+    # Example usage methods
+    @classmethod
+    def get_active_users(cls):
+        """Get all non-deleted users"""
+        return cls.query.all()  # Automatically excludes deleted users
+        
+    @classmethod
+    def get_all_including_deleted(cls):
+        """Get all users including deleted ones"""
+        return cls.query.with_deleted().all()
+        
+    @classmethod
+    def get_only_deleted(cls):
+        """Get only deleted users"""
+        return cls.query.only_deleted().all()
 
     def set_otp(self):
         """Generate and set new OTP"""
@@ -103,6 +150,11 @@ class User(db.Model, UserMixin):
     def validate_email(self, key, address):
         assert '@' in address
         return address
+    
+    def soft_delete(self):
+        self.is_deleted = True
+        self.deleted_at = datetime.now()
+        db.session.commit()
 
     # Role checking methods
     def has_role(self, role_name):
