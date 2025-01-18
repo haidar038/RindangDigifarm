@@ -80,7 +80,10 @@ def index():
     kebun = Kebun.query.all()
     produksi = DataPangan.query.filter(DataPangan.is_deleted == False).all() or []
     articles = Artikel.query.limit(3).all() or None
-    featured_articles = Artikel.query.first() or None
+    featured_articles = Artikel.query.filter(
+        Artikel.is_drafted == False,
+        Artikel.is_approved == True
+    ).first()
 
     # Define target date (today as default)
     # Menghindari NoneType error
