@@ -138,7 +138,8 @@ def index():
                             articles=articles,
                             featured_articles=featured_articles,
                             shorten=shorten,
-                            table_data=table_data)
+                            table_data=table_data,
+                            safe_filename=safe_filename)
 
 @public.route('/prakiraan-cuaca')
 def weather():
