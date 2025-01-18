@@ -207,7 +207,7 @@ def configure_gemini():
     else:
         current_app.logger.warning("GEMINI_API_KEY not found in environment")
 
-@public.before_app_first_request
+@public.before_app_request
 def init_gemini():
     """Initialize Gemini configuration before first request"""
     configure_gemini()
