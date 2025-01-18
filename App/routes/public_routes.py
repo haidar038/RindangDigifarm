@@ -78,15 +78,16 @@ def fetch_red_chili_data(target_date):
 @public.route('/')
 def index():
     kebun = Kebun.query.all() or None
-    produksi = DataPangan.query.filter(DataPangan.is_deleted == False).all() or None
+    produksi = DataPangan.query.filter(DataPangan.is_deleted == False).all() or []
     articles = Artikel.query.limit(3).all() or None
     featured_articles = Artikel.query.first() or None
 
     # Define target date (today as default)
-    target_date = datetime.today().strftime("%b %d, %Y")  # Example: "Jan 15, 2025"
+    # Menghindari NoneType error
+    target_date = datetime.today().strftime("%b %d, %Y")
     table_data = fetch_red_chili_data(target_date)
 
-    total_prod = sum(prod.jml_panen for prod in produksi)
+    total_prod = sum(prod.jml_panen for prod in produksi if prod.jml_panen is not None)
 
     # Maps
     data_kebun = Kebun.query.join(User).all() or None
