@@ -142,7 +142,7 @@ def add_user():
     return render_template('admin/User/add_user.html', users=users, roles=roles)
 
 # In admin_routes.py
-@admin.route('/admin/users-management/<int:user_id>/edit', methods=['GET', 'POST'])
+@admin.route('/admin/users-management/edit/<int:user_id>', methods=['GET', 'POST'])
 @login_required
 @roles_required('admin')
 def edit_user(user_id):
@@ -155,6 +155,7 @@ def edit_user(user_id):
             user.username = request.form['username']
             user.email = request.form['email']
             
+            # Handle role updates
             selected_roles = request.form.getlist('roles')
             user.roles.clear()
             for role_name in selected_roles:
@@ -168,9 +169,14 @@ def edit_user(user_id):
 
         except Exception as e:
             db.session.rollback()
+            current_app.logger.error(f"Error updating user: {str(e)}")
             flash('Gagal mengupdate user', 'danger')
+            return redirect(url_for('admin.users_management'))
 
-    return render_template('admin/User/edit_user.html', user=user, roles=roles, selected_roles=selected_roles)
+    return render_template('admin/User/edit_user.html', 
+                            user=user, 
+                            roles=roles, 
+                            selected_roles=selected_roles)
 
 @admin.route('/admin/users-management/delete/<int:user_id>', methods=['POST'])
 @login_required 
