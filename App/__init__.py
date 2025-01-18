@@ -1,4 +1,4 @@
-import io, os
+import io, os, logging
 
 from flask_socketio import SocketIO
 from flask_sqlalchemy import SQLAlchemy
@@ -13,6 +13,10 @@ from flask_migrate import Migrate
 from flask_ckeditor import CKEditor
 from flask_cors import CORS
 from werkzeug.security import generate_password_hash
+from flask_caching import Cache
+from flask_limiter import Limiter
+from flask_limiter.util import get_remote_address
+from logging.handlers import RotatingFileHandler
 
 from App.config import Config
 
@@ -29,6 +33,17 @@ ext = Sitemap()
 mail = Mail()
 ckeditor = CKEditor()
 flatpages = FlatPages()
+cache = Cache(config={'CACHE_TYPE': 'simple'})
+limiter = Limiter(
+    app,
+    key_func=get_remote_address,
+    default_limits=["200 per day", "50 per hour"]
+)
+file_handler = RotatingFileHandler(
+    'logs/app.log', 
+    maxBytes=1024 * 1024,
+    backupCount=10
+)
 
 def seed_roles():
     from App.models import Role

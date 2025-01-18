@@ -18,7 +18,7 @@ from openpyxl import load_workbook
 from functools import wraps
 from io import BytesIO
 
-from App import db
+from App import db, cache
 from App.models import Kebun, DataPangan, KebunKomoditas, Komoditas
 
 farmer = Blueprint('farmer', __name__)
@@ -261,6 +261,7 @@ def getpricedata():
     return jsonify(all_data)
 
 @farmer.route('/api/price-data', methods=['GET', 'POST'])
+@cache.memoize(timeout=300)
 def get_price_data():
     kab_kota = request.args.get('kab_kota')
     komoditas_id = request.args.get('komoditas_id')
