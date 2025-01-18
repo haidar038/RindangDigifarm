@@ -67,8 +67,15 @@
                                             </a>
                                         </li>
                                         <hr />
-                                        <li><a class="dropdown-item" href="#">Edit</a></li>
-                                        <li><a class="dropdown-item" href="#">Hapus</a></li>
+                                        <li><a class="dropdown-item"
+                                                href="{{ url_for('admin.edit_user', user_id=item.id) }}">Edit</a></li>
+                                        <li>
+                                            <form action="{{ url_for('admin.delete_user', user_id=item.id) }}"
+                                                method="POST" style="display: inline;">
+                                                <button type="submit" class="dropdown-item"
+                                                    onclick="return confirm('Yakin ingin menghapus user ini?')">Hapus</button>
+                                            </form>
+                                        </li>
                                     </ul>
                                 </div>
                             </td>

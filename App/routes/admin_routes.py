@@ -141,6 +141,59 @@ def add_user():
             
     return render_template('admin/User/add_user.html', users=users, roles=roles)
 
+@admin.route('/admin/users-management/edit/<int:user_id>', methods=['GET', 'POST'])
+@login_required
+@roles_required('admin')
+def edit_user(user_id):
+    user = User.query.get_or_404(user_id)
+    roles = Role.query.all()
+    selected_roles = [role.name for role in user.roles]
+
+    if request.method == 'POST':
+        try:
+            user.username = request.form['username']
+            user.email = request.form['email']
+
+            # Update roles
+            selected_roles = request.form.getlist('roles')
+            user.roles.clear()
+            for role_name in selected_roles:
+                role = Role.query.filter_by(name=role_name).first()
+                if role:
+                    user.roles.append(role)
+
+            db.session.commit()
+            flash('User berhasil diupdate', 'success')
+            return redirect(url_for('admin.users_management'))
+
+        except Exception as e:
+            db.session.rollback()
+            flash('Gagal mengupdate user', 'danger')
+
+    return render_template('admin/User/edit_user.html', user=user, roles=roles, selected_roles=selected_roles)
+
+@admin.route('/admin/users-management/delete/<int:user_id>', methods=['POST'])
+@login_required 
+@roles_required('admin')
+def delete_user(user_id):
+    user = User.query.get_or_404(user_id)
+    
+    try:
+        if user.username != 'admin':
+            # Soft delete
+            user.is_deleted = True
+            user.deleted_at = datetime.now()
+            db.session.commit()
+            flash('User berhasil dihapus', 'success')
+        else:
+            flash('Admin user tidak dapat dihapus', 'danger')
+            
+    except Exception as e:
+        db.session.rollback()
+        flash('Gagal menghapus user', 'danger')
+        
+    return redirect(url_for('admin.users_management'))
+
 @admin.route('/generate-username', methods=['POST'])
 def generate_username():
     name = request.json.get('name', '')

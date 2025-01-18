@@ -1,13 +1,14 @@
-import smtplib, logging, jwt, os
+import smtplib, logging, jwt, os, logging, re, string
 
 from flask import Blueprint, render_template, redirect, url_for, session, flash, request, current_app
+from flask_recaptcha import ReCaptcha
 from flask_mail import Message
 from flask_login import login_user, logout_user, login_required, current_user
 from datetime import datetime, timedelta
 from werkzeug.security import check_password_hash, generate_password_hash
 from functools import wraps
 
-from App import login_manager, db, mail
+from App import login_manager, db, mail, limiter
 from App.utils import confirm_token, generate_confirmation_token, send_password_reset_email, send_otp_email
 from App.models import User, Role
 from App.forms.auth_forms import LoginForm, RegistrationForm, ForgotPasswordForm, OTPVerificationForm, ResetPasswordForm
@@ -16,6 +17,7 @@ import random, string
 
 auth = Blueprint('auth', __name__)
 logger = logging.getLogger(__name__)
+recaptcha = ReCaptcha()
 
 def personal_unique_id(prefix="PRSNL_", string_length=2, number_length=4):
     """
@@ -34,7 +36,22 @@ def personal_unique_id(prefix="PRSNL_", string_length=2, number_length=4):
     unique_id = f"{prefix}{random_string}{random_number}"
     return unique_id
 
+def validate_registration(username, email):
+    suspicious_patterns = [
+        r'[0-9]{4,}',
+        r'[a-zA-Z0-9]{20,}', 
+        r'[^a-zA-Z0-9_\-\.]'
+    ]
+    return not any(re.search(pattern, username) for pattern in suspicious_patterns)
+
+def log_suspicious_activity(ip, username, email):
+    logger = logging.getLogger('suspicious_activity')
+    logger.warning(
+        f"Suspicious registration attempt - IP: {ip}, Username: {username}, Email: {email}"
+    )
+
 @auth.route('/auth/register', methods=['GET', 'POST'])
+@limiter.limit("3/hour", error_message="Too many registration attempts")
 def register():
     if current_user.is_authenticated:
         flash('Anda sudah login.', category='info')
@@ -47,6 +64,15 @@ def register():
         password = request.form['password']
         confirm_password = request.form.get('confirm_password')
         username = generate_username(email)
+
+        if not validate_registration(username, email):
+            log_suspicious_activity(request.remote_addr, username, email)
+            flash('Invalid registration attempt', 'danger')
+            return redirect(url_for('auth.register'))
+            
+        if not recaptcha.verify():
+            flash('Please complete the CAPTCHA', 'danger')
+            return redirect(url_for('auth.register'))
 
         if len(password) < 8:
             flash('Kata sandi harus berisi 8 karakter atau lebih', category='danger')
