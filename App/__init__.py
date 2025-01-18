@@ -102,6 +102,11 @@ def create_app(config_class=Config):
     app.logger.setLevel(logging.INFO)
     app.logger.info('Rindang startup')
 
+    @app.template_filter('safe_filename')
+    def safe_filename(s):
+        from urllib.parse import quote
+        return quote(s)
+
     with app.app_context():
         db.create_all()
         seed_roles()
