@@ -88,13 +88,16 @@
  ┃ ┃ ┃ ┣ 📜rindang_ai.html
  ┃ ┃ ┃ ┣ 📜rindang_pedia.html
  ┃ ┃ ┃ ┗ 📜weather.html
+ ┃ ┗ 📜__init__.py
  ┃ ┣ 📜config.py
  ┃ ┣ 📜models.py
+ ┃ ┣ 📜run.py
  ┃ ┣ 📜utils.py
- ┃ ┗ 📜__init__.py
  ┣ 📂migrations
  ┣ 📜.env
  ┣ 📜.flaskenv
  ┣ 📜.gitignore
  ┣ 📜app.py
+ ┣ 📜passenger_wsgi.py
+ ┣ 📜Procfile
  ┗ 📜requirements.txt

@@ -104,7 +104,8 @@
                         </div>
                         <p class="mb-1">Jumlah Kebun</p>
                         <a class="h4 fw-bolder text-green link-green text-decoration-none"
-                            href="{{ url_for('public.maps' ) }}" target="_blank">{{ kebun | length }} Kebun</a>
+                            href="{{ url_for('public.maps' ) }}" target="_blank">{{ kebun|length if kebun else 0 }}
+                            Kebun</a>
                     </div>
                 </div>
             </div>
