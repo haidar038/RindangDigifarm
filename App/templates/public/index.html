@@ -238,6 +238,14 @@
                 <div class="ratio ratio-16x9 mb-3">
                     <img src="{{ url_for('static', filename='uploads/'+featured_articles.thumbnail ) }}"
                         class="rounded-4 object-fit-cover" alt="" />
+                    <!-- App/templates/public/index.html -->
+                    {% if featured_articles %}
+                    <img src="{{ url_for('static', filename='uploads/'+featured_articles.thumbnail ) }}"
+                        class="rounded-4 object-fit-cover" alt="" />
+                    {% else %}
+                    <img src="{{ url_for('static', filename='uploads/default_thumbnail.jpg' ) }}"
+                        class="rounded-4 object-fit-cover" alt="" />
+                    {% endif %}
                 </div>
                 <div class="card-body px-0">
                     <h3 class="fw-bold">{{ featured_articles.judul }}</h3>

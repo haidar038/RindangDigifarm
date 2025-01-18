@@ -77,10 +77,10 @@ def fetch_red_chili_data(target_date):
 
 @public.route('/')
 def index():
-    kebun = Kebun.query.all()
-    produksi = DataPangan.query.filter(DataPangan.is_deleted == False).all()
-    articles = Artikel.query.limit(3).all()
-    featured_articles = Artikel.query.first()
+    kebun = Kebun.query.all() or None
+    produksi = DataPangan.query.filter(DataPangan.is_deleted == False).all() or None
+    articles = Artikel.query.limit(3).all() or None
+    featured_articles = Artikel.query.first() or None
 
     # Define target date (today as default)
     target_date = datetime.today().strftime("%b %d, %Y")  # Example: "Jan 15, 2025"
@@ -89,7 +89,7 @@ def index():
     total_prod = sum(prod.jml_panen for prod in produksi)
 
     # Maps
-    data_kebun = Kebun.query.join(User).all()
+    data_kebun = Kebun.query.join(User).all() or None
     koordinat = []
     
     for kebun_item in data_kebun:
