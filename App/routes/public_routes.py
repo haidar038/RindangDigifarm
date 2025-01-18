@@ -79,7 +79,10 @@ def fetch_red_chili_data(target_date):
 def index():
     kebun = Kebun.query.all()
     produksi = DataPangan.query.filter(DataPangan.is_deleted == False).all() or []
-    articles = Artikel.query.limit(3).all() or None
+    articles = Artikel.query.filter(
+        Artikel.is_drafted == False,
+        Artikel.is_approved == True
+    ).limit(3).all()
     featured_articles = Artikel.query.filter(
         Artikel.is_drafted == False,
         Artikel.is_approved == True

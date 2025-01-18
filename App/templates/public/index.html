@@ -251,6 +251,7 @@
         </div>
         {% endif %}
         <div class="col-12 col-lg-5">
+            {% if articles %}
             {% for item in articles %}
             <div class="row g-3 mb-3">
                 <div class="col-4">
@@ -270,6 +271,9 @@
             <hr class="my-3">
             {% endif %}
             {% endfor %}
+            {% else %}
+            <p>No articles available</p>
+            {% endif %}
         </div>
     </div>
 </section>
