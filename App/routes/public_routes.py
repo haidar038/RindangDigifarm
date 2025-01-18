@@ -199,29 +199,42 @@ def get_commodity_prices():
 #     except requests.exceptions.RequestException as e:
 #         return jsonify({"error": str(e)}), 500
 
+def configure_gemini():
+    """Configure Gemini API with fallback handling"""
+    api_key = os.getenv('GEMINI_API_KEY') or current_app.config.get('GEMINI_API_KEY')
+    if api_key:
+        genai.configure(api_key=api_key)
+    else:
+        current_app.logger.warning("GEMINI_API_KEY not found in environment")
+
+@public.before_app_first_request
+def init_gemini():
+    """Initialize Gemini configuration before first request"""
+    configure_gemini()
+
 @public.route('/api/gemini', methods=['POST'])
 def gemini_api():
+    if not os.getenv('GEMINI_API_KEY') and not current_app.config.get('GEMINI_API_KEY'):
+        return jsonify({'error': 'Gemini API not configured'}), 503
+        
     user_message = request.json.get('message')
     if not user_message:
         return jsonify({'error': 'Message is required'}), 400
 
-    prompt = f"Saya adalah asisten virtual untuk platform agrikultur digital bernama RINDANG, yang membantu petani mengelola produksi pertanian dan memberikan informasi seputar pertanian di Kota Ternate. Saya hanya boleh memberikan jawaban terkait agrikultur, termasuk tetapi tidak terbatas pada: cara merawat tanaman, rekomendasi pupuk, langkah-langkah menghadapi cuaca, dan teknologi pertanian. Pertanyaan pengguna: {user_message}."
-
     try:
         model = genai.GenerativeModel("gemini-1.5-flash")
+        prompt = f"Saya adalah asisten virtual untuk platform agrikultur digital bernama RINDANG, yang membantu petani mengelola produksi pertanian dan memberikan informasi seputar pertanian di Kota Ternate. Saya hanya boleh memberikan jawaban terkait agrikultur, termasuk tetapi tidak terbatas pada: cara merawat tanaman, rekomendasi pupuk, langkah-langkah menghadapi cuaca, dan teknologi pertanian. Pertanyaan pengguna: {user_message}."
         response = model.generate_content(prompt)
         
         if response and response.text:
-            # Convert Markdown to HTML in the backend using markdown2
             assistant_reply = markdown2.markdown(response.text)
-        else:
-            return jsonify({'error': 'No content received from Gemini API'}), 500
-
-        return jsonify({'reply': assistant_reply}), 200
+            return jsonify({'reply': assistant_reply}), 200
+        
+        return jsonify({'error': 'No content received'}), 500
 
     except Exception as e:
-        print(f"Error communicating with Gemini API: {e}")
-        return jsonify({'error': f'Error communicating with Gemini API: {e}'}), 500
+        current_app.logger.error(f"Gemini API error: {str(e)}")
+        return jsonify({'error': 'Service temporarily unavailable'}), 503
 
 @public.route('/rindang-ai')
 def rindang_ai():
