@@ -25,6 +25,7 @@
                     </thead>
                     <tbody>
                         {% for item in users %}
+                        {% if not item.is_deleted %}
                         <tr class="align-middle">
                             <td>{{ loop.index }}</td>
                             <td>{{ item.username }}</td>
@@ -67,44 +68,166 @@
                                             </a>
                                         </li>
                                         <hr />
+                                        <li>
+                                            <button type="button" class="dropdown-item" data-bs-toggle="modal"
+                                                data-bs-target="#detailsModal{{ item.id }}">
+                                                Detail
+                                            </button>
+                                        </li>
                                         <li><a class="dropdown-item"
                                                 href="{{ url_for('admin.edit_user', user_id=item.id) }}">Edit</a></li>
                                         <li>
-                                            <form action="{{ url_for('admin.delete_user', user_id=item.id) }}"
-                                                method="POST" style="display: inline;">
-                                                <button type="submit" class="dropdown-item"
-                                                    onclick="return confirm('Yakin ingin menghapus user ini?')">Hapus</button>
-                                            </form>
+                                            <button type="button" class="dropdown-item" data-bs-toggle="modal"
+                                                data-bs-target="#singleDeleteModal{{ item.id }}">
+                                                Hapus
+                                            </button>
                                         </li>
                                     </ul>
                                 </div>
                             </td>
                         </tr>
+                        {% endif %}
                         {% endfor %}
                     </tbody>
                 </table>
             </div>
         </div>
     </div>
-
 </main>
 
-<!-- Modal -->
+<!-- Details Modal -->
 {% for item in users %}
+{% if not item.is_deleted %}
 <div class="modal fade" id="detailsModal{{ item.id }}" tabindex="-1" aria-labelledby="detailsModal{{ item.id }}Label"
     aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
         <div class="modal-content">
             <div class="modal-header">
-                <h1 class="modal-title fs-5" id="detailsModal{{ item.id }}Label"></h1>
+                <h1 class="modal-title fs-5" id="detailsModal{{ item.id }}Label">Detail Pengguna: {{ item.username }}
+                </h1>
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
-            <div class="modal-body">...</div>
+            <div class="modal-body">
+                <div class="row">
+                    <div class="col-md-4 text-center mb-3">
+                        <img src="{{ item.profile_pic or '/static/default-profile.png' }}"
+                            class="img-fluid rounded-circle mb-3" alt="Foto Profil {{ item.username }}"
+                            style="max-width: 200px; max-height: 200px; object-fit: cover;">
+                        <h5>{{ item.nama_lengkap or item.username }}</h5>
+                        <p class="text-muted">{{ item.email }}</p>
+                    </div>
+                    <div class="col-md-8">
+                        <table class="table">
+                            <tbody>
+                                <tr>
+                                    <th scope="row">Username</th>
+                                    <td>{{ item.username }}</td>
+                                </tr>
+                                <tr>
+                                    <th scope="row">Email</th>
+                                    <td>{{ item.email }}</td>
+                                </tr>
+                                <tr>
+                                    <th scope="row">Role</th>
+                                    <td>
+                                        {% for role in item.roles %}
+                                        <span class="badge bg-outline-green rounded-pill text-capitalize me-1">
+                                            {{ role.name }}
+                                        </span>
+                                        {% endfor %}
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <th scope="row">Telepon</th>
+                                    <td>{{ item.phone or 'Tidak tersedia' }}</td>
+                                </tr>
+                                <tr>
+                                    <th scope="row">Pekerjaan</th>
+                                    <td>{{ item.pekerjaan or 'Tidak tersedia' }}</td>
+                                </tr>
+                                <tr>
+                                    <th scope="row">Lokasi</th>
+                                    <td>
+                                        {% if item.kelurahan or item.kec or item.kota %}
+                                        {{ [item.kelurahan, item.kec, item.kota]|select|join(', ') }}
+                                        {% else %}
+                                        Tidak tersedia
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <th scope="row">Bio</th>
+                                    <td>{{ item.bio or 'Tidak tersedia' }}</td>
+                                </tr>
+                                <tr>
+                                    <th scope="row">Akun Dibuat</th>
+                                    <td>{{ item.created_at.strftime('%d %B %Y, %H:%M') }}</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                {% if item.petani_profile %}
+                <div class="card mt-3">
+                    <div class="card-header">
+                        <h6 class="mb-0">Profil Petani</h6>
+                    </div>
+                    <div class="card-body">
+                        <p><strong>ID Unik:</strong> {{ item.petani_profile.unique_id }}</p>
+                        <p><strong>Luas Lahan:</strong> {{ item.petani_profile.luas_lahan or 'Tidak tersedia' }} m²</p>
+                    </div>
+                </div>
+                {% endif %}
+
+                {% if item.ahli_profile %}
+                <div class="card mt-3">
+                    <div class="card-header">
+                        <h6 class="mb-0">Profil Ahli</h6>
+                    </div>
+                    <div class="card-body">
+                        <p><strong>ID Unik:</strong> {{ item.ahli_profile.unique_id }}</p>
+                        <p><strong>Institusi:</strong> {{ item.ahli_profile.institusi or 'Tidak tersedia' }}</p>
+                        <p><strong>Bidang Keahlian:</strong> {{ item.ahli_profile.bidang_keahlian or 'Tidak tersedia' }}
+                        </p>
+                        <p><strong>Gelar:</strong> {{ item.ahli_profile.gelar or 'Tidak tersedia' }}</p>
+                    </div>
+                </div>
+                {% endif %}
+            </div>
             <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
-                <button type="button" class="btn btn-primary">Save changes</button>
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Tutup</button>
             </div>
         </div>
     </div>
 </div>
-{% endfor %} {% endblock %}
+{% endif %}
+{% endfor %}
+
+<!-- Delete Confirmation Modals -->
+{% for item in users %}
+{% if not item.is_deleted %}
+<div class="modal fade" id="singleDeleteModal{{ item.id }}" tabindex="-1"
+    aria-labelledby="singleDeleteModal{{ item.id }}Label" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="singleDeleteModal{{ item.id }}Label">Konfirmasi Hapus Pengguna</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                Apakah Anda yakin ingin menghapus pengguna {{ item.username }}?
+                Tindakan ini akan mengubah status pengguna menjadi dihapus.
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Batal</button>
+                <form action="{{ url_for('admin.delete_user', user_id=item.id) }}" method="POST">
+                    <button type="submit" class="btn btn-danger">Hapus</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+{% endfor %}
+{% endblock %}
