@@ -130,7 +130,7 @@ https://cdn.jsdelivr.net/npm/@splidejs/splide@4.1.4/dist/css/splide.min.css
                                 </li>
                                 {% endif %}
                                 <!--  -->
-                                {% if current_user.has_role('admin') or current_user.has_role('view only') %}
+                                {% if current_user.has_role('admin') or current_user.has_role('view_only') %}
                                 <li><a class="dropdown-item" href="{{ url_for('admin.index' ) }}">Dashboard</a></li>
                                 <li>
                                     <hr class="dropdown-divider" />
