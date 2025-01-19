@@ -430,7 +430,7 @@ def add_commodity():
         nama = request.form['nama']
         kategori = request.form['kategori']
 
-        if nama in [komoditas.nama for komoditas in komoditas]:
+        if nama in [cmdt.nama for cmdt in komoditas]:
             flash('Komoditas sudah ada', 'danger')
         else:
             data = Komoditas(nama=nama, kategori=kategori)
