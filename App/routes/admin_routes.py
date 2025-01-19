@@ -430,7 +430,7 @@ def add_commodity():
         nama = request.form['nama']
         kategori = request.form['kategori']
 
-        if nama in [komoditas.nama_komoditas for komoditas in komoditas]:
+        if nama in [komoditas.nama for komoditas in komoditas]:
             flash('Komoditas sudah ada', 'danger')
         else:
             data = Komoditas(nama=nama, kategori=kategori)
@@ -438,6 +438,8 @@ def add_commodity():
             db.session.commit()
             flash('Komoditas berhasil ditambahkan', 'success')
             return redirect(request.referrer)
+    
+    return render_template('admin/manage_commodity.html', komoditas=komoditas)
         
 # Route untuk mengupdate komoditas
 @admin.route('/admin/komoditas/<int:id>', methods=['GET', 'POST'])
