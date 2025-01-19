@@ -5,7 +5,7 @@
 {% block content %}
 <div class="container py-5">
     <h1 class="h5 fw-bold mb-3">Layanan Personal</h1>
-    <div class="row mb-5">
+    <div class="row mb-3">
         <div class="col-sm-12 col-lg-4 mb-3">
             <a href="{{ url_for('public.commodity_price' ) }}" class="nav-link">
                 <div class="card card-body personal-feature-card rounded-5 d-flex flex-row align-items-center gap-3">
@@ -49,6 +49,8 @@
         </div>
     </div>
 
+    <hr>
+
     <div class="d-flex align-items-center justify-content-between mb-3">
         <h1 class="h5 fw-bold mb-0">Daftar Artikel</h1>
         {% if articles %}
@@ -57,7 +59,7 @@
                 class="bi bi-pencil-fill me-2"></i>Tulis artikel</a>
         {% endif %}
     </div>
-    <div class="row mb-5">
+    <div class="row mb-3">
         <div class="col">
             {% if not articles %}
             <div class="card card-body rounded-5 card-green-outline d-flex align-items-center justify-content-center">
@@ -68,7 +70,7 @@
             </div>
             {% else %}
             <div class="table-responsive">
-                <table class="table table-borderless">
+                <table class="table">
                     <thead>
                         <tr class="fw-bold">
                             <td>Judul</td>
@@ -201,6 +203,8 @@
             {% endif %}
         </div>
     </div>
+
+    <hr>
 
     <div class="d-flex align-items-center justify-content-between mb-3">
         <h1 class="h5 fw-bold mb-0">Daftar Pertanyaan</h1>

@@ -138,7 +138,8 @@
                                 <a class="dropdown-item" href="#" data-bs-toggle="modal"
                                     data-bs-target="#inputDataModal">Input Data</a>
                             </li>
-                            <li><a class="dropdown-item" href="#">Import Data</a></li>
+                            <li><a class="dropdown-item" href="#" data-bs-toggle="modal"
+                                    data-bs-target="#importModal">Import Data</a></li>
                             <li>
                                 <button class="dropdown-item" id="generatePDF">
                                     <i class="fas fa-file-pdf"></i> Cetak Laporan
@@ -213,6 +214,78 @@
                         </tbody>
                     </table>
                 </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Import Data -->
+<div class="modal fade" id="importModal" tabindex="-1" aria-labelledby="importModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content p-3">
+            <div class="modal-header border-bottom">
+                <h5 class="modal-title" id="importModalLabel">Import Data Produksi</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-4">
+                    <h6 class="fw-bold mb-3">Download Template</h6>
+                    <div class="d-flex gap-2">
+                        <a href="{{ url_for('farmer.download_template', template_type='penanaman') }}"
+                            class="btn btn-outline-success">
+                            <i class="fas fa-download me-1"></i>
+                            Template Penanaman
+                        </a>
+                        <a href="{{ url_for('farmer.download_template', template_type='panen') }}"
+                            class="btn btn-outline-success">
+                            <i class="fas fa-download me-1"></i>
+                            Template Panen
+                        </a>
+                    </div>
+                </div>
+
+                <form action="{{ url_for('farmer.import_produksi') }}" method="post" enctype="multipart/form-data">
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">Status Data</label>
+                        <div class="form-check">
+                            <input class="form-check-input" type="radio" name="import_type" id="penanaman"
+                                value="penanaman" checked />
+                            <label class="form-check-label" for="penanaman">
+                                Data Penanaman
+                            </label>
+                        </div>
+                        <div class="form-check">
+                            <input class="form-check-input" type="radio" name="import_type" id="panen" value="panen" />
+                            <label class="form-check-label" for="panen">
+                                Data Panen
+                            </label>
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">File Excel (.xlsx)</label>
+                        <input type="file" name="excel_file" class="form-control" accept=".xlsx" required />
+                        <div class="form-text mt-2">
+                            <div class="alert alert-info p-2 mb-0">
+                                <i class="fas fa-info-circle me-1"></i>
+                                <strong>Penting:</strong>
+                                <ul class="mb-0 ps-3">
+                                    <li>Gunakan template yang sesuai dengan status data yang dipilih</li>
+                                    <li>Nama file harus mengandung kata "penanaman" atau "panen" sesuai jenis data</li>
+                                    <li>Contoh: data_penanaman.xlsx, panen_januari.xlsx</li>
+                                    <li>Ukuran file maksimal 5MB</li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="d-grid">
+                        <button type="submit" class="btn btn-green">
+                            <i class="fas fa-file-import me-1"></i>
+                            Import Data
+                        </button>
+                    </div>
+                </form>
             </div>
         </div>
     </div>
@@ -635,33 +708,103 @@
             });
     });
 
-    // Load and refresh data
+    // Load and refresh data with error handling
+    function updateProductivityChanges(data) {
+        if (!data) return;
+
+        const commodities = [...new Set(data.map(item => item.komoditas))];
+        const changes = {};
+
+        commodities.forEach(commodity => {
+            const commodityData = data.filter(item => item.komoditas === commodity)
+                .sort((a, b) => new Date(a.tanggal_panen) - new Date(b.tanggal_panen));
+
+            if (commodityData.length >= 2) {
+                const current = commodityData[commodityData.length - 1].hasil_panen;
+                const previous = commodityData[commodityData.length - 2].hasil_panen;
+                const change = ((current - previous) / previous * 100);
+
+                changes[commodity] = {
+                    persentase: change.toFixed(1),
+                    trend: change >= 0 ? 'up' : 'down'
+                };
+            }
+        });
+
+        // Update UI elements
+        commodities.forEach(commodity => {
+            const element = document.querySelector(`[data-commodity="${commodity}"]`);
+            if (element && changes[commodity]) {
+                element.textContent = `${changes[commodity].persentase}%`;
+                element.classList.add(changes[commodity].trend === 'up' ? 'text-success' : 'text-danger');
+            }
+        });
+    }
+
     function loadData() {
-        const field = document.getElementById('fieldFilter').value;
-        const commodity = document.getElementById('commodityFilter').value;
-        const startDate = document.getElementById('startDate').value;
-        const endDate = document.getElementById('endDate').value;
+        const field = document.getElementById('fieldFilter')?.value || '';
+        const commodity = document.getElementById('commodityFilter')?.value || '';
+        const startDate = document.getElementById('startDate')?.value || '';
+        const endDate = document.getElementById('endDate')?.value || '';
 
         fetch(`/api/produksi?field=${field}&commodity=${commodity}&start_date=${startDate}&end_date=${endDate}`)
-            .then((response) => response.json())
-            .then((data) => {
-                initCharts(data);
-                updateProductivityChanges(data);
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error('Network response was not ok');
+                }
+                return response.json();
+            })
+            .then(data => {
+                if (data && Array.isArray(data)) {
+                    initCharts(data);
+                    updateProductivityChanges(data);
+                } else {
+                    console.warn('Received invalid data format');
+                }
+            })
+            .catch(error => {
+                console.error('Error loading data:', error);
+                // Optional: Show user-friendly error message
+                const chartContainer = document.querySelector('.chart-container');
+                if (chartContainer) {
+                    chartContainer.innerHTML = `
+                    <div class="alert alert-warning mt-3" role="alert">
+                        <i class="fas fa-exclamation-triangle me-2"></i>
+                        Gagal memuat data. Silakan coba lagi nanti.
+                    </div>
+                `;
+                }
             });
     }
 
-    // Add event listeners
-    document.getElementById('filterBtn').addEventListener('click', loadData);
-    document.getElementById('resetBtn').addEventListener('click', function () {
-        document.getElementById('fieldFilter').value = '';
-        document.getElementById('commodityFilter').value = '';
-        document.getElementById('startDate').value = '';
-        document.getElementById('endDate').value = '';
+    // Add event listeners only if elements exist
+    document.addEventListener('DOMContentLoaded', function () {
+        const filterBtn = document.getElementById('filterBtn');
+        const resetBtn = document.getElementById('resetBtn');
+
+        if (filterBtn) {
+            filterBtn.addEventListener('click', loadData);
+        }
+
+        if (resetBtn) {
+            resetBtn.addEventListener('click', function () {
+                const fieldFilter = document.getElementById('fieldFilter');
+                const commodityFilter = document.getElementById('commodityFilter');
+                const startDate = document.getElementById('startDate');
+                const endDate = document.getElementById('endDate');
+
+                if (fieldFilter) fieldFilter.value = '';
+                if (commodityFilter) commodityFilter.value = '';
+                if (startDate) startDate.value = '';
+                if (endDate) endDate.value = '';
+
+                loadData();
+            });
+        }
+
+        // Initial load
         loadData();
     });
-
-    // Initial load
-    loadData();
 </script>
 <script>
     // create checkbox function that can check all checkboxes in the table
@@ -675,30 +818,33 @@
 </script>
 <!-- Script untuk menangani bulk delete -->
 <script>
-    document.getElementById('deleteSelected').addEventListener('click', function () {
-        const checkboxes = document.querySelectorAll('input[name="check"]:checked');
-        if (checkboxes.length === 0) {
-            return;
-        }
+    const deleteSelectedBtn = document.getElementById('deleteSelected');
+    if (deleteSelectedBtn) {
+        deleteSelectedBtn.addEventListener('click', function () {
+            const checkboxes = document.querySelectorAll('input[name="check"]:checked');
+            if (checkboxes.length === 0) {
+                return;
+            }
 
-        // Buat form untuk delete
-        const form = document.getElementById('deleteForm');
+            // Buat form untuk delete
+            const form = document.getElementById('deleteForm');
 
-        // Hapus input hidden yang mungkin sudah ada sebelumnya
-        form.querySelectorAll('input[type="hidden"]').forEach((input) => input.remove());
+            // Hapus input hidden yang mungkin sudah ada sebelumnya
+            form.querySelectorAll('input[type="hidden"]').forEach((input) => input.remove());
 
-        // Tambahkan input hidden untuk setiap ID yang dipilih
-        checkboxes.forEach((checkbox) => {
-            const input = document.createElement('input');
-            input.type = 'hidden';
-            input.name = 'check';
-            input.value = checkbox.value;
-            form.appendChild(input);
+            // Tambahkan input hidden untuk setiap ID yang dipilih
+            checkboxes.forEach((checkbox) => {
+                const input = document.createElement('input');
+                input.type = 'hidden';
+                input.name = 'check';
+                input.value = checkbox.value;
+                form.appendChild(input);
+            });
+
+            // Tampilkan modal konfirmasi
+            new bootstrap.Modal(document.getElementById('deleteModal')).show();
         });
-
-        // Tampilkan modal konfirmasi
-        new bootstrap.Modal(document.getElementById('deleteModal')).show();
-    });
+    }
 
     // Handle "check all" functionality
     document.getElementById('check-all').addEventListener('change', function () {
@@ -731,12 +877,15 @@
         this.classList.add('was-validated');
     });
 
-    document.getElementById('formUpdatePanen').addEventListener('submit', function (e) {
-        if (!this.checkValidity()) {
-            e.preventDefault();
-            e.stopPropagation();
-        }
-        this.classList.add('was-validated');
+    // Instead of looking for a single form
+    document.querySelectorAll('[id^="formUpdatePanen"]').forEach(form => {
+        form.addEventListener('submit', function (e) {
+            if (!this.checkValidity()) {
+                e.preventDefault();
+                e.stopPropagation();
+            }
+            this.classList.add('was-validated');
+        });
     });
 </script>
 <script>
@@ -784,13 +933,33 @@
     // Table Manager Class
     class TableManager {
         constructor(tableId, searchId, pageSizeId) {
+            // Add pagination container creation first
+            const paginationDiv = document.createElement('div');
+            paginationDiv.id = 'tablePagination';
+
             this.table = document.getElementById(tableId);
+            if (!this.table) return;
+
+            this.table.parentNode.appendChild(paginationDiv);
             this.searchInput = document.getElementById(searchId);
             this.pageSizeSelect = document.getElementById(pageSizeId);
+
+            if (!this.table || !this.searchInput || !this.pageSizeSelect) {
+                console.warn('Some table elements not found');
+                return;
+            }
+
             this.currentPage = 1;
             this.pageSize = parseInt(this.pageSizeSelect.value);
             this.initializeListeners();
             this.updateTable();
+
+            // Create pagination container if not exists
+            if (!document.getElementById('tablePagination')) {
+                const paginationDiv = document.createElement('div');
+                paginationDiv.id = 'tablePagination';
+                this.table.parentNode.appendChild(paginationDiv);
+            }
         }
 
         initializeListeners() {
@@ -852,6 +1021,7 @@
 
         updatePagination(totalPages) {
             const paginationContainer = document.getElementById('tablePagination');
+            if (!paginationContainer) return;
             paginationContainer.innerHTML = '';
 
             if (totalPages <= 1) return;
@@ -899,9 +1069,15 @@
         }
     }
 
-    // Initialize table manager when document is ready
+    // Initialize only if elements exist
     document.addEventListener('DOMContentLoaded', function () {
-        const tableManager = new TableManager('dataTable', 'searchTable', 'pageSize');
+        const table = document.getElementById('dataTable');
+        const search = document.getElementById('searchTable');
+        const pageSize = document.getElementById('pageSize');
+
+        if (table && search && pageSize) {
+            const tableManager = new TableManager('dataTable', 'searchTable', 'pageSize');
+        }
     });
 </script>
 <script>

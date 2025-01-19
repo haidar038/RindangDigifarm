@@ -14,7 +14,7 @@ from babel.numbers import format_currency
 from babel.dates import format_date
 from werkzeug.utils import secure_filename
 from typing import Optional, Tuple
-from openpyxl import load_workbook
+from openpyxl import load_workbook, Workbook
 from functools import wraps
 from io import BytesIO
 
@@ -41,6 +41,11 @@ PRICE_TYPE_ID = 1
 JENIS_ID = 1
 PERIOD_ID = 1
 PROVINCE_ID = 32
+
+# IMPORT FUNCTION
+# Constants
+REPORT_ALLOWED_EXTENSIONS = {'xlsx'}
+MAX_CONTENT_LENGTH = 5 * 1024 * 1024  # 5MB limit
 
 def role_required(role):
     def decorator(f):
@@ -909,8 +914,231 @@ def delete_single_produksi(id):
         flash('Gagal menghapus data produksi', 'danger')
     return redirect(url_for('farmer.manajemen_produksi'))
 
-@farmer.route('/api/produksi', methods=['GET'])
+@farmer.route('/petani/produksi/import-data', methods=['POST'])
 @login_required
+@role_required('petani')
+def import_produksi():
+    """Import production data from Excel file"""
+    if 'excel_file' not in request.files:
+        flash('Tidak ada file yang dipilih!', 'error')
+        return redirect(request.url)
+        
+    excel_file = request.files['excel_file']
+    import_type = request.form.get('import_type', 'penanaman')
+    
+    if excel_file.filename == '':
+        flash('Tidak ada file yang dipilih!', 'error')
+        return redirect(request.url)
+
+    # Validate file size
+    if len(excel_file.read()) > MAX_CONTENT_LENGTH:
+        flash('Ukuran file terlalu besar! Maksimal 5MB', 'error')
+        return redirect(request.url)
+    excel_file.seek(0)  # Reset file pointer
+
+    if not report_allowed_file(excel_file.filename):
+        flash('File tidak valid. Unggah file Excel (.xlsx)!', 'error')
+        return redirect(request.url)
+        
+    # Validate filename matches import type
+    file_name_without_extension = os.path.splitext(excel_file.filename)[0].lower()
+    if import_type not in file_name_without_extension:
+        flash(f'Nama file harus mengandung kata "{import_type}"!', 'warning')
+        return redirect(request.url)
+
+    try:
+        wb = load_workbook(excel_file)
+        sheet = wb.active
+        
+        # Begin transaction
+        added_records = 0
+        skipped_records = 0
+        
+        for row in sheet.iter_rows(min_row=2):  # Skip header row
+            try:
+                # Basic validation for required fields
+                kebun_id = row[0].value
+                komoditas_id = row[1].value
+                jml_bibit = row[2].value
+                tanggal_bibit = row[3].value
+
+                if not all([kebun_id, komoditas_id, jml_bibit, tanggal_bibit]):
+                    skipped_records += 1
+                    continue
+
+                # Convert date if it's a string
+                if isinstance(tanggal_bibit, str):
+                    try:
+                        tanggal_bibit = datetime.strptime(tanggal_bibit, '%Y-%m-%d')
+                    except ValueError:
+                        skipped_records += 1
+                        continue
+
+                # Check if kebun belongs to user
+                kebun = Kebun.query.filter_by(
+                    id=kebun_id, 
+                    user_id=current_user.id,
+                    is_deleted=False
+                ).first()
+                
+                if not kebun:
+                    skipped_records += 1
+                    continue
+
+                # Check if komoditas exists
+                komoditas = Komoditas.query.filter_by(
+                    id=komoditas_id,
+                    is_deleted=False
+                ).first()
+                
+                if not komoditas:
+                    skipped_records += 1
+                    continue
+
+                # Create base production record
+                produksi = DataPangan(
+                    kebun_id=kebun_id,
+                    komoditas_id=komoditas_id,
+                    user_id=current_user.id,
+                    jml_bibit=jml_bibit,
+                    tanggal_bibit=tanggal_bibit,
+                    estimasi_panen=tanggal_bibit + timedelta(days=60)
+                )
+
+                # Handle panen data if applicable
+                if import_type == 'panen':
+                    jml_panen = row[4].value
+                    tanggal_panen = row[5].value
+                    
+                    if not jml_panen or not tanggal_panen:
+                        skipped_records += 1
+                        continue
+                        
+                    if isinstance(tanggal_panen, str):
+                        try:
+                            tanggal_panen = datetime.strptime(tanggal_panen, '%Y-%m-%d')
+                        except ValueError:
+                            skipped_records += 1
+                            continue
+
+                    produksi.jml_panen = jml_panen
+                    produksi.tanggal_panen = tanggal_panen
+                    produksi.status = 'Panen'
+                else:
+                    produksi.status = 'Penanaman'
+
+                db.session.add(produksi)
+                added_records += 1
+
+            except Exception as row_error:
+                current_app.logger.error(f"Error processing row: {str(row_error)}")
+                skipped_records += 1
+                continue
+
+        db.session.commit()
+        
+        message = f'Berhasil mengimpor {added_records} data produksi'
+        if skipped_records > 0:
+            message += f' ({skipped_records} data dilewati karena tidak valid)'
+        flash(message, 'success')
+        
+    except Exception as e:
+        db.session.rollback()
+        current_app.logger.error(f"Error importing production data: {str(e)}")
+        flash('Gagal mengimpor data. Pastikan format file sesuai template.', 'error')
+    
+    return redirect(url_for('farmer.manajemen_produksi'))
+
+@farmer.route('/api/download-template/<template_type>')
+@login_required
+@role_required('petani')
+def download_template(template_type):
+    """Download Excel template for data import"""
+    try:
+        # Create new workbook
+        wb = Workbook()
+        ws = wb.active
+        ws.title = "Data"
+
+        # Add headers based on template type
+        if template_type == 'penanaman':
+            headers = ['ID Kebun', 'ID Komoditas', 'Jumlah Bibit', 'Tanggal Bibit (YYYY-MM-DD)']
+        elif template_type == 'panen':
+            headers = ['ID Kebun', 'ID Komoditas', 'Jumlah Bibit', 'Tanggal Bibit (YYYY-MM-DD)', 
+                        'Jumlah Panen', 'Tanggal Panen (YYYY-MM-DD)']
+        else:
+            return jsonify({'error': 'Template type not valid'}), 400
+
+        # Write headers
+        for col, header in enumerate(headers, 1):
+            ws.cell(row=1, column=col, value=header)
+
+        # Create helper sheet
+        help_sheet = wb.create_sheet(title="Bantuan")
+        
+        # Get user's active gardens
+        kebun_list = Kebun.query.filter_by(
+            user_id=current_user.id,
+            is_deleted=False
+        ).all()
+        
+        # Get active commodities
+        komoditas_list = Komoditas.query.filter_by(
+            is_deleted=False
+        ).all()
+
+        # Write garden list
+        help_sheet['A1'] = 'Daftar Kebun:'
+        help_sheet['A2'] = 'ID Kebun'
+        help_sheet['B2'] = 'Nama Kebun'
+        
+        for i, kebun in enumerate(kebun_list, 3):
+            help_sheet[f'A{i}'] = kebun.id
+            help_sheet[f'B{i}'] = kebun.nama
+
+        # Write commodity list
+        row_start = len(kebun_list) + 5
+        help_sheet[f'A{row_start}'] = 'Daftar Komoditas:'
+        help_sheet[f'A{row_start+1}'] = 'ID Komoditas'
+        help_sheet[f'B{row_start+1}'] = 'Nama Komoditas'
+        
+        for i, komoditas in enumerate(komoditas_list, row_start+2):
+            help_sheet[f'A{i}'] = komoditas.id
+            help_sheet[f'B{i}'] = komoditas.nama
+
+        # Add instructions
+        row_start = row_start + len(komoditas_list) + 3
+        help_sheet[f'A{row_start}'] = 'Petunjuk Pengisian:'
+        instructions = [
+            '1. Tanggal dalam format YYYY-MM-DD (contoh: 2025-01-19)',
+            '2. Jumlah bibit dan panen harus angka positif',
+            '3. ID Kebun harus sesuai dengan daftar kebun di atas',
+            '4. ID Komoditas harus sesuai dengan daftar komoditas di atas',
+            '5. Field wajib tidak boleh kosong',
+            f'6. Status akan otomatis diisi {"Panen" if template_type == "panen" else "Penanaman"}'
+        ]
+        
+        for i, instruction in enumerate(instructions, row_start+1):
+            help_sheet[f'A{i}'] = instruction
+
+        # Save to BytesIO
+        excel_file = BytesIO()
+        wb.save(excel_file)
+        excel_file.seek(0)
+
+        return send_file(
+            excel_file,
+            mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            as_attachment=True,
+            download_name=f'template_{template_type}.xlsx'
+        )
+
+    except Exception as e:
+        current_app.logger.error(f"Error generating template: {str(e)}")
+        return jsonify({'error': 'Failed to generate template'}), 500
+
+@farmer.route('/api/produksi', methods=['GET'])
+@login_required 
 @role_required('petani')
 def api_produksi():
     field_id = request.args.get('field')
@@ -925,6 +1153,7 @@ def api_produksi():
         DataPangan.tanggal_bibit >= three_months_ago
     )
 
+    # Apply filters
     if field_id:
         query = query.filter(DataPangan.kebun_id == field_id)
     if commodity_id:
@@ -934,20 +1163,72 @@ def api_produksi():
     if end_date:
         query = query.filter(DataPangan.tanggal_bibit <= datetime.strptime(end_date, '%Y-%m-%d'))
 
-    produksi = query.order_by(DataPangan.tanggal_panen.asc()).all()  
-
-    # Enhanced chart data with additional fields
+    produksi = query.all()
+    
     chart_data = []
     for prod in produksi:
-        if prod.tanggal_panen and prod.jml_panen:  # Only include complete records
+        if prod.tanggal_panen and prod.jml_panen:
             chart_data.append({
                 'kebun': prod.kebun.nama,
                 'komoditas': prod.komoditas_info.nama,
-                'tanggal_panen': prod.tanggal_panen.strftime('%Y-%m-%d'),  # Keep date in sortable format
+                'tanggal_panen': prod.tanggal_panen.strftime('%Y-%m-%d'),
                 'hasil_panen': prod.jml_panen
             })
 
     return jsonify(chart_data)
+
+@farmer.route('/api/produksi', methods=['GET', 'POST'])
+@login_required
+@role_required('petani')
+def get_produksi_data():
+    # Get filter parameters
+    field_id = request.args.get('field')
+    commodity_id = request.args.get('commodity')
+    start_date = request.args.get('start_date')
+    end_date = request.args.get('end_date')
+
+    # Base query
+    query = DataPangan.query.filter(
+        DataPangan.user_id == current_user.id,
+        DataPangan.is_deleted == False
+    )
+
+    # Apply filters
+    if field_id:
+        query = query.filter(DataPangan.kebun_id == field_id)
+    if commodity_id:
+        query = query.filter(DataPangan.komoditas_id == commodity_id)
+    if start_date:
+        try:
+            start = datetime.strptime(start_date, '%Y-%m-%d')
+            query = query.filter(DataPangan.tanggal_bibit >= start)
+        except ValueError:
+            pass
+    if end_date:
+        try:
+            end = datetime.strptime(end_date, '%Y-%m-%d')
+            query = query.filter(DataPangan.tanggal_bibit <= end)
+        except ValueError:
+            pass
+
+    # Get data
+    produksi = query.all()
+
+    # Format data
+    data = []
+    for p in produksi:
+        data.append({
+            'id': p.id,
+            'kebun': p.kebun.nama,
+            'komoditas': p.komoditas_info.nama,
+            'tanggal_bibit': p.tanggal_bibit.strftime('%Y-%m-%d') if p.tanggal_bibit else None,
+            'jml_bibit': p.jml_bibit,
+            'tanggal_panen': p.tanggal_panen.strftime('%Y-%m-%d') if p.tanggal_panen else None,
+            'jml_panen': p.jml_panen,
+            'status': p.status
+        })
+
+    return jsonify(data)
 
 @farmer.route('/petani/produksi/cetak-laporan', methods=['GET'])
 @login_required

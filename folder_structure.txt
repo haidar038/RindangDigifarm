@@ -61,7 +61,6 @@
  ┃ ┃ ┃ ┣ 📂modals
  ┃ ┃ ┃ ┣ 📜index.html
  ┃ ┃ ┃ ┣ 📜informasi_kebun.html
- ┃ ┃ ┃ ┣ 📜input_produksi.html
  ┃ ┃ ┃ ┗ 📜manajemen_produksi.html
  ┃ ┃ ┣ 📂layout
  ┃ ┃ ┃ ┣ 📜admin_base.html
