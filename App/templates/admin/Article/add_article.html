@@ -1,6 +1,4 @@
 {% extends 'layout/public_base.html' %}
-<!-- TITLE -->
-{% block title %} Update Artikel {% endblock %}
 <!-- HEAD SCRIPTS -->
 {% block head_scripts %}
 <script src="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.2/cropper.min.js"
@@ -10,7 +8,7 @@
     integrity="sha512-UtLOu9C7NuThQhuXXrGwx9Jb/z9zPQJctuAgNUBK3Z6kkSYT9wJ+2+dh6klS+TDBCV9kNPBbAxbVD+vCcfGPaA=="
     crossorigin="anonymous" referrerpolicy="no-referrer" />
 {% endblock %}
-<!-- STYLES -->
+<!-- STYLE BLOCK -->
 {% block styles %}
 <style>
     .modal-body {
@@ -24,18 +22,20 @@
     }
 </style>
 {% endblock %}
+<!-- TITLE -->
+{% block title %} Tulis Artikel {% endblock %}
 <!-- BLOCKS -->
 {% block content %}
-<div class="container">
+<main class="container py-4">
     <form action="" method="post" enctype="multipart/form-data">
         <div class="d-flex align-items-center justify-content-between mb-3">
-            <a href="{{ url_for('personal.index' ) }}" class="nav-link text-green fw-bold">&larr; Kembali</a>
+            <a href="{{ url_for('admin.articles_management' ) }}" class="nav-link text-green fw-bold">&larr; Kembali</a>
             <div class="d-flex gap-2">
                 <button type="submit" id="draftBtn" class="btn btn-outline-green fw-bold">Simpan Draft</button>
                 <button type="submit" id="postBtn" class="btn btn-green fw-bold text-white">Posting</button>
             </div>
         </div>
-        <h1 class="h5 fw-bold mb-4">Update Artikel</h1>
+        <h1 class="h5 fw-bold mb-4">Draft</h1>
         <div class="row mb-3">
             <input type="hidden" name="action" id="action" />
             <div class="col-4">
@@ -44,28 +44,23 @@
                     <input class="form-control" type="file" accept=".jpg, .jpeg, .png" id="thumbnail"
                         name="thumbnail" />
                 </div>
-                {% if article.thumbnail %}
-                <img src="{{ url_for('static', filename='uploads/'+article.thumbnail) }}" alt="Preview Uploaded Image"
-                    width="100%" class="img-thumbnail" id="thumbnail-preview" />
-                {% else %}
-                <img src="{{ url_for('static', filename='img/default_thumbnail.png') }}" alt="Default Thumbnail"
-                    width="100%" class="img-thumbnail" id="thumbnail-preview" />
-                {% endif %}
+                <img src="https://upload.wikimedia.org/wikipedia/commons/3/3f/Placeholder_view_vector.svg"
+                    alt="Preview Uploaded Image" width="100%" class="img-thumbnail" id="thumbnail-preview" />
             </div>
             <div class="col-8">
                 <div class="mb-3">
                     <label for="judul" class="form-label fw-bold">Judul Artikel</label>
                     <input type="text" class="form-control" id="judul" name="judul"
-                        placeholder="Buat judul artikel yang menarik" value="{{ article.judul }}" required />
+                        placeholder="Buat judul artikel yang menarik" required />
                 </div>
                 <div class="mb-3">
                     <label for="ckeditor" class="form-label fw-bold">Tulisan</label>
-                    {{ ckeditor.create(value=article.content) }}
+                    {{ ckeditor.create() }}
                 </div>
             </div>
         </div>
     </form>
-</div>
+</main>
 
 <!-- Modal for cropping -->
 <div class="modal fade" id="cropModal" tabindex="-1" aria-labelledby="cropModalLabel" aria-hidden="true">
@@ -125,11 +120,14 @@
                 }
                 cropper = new Cropper(imageElement, {
                     aspectRatio: 16 / 9,
-                    viewMode: 3,
+                    viewMode: 2,
                     dragMode: 'move',
                     restore: false,
                     center: false,
                     highlight: false,
+                    //cropBoxMovable: false,
+                    //cropBoxResizable: false,
+                    //toggleDragModeOnDblclick: false,
                 });
             };
             reader.readAsDataURL(file);

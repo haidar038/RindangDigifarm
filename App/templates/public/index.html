@@ -234,12 +234,13 @@
     <div class="row">
         <h5 class="fw-bold text-yellow mb-3 text-center">Artikel</h5>
         <p class="fw-bold text-center h1 mb-4">Jelajahi Tren Terbaru <br> Tentang Pertanian </p>
+
         {% if articles %}
-        {% if featured_articles %}
         <div class="col-12 col-lg-7 mb-4">
+            {% if featured_articles %}
             <div class="card border-0 h-100">
                 <div class="ratio ratio-16x9 mb-3">
-                    <img src="{{ url_for('static', filename='uploads/' + (featured_articles.thumbnail or 'default_thumbnail.jpg')) }}"
+                    <img src="{{ url_for('static', filename='uploads/' + (featured_articles.thumbnail or 'default_thumbnail.png')) }}"
                         class="rounded-4 object-fit-cover" alt="" />
                 </div>
                 <div class="card-body px-0">
@@ -249,11 +250,11 @@
                         class="link-color-primary fw-bold">Baca selengkapnya &rarr;</a>
                 </div>
             </div>
+            {% endif %}
         </div>
-        {% endif %}
+
         <div class="col-12 col-lg-5">
-            {% if articles %}
-            {% for item in articles %}
+            {% for item in articles[:3] %}
             <div class="row g-3 mb-3">
                 <div class="col-4">
                     <div class="ratio ratio-1x1">
@@ -272,7 +273,10 @@
             <hr class="my-3">
             {% endif %}
             {% endfor %}
-            {% endif %}
+
+            <div class="text-center mt-4">
+                <a href="{{ url_for('public.rindang_pedia') }}" class="btn btn-green">Lihat Semua Artikel</a>
+            </div>
         </div>
         {% else %}
         <p class="text-center"><em>Belum ada artikel yang tersedia</em></p>

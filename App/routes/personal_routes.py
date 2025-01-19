@@ -170,7 +170,7 @@ def write_article():
         action = request.form.get('action')
 
         # Initialize filename
-        filename = 'default_thumbnail.jpg'
+        filename = 'default_thumbnail.png'
 
         # Check if the post request has the file part
         if 'thumbnail' in request.files:

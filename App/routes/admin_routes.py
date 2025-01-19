@@ -1,4 +1,4 @@
-import string, random, os
+import string, random, os, secrets
 
 from flask import Blueprint, render_template, redirect, url_for, flash, current_app, request, jsonify, send_file
 from flask_login import login_required, current_user
@@ -24,6 +24,11 @@ from App.models import UpgradeRequest, User, PetaniProfile, AhliProfile, Artikel
 admin = Blueprint('admin', __name__)
 
 REPORT_ALLOWED_EXTENSIONS = {'xlsx'}
+PICTURE_ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg'}
+
+def picture_allowed_file(filename):
+    return '.' in filename and \
+            filename.rsplit('.', 1)[1].lower() in PICTURE_ALLOWED_EXTENSIONS
 
 def allowed_file(filename):
     return '.' in filename and \
@@ -80,13 +85,38 @@ def roles_required(*roles):
         return decorated_function
     return decorator
 
+def view_only_access(f):
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        if not current_user.is_authenticated:
+            return redirect(url_for('auth.login'))
+            
+        allowed_views = ['index', 'productions_management']
+        if current_user.has_role('view_only') and f.__name__ not in allowed_views:
+            flash('Anda hanya memiliki akses view.', 'warning') 
+            return redirect(url_for('admin.index'))
+            
+        return f(*args, **kwargs)
+    return decorated_function
+
 @admin.route('/admin')
 @login_required
-@roles_required('admin', 'view only')
+@roles_required('admin', 'view_only') 
+@view_only_access
 def index():
     users = User.query.filter(User.username!='admin').all()
     articles = Artikel.query.all()
-    return render_template('admin/index.html', users=users, articles=articles)
+
+    # Get total production data
+    total_production = db.session.query(func.sum(DataPangan.jml_panen)).filter(
+        DataPangan.is_deleted == False,
+        DataPangan.jml_panen.isnot(None)
+    ).scalar() or 0
+
+    return render_template('admin/index.html',
+                            users=users,
+                            articles=articles,
+                            total_production=total_production)
 
 @admin.route('/admin/users-management')
 @login_required
@@ -514,46 +544,129 @@ def articles_management():
         pagination=pagination
     )
 
-@admin.route('/admin/articles-management/add', methods=['POST'])
+# @admin.route('/admin/articles-management/add', methods=['POST', 'GET'])
+# @login_required
+# @roles_required('admin')
+# def add_article():
+#     try:
+#         judul = request.form['judul']
+#         content = cleanify(request.form.get('ckeditor'))
+#         action = request.form.get('action')
+        
+#         # Handle thumbnail
+#         thumbnail = request.files['thumbnail']
+#         if thumbnail and allowed_file(thumbnail.filename):
+#             filename = secure_filename(thumbnail.filename)
+#             thumbnail_path = os.path.join(current_app.config['UPLOAD_FOLDER'], filename)
+#             thumbnail.save(thumbnail_path)
+#         else:
+#             filename = 'default_thumbnail.png'
+        
+#         # Create article
+#         article = Artikel(
+#             judul=judul,
+#             content=content,
+#             thumbnail=filename,
+#             created_by=current_user.id,
+#             is_drafted=(action == 'save'),
+#             is_approved=(action == 'publish')
+#         )
+        
+#         db.session.add(article)
+#         db.session.commit()
+#         flash('Artikel berhasil ditambahkan', 'success')
+        
+#     except Exception as e:
+#         db.session.rollback()
+#         current_app.logger.error(f"Error adding article: {str(e)}")
+#         flash('Gagal menambahkan artikel', 'danger')
+    
+#     return redirect(url_for('admin.articles_management'))
+
+@admin.route('/admin/write-article', methods=['GET', 'POST'])
+@login_required
+def add_article():
+    articles = Artikel.query.filter_by(created_by=current_user.id)
+    upload_folder = current_app.config['UPLOAD_FOLDER']
+
+    if request.method == 'POST':
+        judul = request.form['judul']
+        konten = cleanify(request.form.get('ckeditor'))
+        action = request.form.get('action')
+
+        # Initialize filename
+        filename = 'default_thumbnail.png'
+
+        # Check if the post request has the file part
+        if 'thumbnail' in request.files:
+            file = request.files['thumbnail']
+            if file and file.filename != '':
+                if picture_allowed_file(file.filename):
+                    filename = secrets.token_hex(8) + '_' + secure_filename(file.filename)
+                    file_path = os.path.join(upload_folder, filename)
+                    file.save(file_path)
+                else:
+                    flash('Format file tidak diizinkan!', 'danger')
+                    return redirect(request.url)
+
+        # Create the article
+        if action == 'posting':
+            add_article = Artikel(judul=judul, content=konten, created_by=current_user.id, thumbnail=filename)
+        elif action == 'save':
+            add_article = Artikel(judul=judul, content=konten, created_by=current_user.id, is_drafted=True, thumbnail=filename)
+        else:
+            flash('Aksi tidak valid!', 'danger')
+            return redirect(request.url)
+
+        db.session.add(add_article)
+        db.session.commit()
+        flash('Berhasil membuat artikel', 'success')
+        return redirect(url_for('admin.articles_management'))
+
+    return render_template('admin/Article/add_article.html', articles=articles)
+
+@admin.route('/admin/articles-management/<int:id>/edit', methods=['POST', 'GET'])
 @login_required
 @roles_required('admin')
-def add_article():
-    try:
-        judul = request.form['judul']
-        content = cleanify(request.form.get('ckeditor'))
-        action = request.form.get('action')
+def edit_article(id):
+    article = Artikel.query.get_or_404(id)
+    if request.method == 'POST':
+        try:
+            
+            article.judul = request.form['judul']
+            article.content = cleanify(request.form.get('ckeditor'))
+            action = request.form.get('action')
+            
+            # Handle thumbnail if new one uploaded
+            if 'thumbnail' in request.files:
+                thumbnail = request.files['thumbnail']
+                if thumbnail and allowed_file(thumbnail.filename):
+                    # Delete old thumbnail if it exists and isn't default
+                    if article.thumbnail != 'default_thumbnail.png':
+                        old_thumbnail = os.path.join(current_app.config['UPLOAD_FOLDER'], article.thumbnail)
+                        if os.path.exists(old_thumbnail):
+                            os.remove(old_thumbnail)
+                    
+                    filename = secure_filename(thumbnail.filename)
+                    thumbnail_path = os.path.join(current_app.config['UPLOAD_FOLDER'], filename)
+                    thumbnail.save(thumbnail_path)
+                    article.thumbnail = filename
+            
+            article.is_drafted = (action == 'save')
+            article.is_approved = (action == 'publish')
+            
+            db.session.commit()
+            flash('Artikel berhasil diperbarui', 'success')
+            
+        except Exception as e:
+            db.session.rollback()
+            current_app.logger.error(f"Error updating article: {str(e)}")
+            flash('Gagal memperbarui artikel', 'danger')
         
-        # Handle thumbnail
-        thumbnail = request.files['thumbnail']
-        if thumbnail and allowed_file(thumbnail.filename):
-            filename = secure_filename(thumbnail.filename)
-            thumbnail_path = os.path.join(current_app.config['UPLOAD_FOLDER'], filename)
-            thumbnail.save(thumbnail_path)
-        else:
-            filename = 'default_thumbnail.jpg'
-        
-        # Create article
-        article = Artikel(
-            judul=judul,
-            content=content,
-            thumbnail=filename,
-            created_by=current_user.id,
-            is_drafted=(action == 'save'),
-            is_approved=(action == 'publish')
-        )
-        
-        db.session.add(article)
-        db.session.commit()
-        flash('Artikel berhasil ditambahkan', 'success')
-        
-    except Exception as e:
-        db.session.rollback()
-        current_app.logger.error(f"Error adding article: {str(e)}")
-        flash('Gagal menambahkan artikel', 'danger')
-    
-    return redirect(url_for('admin.articles_management'))
+        return redirect(url_for('admin.articles_management'))
+    return render_template('admin/Article/edit_article.html', article=article)
 
-@admin.route('/admin/articles-management/<int:id>/update', methods=['POST'])
+@admin.route('/admin/articles-management/<int:id>/update', methods=['POST', 'GET'])
 @login_required
 @roles_required('admin')
 def update_article(id):
@@ -569,7 +682,7 @@ def update_article(id):
             thumbnail = request.files['thumbnail']
             if thumbnail and allowed_file(thumbnail.filename):
                 # Delete old thumbnail if it exists and isn't default
-                if article.thumbnail != 'default_thumbnail.jpg':
+                if article.thumbnail != 'default_thumbnail.png':
                     old_thumbnail = os.path.join(current_app.config['UPLOAD_FOLDER'], article.thumbnail)
                     if os.path.exists(old_thumbnail):
                         os.remove(old_thumbnail)
@@ -616,14 +729,14 @@ def delete_article(id):
         article = Artikel.query.get_or_404(id)
         
         # Delete thumbnail if not default
-        if article.thumbnail != 'default_thumbnail.jpg':
+        if article.thumbnail != 'default_thumbnail.png':
             thumbnail_path = os.path.join(current_app.config['UPLOAD_FOLDER'], article.thumbnail)
             if os.path.exists(thumbnail_path):
                 os.remove(thumbnail_path)
         
         db.session.delete(article)
         db.session.commit()
-        flash('Artikel berhasil dihapus', 'success')
+        flash('Artikel berhasil dihapus', 'warning')
     except Exception as e:
         db.session.rollback()
         current_app.logger.error(f"Error deleting article: {str(e)}")
@@ -632,7 +745,8 @@ def delete_article(id):
 
 @admin.route('/admin/productions-management')
 @login_required
-@roles_required('admin')
+@roles_required('admin', 'view_only')
+@view_only_access
 def productions_management():
     page = request.args.get('page', 1, type=int)
     per_page = current_app.config.get('ITEMS_PER_PAGE', 10)

@@ -79,7 +79,9 @@
                                 <i class="bi bi-house-fill me-2"></i> Beranda
                             </a>
                         </li>
+
                         {% if current_user.has_role('admin') %}
+                        <!-- Menu khusus admin -->
                         <li class="nav-item">
                             <a href="{{ url_for('admin.users_management') }}" class="nav-link text-white">
                                 <i class="fa fa-user fa-fw me-2"></i> Pengguna
@@ -101,17 +103,11 @@
                             </a>
                         </li>
                         {% endif %}
+
+                        <!-- Menu yang bisa diakses semua -->
                         <li class="nav-item">
                             <a href="{{ url_for('admin.productions_management') }}" class="nav-link text-white">
                                 <i class="fa fa-chart-pie fa-fw me-2"></i> Produksi
-                            </a>
-                        </li>
-                        <li>
-                            <hr class="dropdown-divider bg-light" />
-                        </li>
-                        <li class="nav-item">
-                            <a href="{{ url_for('auth.logout') }}" class="nav-link text-white">
-                                <i class="fa fa-right-from-bracket fa-fw me-2"></i> Keluar
                             </a>
                         </li>
                     </ul>
@@ -134,7 +130,9 @@
                         <i class="bi bi-house-fill me-2"></i> Beranda
                     </a>
                 </li>
+
                 {% if current_user.has_role('admin') %}
+                <!-- Menu khusus admin -->
                 <li class="nav-item">
                     <a href="{{ url_for('admin.users_management') }}" class="nav-link text-white">
                         <i class="fa fa-user fa-fw me-2"></i> Pengguna
@@ -156,6 +154,8 @@
                     </a>
                 </li>
                 {% endif %}
+
+                <!-- Menu yang bisa diakses semua -->
                 <li class="nav-item">
                     <a href="{{ url_for('admin.productions_management') }}" class="nav-link text-white">
                         <i class="fa fa-chart-pie fa-fw me-2"></i> Produksi

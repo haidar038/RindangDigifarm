@@ -42,6 +42,7 @@ def seed_roles():
     from App.models import Role
     roles = [
         {'name': 'admin', 'description': 'Administrator sistem dengan akses penuh'},
+        {'name': 'view_only', 'description': 'User dengan akses view-only ke dashboard admin'},
         {'name': 'personal', 'description': 'Pengguna umum dengan akses dasar'},
         {'name': 'petani', 'description': 'Pengguna dengan peran petani'},
         {'name': 'ahli', 'description': 'Pengguna dengan peran ahli di bidang tertentu'},

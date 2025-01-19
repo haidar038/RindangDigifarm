@@ -567,7 +567,7 @@ def add_kebun():
             # Handle photo uploads
             uploaded_photos = request.files.getlist('fotoKebun[]')
             if not uploaded_photos or uploaded_photos[0].filename == '':
-                result = 'default_thumbnail.jpg'
+                result = 'default_thumbnail.png'
             else:
                 filenames = []
                 for photo in uploaded_photos:
