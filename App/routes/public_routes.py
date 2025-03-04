@@ -102,16 +102,18 @@ def index():
     for kebun_item in data_kebun:
         if not kebun_item.users:
             continue
-            
         try:
             user = kebun_item.users[0]  # Ambil user pertama
             petani_profile = user.petani_profile if hasattr(user, 'petani_profile') else None
             
+            komoditas_list = kebun_item.komoditas.split(',') if kebun_item.komoditas else []
+
             koordinat.append({
                 'coords': kebun_item.koordinat,
                 'uid': kebun_item.unique_id,
                 'nama_kebun_item': kebun_item.nama,
                 'luas': kebun_item.luas_kebun,
+                'komoditas': komoditas_list,  # Tambahkan daftar komoditas
                 'user': {
                     'name': user.nama_lengkap,
                     'profile_pic': user.profile_pic,

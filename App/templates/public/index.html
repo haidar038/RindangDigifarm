@@ -132,8 +132,8 @@
 <section class="container mb-5" id="about">
     <div class="row position-relative align-items-center">
         <div class="col-12 col-lg-6 mb-3 mb-lg-0">
-            <h5 class="fw-bold text-yellow mb-3">Tentang Kami</h5>
-            <p class="h1 fw-bold mb-3">Inovasi Pertanian Modern yang akan menjadi masa depan Pertanian</p>
+            <h5 class="text-yellow">Tentang Kami</h5>
+            <p class="h1 fw-bold mb-4">Inovasi Pertanian Modern yang akan menjadi masa depan Pertanian</p>
             <p class="lead">Program rindang berkomitmen untuk merubah pertanian yang awalnya tradisonal menjadi
                 pertanian modern</p>
         </div>
@@ -156,8 +156,8 @@
 <section class="container" id="maps">
     <div class="row">
         <div class="col">
-            <h5 class="fw-bold text-yellow mb-3 text-center">Petani Yang Tergabung</h5>
-            <p class="h1 text-center mb-3 fw-bold">
+            <h5 class="text-yellow text-center">Petani Yang Tergabung</h5>
+            <p class="h1 text-center mb-4 fw-bold">
                 Bersama-sama <br />
                 membangun kota dengan pertanian
             </p>
@@ -179,19 +179,54 @@
                     zoom: 11,
                 });
 
+                // Tambahkan fungsi untuk mendapatkan ikon komoditas berdasarkan jenisnya
+                function getKomoditasIcon(komoditas) {
+                    // Mapping komoditas ke ikon yang sesuai
+                    const iconMap = {
+                        'Cabai Merah': 'icon-red-pepper.png',
+                        'Cabai Rawit': 'icon-cayenne-pepper.png',
+                        'Tomat': 'icon-tomato.png',
+                        'Bawang Merah': 'icon-onion.png',
+                        'Jagung': 'icon-corn.png',
+                        // Tambahkan mappingan lain sesuai kebutuhan
+                    };
+
+                    // Default icon jika tidak ada mapping
+                    return iconMap[komoditas] || 'icon-vege.png';
+                }
+
                 // Add a marker and popup for each coordinate
                 coords.forEach(item => {
                     const [lng, lat] = item.coords.split(',').map(Number);
                     const googleMapsCoords = `${lat},${lng}`;
 
+                    // Render icons for komoditas
+                    let komoditasIcons = '';
+                    if (item.komoditas && item.komoditas.length > 0) {
+                        komoditasIcons = '<div class="d-flex flex-wrap gap-2 mb-3">';
+                        item.komoditas.forEach(komoditas => {
+                            komoditasIcons += `
+                                <div class="bg-light p-2 rounded d-flex align-items-center gap-2" data-bs-toggle="tooltip" title="${komoditas}">
+                                    <img src="/static/img/commodity_icons/${getKomoditasIcon(komoditas)}" alt="${komoditas}" width="24" height="24" />
+                                    <small class="d-lg-none d-inline">${komoditas}</small>
+                                </div>
+                            `;
+                        });
+                        komoditasIcons += '</div>';
+                    }
+
                     const popupContent = `
                         <div class="card">
                             <div class="card-header">
-                                <strong>Kebun ${item.nama_kebun}</strong>
+                                <strong>Kebun ${item.nama_kebun_item}</strong>
                             </div>
                             <div class="card-body">
                                 <img src="/static/uploads/${item.user.profile_pic}" class="img-thumbnail mb-3" width="50%" />
-                                <p class="mb-1"><strong>Nama:</strong> ${item.user.name}</p>
+
+                                <!-- Menampilkan Ikon Komoditas -->
+                                ${komoditasIcons}
+
+                                <p class="mb-1"><strong>Pemilik:</strong> ${item.user.name}</p>
                                 <p class="mb-1"><strong>Profile ID:</strong> ${item.user.profile_id}</p>
                                 <p class="mb-1"><strong>Kab/Kota:</strong> ${item.user.city}</p>
                                 <p class="mb-1"><strong>Status:</strong> ${item.user.status}</p>
@@ -200,6 +235,15 @@
                             </div>
                         </div>
                     `;
+
+                    const popup = new mapboxgl.Popup({ offset: 25 })
+                        .setHTML(popupContent);
+
+                    // Initialize tooltips after popup is opened
+                    popup.on('open', () => {
+                        const tooltipTriggerList = document.querySelectorAll('[data-bs-toggle="tooltip"]');
+                        [...tooltipTriggerList].map(tooltipTriggerEl => new bootstrap.Tooltip(tooltipTriggerEl));
+                    });
 
                     new mapboxgl.Marker()
                         .setLngLat([lng, lat])
@@ -217,7 +261,7 @@
             <div class="col-12 col-lg-6 min-vh-50" id="bibit-img" style="min-height: 300px;"></div>
             <div class="col-12 col-lg-6 bg-green-dark p-4 p-lg-5">
                 <div class="py-4">
-                    <p class="text-yellow">Kenapa memilih rindang?</p>
+                    <p class="text-light mb-0">Manfaat</p>
                     <p class="h1 fw-bold text-white mb-5">Kenapa harus bergabung dengan Rindang?</p>
                     <p class="h5 fw-light text-white"><i class="bi bi-check-circle-fill text-yellow me-2"></i>Di
                         dampingi langsung oleh penyuluh pertanian</p>
@@ -232,7 +276,7 @@
 
 <section class="container pt-5" id="articles">
     <div class="row">
-        <h5 class="fw-bold text-yellow mb-3 text-center">Artikel</h5>
+        <h5 class="text-yellow text-center">Artikel</h5>
         <p class="fw-bold text-center h1 mb-4">Jelajahi Tren Terbaru <br> Tentang Pertanian </p>
 
         {% if articles %}
@@ -287,7 +331,7 @@
 <section class="container py-5" id="qna">
     <div class="row">
         <div class="col-12">
-            <h5 class="fw-bold text-yellow mb-3 text-center">Pertanyaan</h5>
+            <h5 class="text-yellow text-center">Pertanyaan</h5>
             <p class="fw-bold text-center h1 mb-5">Pertanyaan yang Sering <br> ditanyakan Tentang Rindang </p>
             <div class="accordion" id="pertanyaan">
                 <div class="accordion-item">
@@ -401,7 +445,7 @@
 
 <section class="container py-5" id="testimoni">
     <div class="row">
-        <h5 class="fw-bold text-yellow mb-3 text-center">Kata Mereka</h5>
+        <h5 class="text-yellow text-center">Kata Mereka</h5>
         <p class="text-center fw-bold h1 mb-5">Apa Kata Mereka <br> Tentang Rindang?</p>
         <section class="splide" aria-label="Splide Basic HTML Example">
             <div class="splide__track">
@@ -545,7 +589,7 @@
     <div class="row py-5">
         <p class="fw-bold h1 text-center mb-5">Bersama-sama Mendukung Modern & <br> Pertanian Berkelanjutan</p>
         <div class="col-12">
-            <div class="row row-cols-2 row-cols-md-3 row-cols-lg-6 g-4 justify-content-center align-items-center">
+            <div class="row row-cols-2 row-cols-md-3 row-cols-lg-6 g-4 justify-content-between align-items-center">
                 {% set partners = [
                 'BI_Logo.png', 'Logo-Pemkot.png', 'TCS-1.png',
                 'Logo-Unkhair-1.png', 'Logo-Salawaku.png', 'rri-logo.png'
