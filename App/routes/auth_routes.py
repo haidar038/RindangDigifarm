@@ -38,9 +38,9 @@ def personal_unique_id(prefix="PRSNL_", string_length=2, number_length=4):
 
 def validate_registration(username, email):
     suspicious_patterns = [
-        r'[0-9]{4,}',
-        r'[a-zA-Z0-9]{20,}', 
-        r'[^a-zA-Z0-9_\-\.]'
+        r'[0-9]{5,}',         # Changed from 4+ to 5+ consecutive digits
+        r'[a-zA-Z0-9]{20,}',  # Very long alphanumeric sequence
+        r'[^a-zA-Z0-9_\-\.]'  # Characters other than alphanumeric, underscore, hyphen, dot
     ]
     return not any(re.search(pattern, username) for pattern in suspicious_patterns)
 
@@ -51,7 +51,7 @@ def log_suspicious_activity(ip, username, email):
     )
 
 @auth.route('/auth/register', methods=['GET', 'POST'])
-@limiter.limit("3/hour", error_message="Too many registration attempts")
+@limiter.limit("10/hour", error_message="Terlalu banyak upaya pendaftaran. Silakan coba lagi nanti")
 def register():
     if current_user.is_authenticated:
         flash('Anda sudah login.', category='info')

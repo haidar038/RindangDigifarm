@@ -1,4 +1,10 @@
-{% extends 'layout/admin_base.html' %} {% block content %}
+{% extends 'layout/admin_base.html' %}
+
+<!-- Head Block -->
+{% block title %}Dashboard Admin - Tambah Pengguna{% endblock %}
+<!-- Content Block -->
+
+{% block content %}
 <h2 class="fw-bold mb-3">Tambah User Baru</h2>
 <form action="" method="post">
     <div class="form-group mb-3">
@@ -28,7 +34,9 @@
     <button type="submit" class="btn btn-success">Simpan</button>
     <a href="{{ url_for('admin.manage_roles') }}" class="btn btn-secondary">Batal</a>
 </form>
-{% endblock %} {% block scripts %}
+{% endblock %}
+
+{% block scripts %}
 <script>
     document.addEventListener('DOMContentLoaded', function () {
         const nameInput = document.getElementById('name');
