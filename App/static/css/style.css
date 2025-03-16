@@ -498,8 +498,12 @@ body {
 @media screen and (max-width: 768px) {
     #hero-img {
         right: auto;
-        height: 400px;
+        height: 375px;
         bottom: 3rem !important;
+    }
+
+    #info-button {
+        z-index: 99;
     }
 
     #about-img {
