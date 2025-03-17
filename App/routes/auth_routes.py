@@ -36,13 +36,13 @@ def personal_unique_id(prefix="PRSNL_", string_length=2, number_length=4):
     unique_id = f"{prefix}{random_string}{random_number}"
     return unique_id
 
-def validate_registration(username, email):
-    suspicious_patterns = [
-        r'[0-9]{5,}',         # Changed from 4+ to 5+ consecutive digits
-        r'[a-zA-Z0-9]{20,}',  # Very long alphanumeric sequence
-        r'[^a-zA-Z0-9_\-\.]'  # Characters other than alphanumeric, underscore, hyphen, dot
-    ]
-    return not any(re.search(pattern, username) for pattern in suspicious_patterns)
+# def validate_registration(username, email):
+#     suspicious_patterns = [
+#         r'[0-9]{5,}',         # Changed from 4+ to 5+ consecutive digits
+#         r'[a-zA-Z0-9]{20,}',  # Very long alphanumeric sequence
+#         r'[^a-zA-Z0-9_\-\.]'  # Characters other than alphanumeric, underscore, hyphen, dot
+#     ]
+#     return not any(re.search(pattern, username) for pattern in suspicious_patterns)
 
 def log_suspicious_activity(ip, username, email):
     logger = logging.getLogger('suspicious_activity')
@@ -51,7 +51,7 @@ def log_suspicious_activity(ip, username, email):
     )
 
 @auth.route('/auth/register', methods=['GET', 'POST'])
-@limiter.limit("10/hour", error_message="Terlalu banyak upaya pendaftaran. Silakan coba lagi nanti")
+# @limiter.limit("10/hour", error_message="Terlalu banyak upaya pendaftaran. Silakan coba lagi nanti")
 def register():
     if current_user.is_authenticated:
         flash('Anda sudah login.', category='info')
@@ -65,14 +65,14 @@ def register():
         confirm_password = request.form.get('confirm_password')
         username = generate_username(email)
 
-        if not validate_registration(username, email):
-            log_suspicious_activity(request.remote_addr, username, email)
-            flash('Invalid registration attempt', 'danger')
-            return redirect(url_for('auth.register'))
+        # if not validate_registration(username, email):
+        #     log_suspicious_activity(request.remote_addr, username, email)
+        #     flash('Invalid registration attempt', 'danger')
+        #     return redirect(url_for('auth.register'))
             
-        if not recaptcha.verify():
-            flash('Please complete the CAPTCHA', 'danger')
-            return redirect(url_for('auth.register'))
+        # if not recaptcha.verify():
+        #     flash('Please complete the CAPTCHA', 'danger')
+        #     return redirect(url_for('auth.register'))
 
         if len(password) < 8:
             flash('Kata sandi harus berisi 8 karakter atau lebih', category='danger')
