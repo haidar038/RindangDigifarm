@@ -1,4 +1,4 @@
-import requests, random, string, os, secrets
+import requests, random, string, os, secrets, traceback
 
 from flask import Blueprint, flash, render_template, json, redirect, url_for, current_app, request, jsonify, send_file
 from flask_login import login_required, current_user
@@ -1065,7 +1065,7 @@ def download_template(template_type):
             headers = ['ID Kebun', 'ID Komoditas', 'Jumlah Bibit', 'Tanggal Bibit (YYYY-MM-DD)']
         elif template_type == 'panen':
             headers = ['ID Kebun', 'ID Komoditas', 'Jumlah Bibit', 'Tanggal Bibit (YYYY-MM-DD)', 
-                        'Jumlah Panen', 'Tanggal Panen (YYYY-MM-DD)']
+                       'Jumlah Panen', 'Tanggal Panen (YYYY-MM-DD)']
         else:
             return jsonify({'error': 'Template type not valid'}), 400
 
@@ -1126,15 +1126,18 @@ def download_template(template_type):
         wb.save(excel_file)
         excel_file.seek(0)
 
+        # Gunakan parameter yang kompatibel dengan versi Flask yang lebih lama
         return send_file(
             excel_file,
             mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
             as_attachment=True,
-            download_name=f'template_{template_type}.xlsx'
+            attachment_filename=f'template_{template_type}.xlsx'  # Gunakan attachment_filename, bukan download_name
         )
 
     except Exception as e:
+        # Tambahkan logging yang lebih detail
         current_app.logger.error(f"Error generating template: {str(e)}")
+        current_app.logger.error(f"Error traceback: {traceback.format_exc()}")
         return jsonify({'error': 'Failed to generate template'}), 500
 
 @farmer.route('/api/produksi', methods=['GET'])
