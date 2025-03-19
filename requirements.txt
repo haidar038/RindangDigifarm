@@ -93,7 +93,6 @@ MarkupSafe
 matplotlib-inline
 mdurl
 mistune
-mysqlclient
 nbclient
 nbconvert
 nbformat
