@@ -28,6 +28,28 @@ COMMODITY_IDS = {
 }
 PROVINCE_ID = 32
 
+def parse_indonesian_date(date_str, format_from="%d %b %y", format_to="%d/%m/%Y"):
+    """Parse date string with Indonesian month names to desired format."""
+    # Mapping of Indonesian month names to English equivalents
+    MONTH_MAPPING = {
+        "Mei": "May",
+        "Agu": "Aug", 
+        "Sep": "Sep",
+        "Okt": "Oct",
+        "Des": "Dec"
+    }
+    
+    # Extract parts to handle the month name specifically
+    parts = date_str.split()
+    if len(parts) == 3:
+        day, month, year = parts
+        if month in MONTH_MAPPING:
+            month = MONTH_MAPPING[month]
+        date_str = f"{day} {month} {year}"
+    
+    # Parse with the English month names
+    return datetime.strptime(date_str, format_from).strftime(format_to)
+
 def fetch_red_chili_data(target_date):
     """Fetches price data for 'Cabai Merah Besar' using the specified API.
 
@@ -62,7 +84,7 @@ def fetch_red_chili_data(target_date):
             return {"error": "Data tidak ditemukan"}
 
         # Ambil tanggal, nama komoditas, dan nilai harga
-        formatted_date = datetime.strptime(item["Tanggal"], "%d %b %y").strftime("%d/%m/%Y")
+        formatted_date = parse_indonesian_date(item["Tanggal"])
         formatted_price = format_currency(item["Nilai"], "IDR", locale="id_ID", decimal_quantization=False)[:-3]
 
         return {
