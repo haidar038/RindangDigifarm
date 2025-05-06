@@ -58,12 +58,34 @@ def fetch_red_chili_data(target_date):
 
         # Ambil data dari respons
         item = data.get("data", [])[0]  # Ambil item pertama
-        if not item:
-            return {"error": "Data tidak ditemukan"}
+
+        raw = item["Tanggal"]            # e.g. "06 Mei 25"
+        day, mon_id, yy = raw.split()    # ["06", "Mei", "25"]
+
+        # map Indonesian abbrev to numeric month
+        MONTHS = {
+            'Jan':'01','Feb':'02','Mar':'03','Apr':'04',
+            'Mei':'05','Jun':'06','Jul':'07','Agu':'08',
+            'Sep':'09','Okt':'10','Nov':'11','Des':'12'
+        }
+        if mon_id not in MONTHS:
+            raise ValueError(f"Unknown month abbreviation: {mon_id}")
+
+        yyyy = '20' + yy                # "25" → "2025"
+        formatted_date = f"{day}/{MONTHS[mon_id]}/{yyyy}"
+        # → "06/05/2025"
+
+        formatted_price = format_currency(
+            item["Nilai"], "IDR", locale="id_ID", decimal_quantization=False
+        )[:-3]
+
+
+        # if not item:
+        #     return {"error": "Data tidak ditemukan"}
 
         # Ambil tanggal, nama komoditas, dan nilai harga
-        formatted_date = datetime.strptime(item["Tanggal"], "%d %b %y").strftime("%d/%m/%Y")
-        formatted_price = format_currency(item["Nilai"], "IDR", locale="id_ID", decimal_quantization=False)[:-3]
+        # formatted_date = datetime.strptime(item["Tanggal"], "%d %b %y").strftime("%d/%m/%Y")
+        # formatted_price = format_currency(item["Nilai"], "IDR", locale="id_ID", decimal_quantization=False)[:-3]
 
         return {
             "date": formatted_date,
@@ -135,7 +157,6 @@ def index():
                             featured_articles=featured_articles,
                             shorten=shorten,
                             table_data=table_data)
-
 @public.route('/prakiraan-cuaca')
 def weather():
     return render_template('public/weather.html')
