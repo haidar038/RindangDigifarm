@@ -58,6 +58,12 @@ def create_app(config_class=Config):
     app = Flask(__name__)
     migrate = Migrate(app, db)
     app.config.from_object(config_class)
+
+    # Set Xendit configuration
+    app.config['XENDIT_MODE'] = os.getenv('XENDIT_MODE', 'test')
+    app.config['XENDIT_WEBHOOK_KEY'] = os.getenv('XENDIT_WEBHOOK_KEY', 'test_webhook_token')
+
+    # Initialize extensions
     db.init_app(app)
     socketio.init_app(app)
     login_manager.init_app(app)
@@ -85,12 +91,12 @@ def create_app(config_class=Config):
     app.register_blueprint(expert)
     app.register_blueprint(personal)
     app.register_blueprint(public, url_prefix='/')
-    
+
     if not os.path.exists('logs'):
         os.makedirs('logs')
 
     file_handler = RotatingFileHandler(
-        'logs/app.log', 
+        'logs/app.log',
         maxBytes=1024 * 1024,
         backupCount=10
     )

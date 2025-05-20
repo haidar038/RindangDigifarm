@@ -396,6 +396,20 @@ body {
     opacity: 0.5 !important;
 }
 
+.active>.page-link,
+.page-link.active {
+    color: white;
+    background-color: var(--primary-color) !important;
+    border-color: var(--primary-color) !important;
+}
+
+[data-bs-theme='dark'] .active>.page-link,
+.page-link.active {
+    color: white;
+    background-color: var(--darker-green-color) !important;
+    border-color: var(--primary-color) !important;
+}
+
 [data-bs-theme='dark'] .btn-light {
     background-color: #333;
     color: #ddd;

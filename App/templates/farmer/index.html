@@ -7,6 +7,15 @@
 <script async src="https://cdn.jsdelivr.net/npm/apexcharts"></script>
 <link rel="preload" href="https://cdn.jsdelivr.net/npm/color-calendar/dist/css/theme-basic.css" as="style" />
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/color-calendar/dist/css/theme-basic.css" />
+<!-- Weather Icons core -->
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/weather-icons/2.0.12/css/weather-icons.min.css"
+    integrity="sha512-r/Gan7PMSRovDus++vDS2Ayutc/cSdl268u047n4z+k7GYuR7Hiw71FsT3QQxdKJBVHYttOJ6IGLnlM9IoMToQ=="
+    crossorigin="anonymous" referrerpolicy="no-referrer" />
+<!-- Untuk ikon arah angin (opsional) -->
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/weather-icons/2.0.12/css/weather-icons-wind.min.css"
+    integrity="sha512-Ydyj0LLrJGMf7yUSU+QxZE4Pu/jVIutpdTOAozUrzZMslo+vLMX64rghLxEs+AKpN+GmnVNgXoeLlMwSqtyjPw=="
+    crossorigin="anonymous" referrerpolicy="no-referrer" />
+
 {% endblock %}
 <!-- Title Block -->
 {% block title %} Beranda {% endblock %}
@@ -260,62 +269,76 @@
     crossorigin="anonymous" referrerpolicy="no-referrer"></script>
 <script type="module" src="https://unpkg.com/ionicons@7.1.0/dist/ionicons/ionicons.esm.js"></script>
 <script nomodule src="https://unpkg.com/ionicons@7.1.0/dist/ionicons/ionicons.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
 <script>
-    const apiUrl = 'https://api.bmkg.go.id/publik/prakiraan-cuaca?adm2=82.71';
+    const apiUrl = 'https://api.open-meteo.com/v1/forecast'
+        + '?latitude=0.783333&longitude=127.366667'
+        + '&current_weather=true&timezone=auto';
 
-    function formatDateTime(dateTimeStr) {
-        const date = new Date(dateTimeStr);
-        return date.toLocaleTimeString('en-US', { hour: 'numeric', hour12: true });
+    // Mapping kode cuaca ke deskripsi Bahasa Indonesia + kelas ikon Weather Icons
+    const weatherCodeMap = {
+        0: { desc: 'Cerah', icon: 'wi-day-sunny' },
+        1: { desc: 'Cerah sebagian', icon: 'wi-day-sunny-overcast' },
+        2: { desc: 'Berawan sebagian', icon: 'wi-day-cloudy' },
+        3: { desc: 'Berawan', icon: 'wi-cloudy' },
+        45: { desc: 'Kabut', icon: 'wi-fog' },
+        48: { desc: 'Kabut beku', icon: 'wi-fog' },
+        51: { desc: 'Gerimis ringan', icon: 'wi-sprinkle' },
+        53: { desc: 'Gerimis sedang', icon: 'wi-sprinkle' },
+        55: { desc: 'Gerimis lebat', icon: 'wi-sprinkle' },
+        61: { desc: 'Hujan ringan', icon: 'wi-rain' },
+        63: { desc: 'Hujan sedang', icon: 'wi-showers' },
+        65: { desc: 'Hujan lebat', icon: 'wi-showers' },
+        71: { desc: 'Salju ringan', icon: 'wi-snow' },
+        73: { desc: 'Salju', icon: 'wi-snow' },
+        75: { desc: 'Salju lebat', icon: 'wi-snow' },
+        80: { desc: 'Hujan lokal', icon: 'wi-day-showers' },
+        81: { desc: 'Hujan lokal sedang', icon: 'wi-day-showers' },
+        82: { desc: 'Hujan lokal lebat', icon: 'wi-day-showers' },
+        95: { desc: 'Guntur petir', icon: 'wi-thunderstorm' },
+        96: { desc: 'Guntur & hujan es ringan', icon: 'wi-storm-showers' },
+        99: { desc: 'Guntur & hujan es lebat', icon: 'wi-storm-showers' }
+    };
+
+    function fetchWeatherData() {
+        const CACHE_TIME = 30 * 60 * 1000;
+        const cache = localStorage.getItem('weatherData');
+        const ts = +localStorage.getItem('weatherDataTime');
+        if (cache && (Date.now() - ts) < CACHE_TIME) {
+            updateWeatherData(JSON.parse(cache));
+            return;
+        }
+        axios.get(apiUrl)
+            .then(({ data }) => {
+                localStorage.setItem('weatherData', JSON.stringify(data));
+                localStorage.setItem('weatherDataTime', Date.now().toString());
+                updateWeatherData(data);
+            })
+            .catch(err => console.error('Error fetching weather:', err));
     }
 
-    function updateWeatherData(data) {
-        const currentWeather = data.data[0].cuaca[1][0];
-        console.log(data);
+    function updateWeatherData(response) {
+        const cw = response.current_weather;
+        const map = weatherCodeMap[cw.weathercode] || {};
+        const cls = map.icon || 'wi-na';
+        const desc = map.desc || 'Tidak diketahui';
+        const timeFormatted = new Date(cw.time)
+            .toLocaleTimeString('id-ID', { hour: 'numeric', minute: 'numeric' });
+
         const html = `
         <div class="d-flex gap-3 align-items-center">
-            <img src="${currentWeather.image}" alt="${currentWeather.weather_desc}" style="min-width: 96px; min-height: 96px;">
+            <i class="wi ${cls} px-3" style="font-size:56px;"></i>
             <div class="d-flex flex-column justify-content-center">
-                <p class="fw-bold text-green-accent">
-                    Cuaca Hari Ini
-                </p>
-                <h3>
-                    <strong>${currentWeather.t}°C (${currentWeather.weather_desc})</strong>
-                </h3>
-                <a target='_blank' href='{{ url_for('public.weather' ) }}' class="nav-link small hover-fade">
-                    Informasi lebih lanjut &#8594;
-                    <i class="ti ti-arrow-right align-middle"></i>
+                <p class="fw-bold text-green-accent">Cuaca Hari Ini</p>
+                <h3><strong>${cw.temperature}°C (${desc})</strong></h3>
+                <p class="small">Update: ${timeFormatted}</p>
+                <a target="_blank" href="{{ url_for('public.weather') }}" class="nav-link small hover-fade">
+                    Informasi lebih lanjut &#8594; <i class="ti ti-arrow-right align-middle"></i>
                 </a>
             </div>
         </div>
         `;
         document.getElementById('current-weather-data').innerHTML = html;
-    }
-
-    const CACHE_TIME = 1800000; // 30 menit dalam milliseconds
-
-    async function fetchWeatherData() {
-        try {
-            // Check cache first
-            const cachedData = localStorage.getItem('weatherData');
-            const cachedTime = localStorage.getItem('weatherDataTime');
-
-            if (cachedData && cachedTime) {
-                const now = new Date().getTime();
-                if (now - parseInt(cachedTime) < CACHE_TIME) {
-                    updateWeatherData(JSON.parse(cachedData));
-                    return;
-                }
-            }
-
-            const response = await axios.get(apiUrl);
-            // Save to cache
-            localStorage.setItem('weatherData', JSON.stringify(response.data));
-            localStorage.setItem('weatherDataTime', new Date().getTime().toString());
-
-            updateWeatherData(response.data);
-        } catch (error) {
-            console.error('Error fetching weather data:', error);
-        }
     }
 
     fetchWeatherData();

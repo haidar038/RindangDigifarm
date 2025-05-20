@@ -1,9 +1,10 @@
-import logging, jwt
+import logging, jwt, requests
 
 from flask_socketio import emit
 from flask_mail import Message
 from flask_login import current_user
-from flask import current_app, url_for, render_template
+from flask import current_app, url_for, render_template, flash
+from babel.numbers import format_currency
 from itsdangerous import URLSafeTimedSerializer
 from datetime import timedelta, datetime
 
@@ -54,18 +55,86 @@ def send_otp_email(email, otp):
         current_app.logger.error(f"Failed to send OTP email: {str(e)}")
         raise
 
-# def confirm_token(token, expiration=3600):
-#     serializer = URLSafeTimedSerializer(current_app.config['SECRET_KEY'])
-#     try:
-#         email = serializer.loads(
-#             token,
-#             salt=current_app.config['SECURITY_PASSWORD_SALT'],
-#             max_age=expiration
-#         )
-#         return email
-#     except Exception as e:
-#         current_app.logger.error(f"Error confirming token: {str(e)}")
-#         return False
+def fetch_red_chili_data(target_date):
+    """Fetches price data for 'Cabai Merah Besar' using the specified API.
+
+    Args:
+        target_date (str): The target date in "Jan 15, 2025" format.
+
+    Returns:
+        dict: A dictionary containing the formatted price for 'Cabai Merah Besar'.
+    """
+    PROVINCE_ID = 32  # Maluku Utara
+    REGENCY_ID = 1  # Ternate
+    COMMODITY_ID = 7  # Cabai Merah Besar
+    PRICE_TYPE_ID = 1
+    JENIS_ID = 1
+    PERIOD_ID = 1
+
+    url = "https://www.bi.go.id/hargapangan/WebSite/Home/GetGridData1"
+    params = {
+        "tanggal": target_date,
+        "commodity": f"{COMMODITY_ID}_14",
+        "priceType": PRICE_TYPE_ID,
+        "isPasokan": 1,
+        "jenis": JENIS_ID,
+        "periode": PERIOD_ID,
+        "provId": PROVINCE_ID,
+        "_": int(datetime.now().timestamp() * 1000)
+    }
+
+    try:
+        response = requests.get(url, params=params)
+        response.raise_for_status()
+
+        data = response.json()
+        print(data)  # Debugging: Tampilkan data respons API
+
+        # Ambil data dari respons
+        item = data.get("data", [])[0]  # Ambil item pertama
+
+        raw = item["Tanggal"]            # e.g. "06 Mei 25"
+        day, mon_id, yy = raw.split()    # ["06", "Mei", "25"]
+
+        # map Indonesian abbrev to numeric month
+        MONTHS = {
+            'Jan':'01','Feb':'02','Mar':'03','Apr':'04',
+            'Mei':'05','Jun':'06','Jul':'07','Agu':'08',
+            'Sep':'09','Okt':'10','Nov':'11','Des':'12'
+        }
+        if mon_id not in MONTHS:
+            raise ValueError(f"Unknown month abbreviation: {mon_id}")
+
+        yyyy = '20' + yy                # "25" → "2025"
+        formatted_date = f"{day}/{MONTHS[mon_id]}/{yyyy}"
+        # → "06/05/2025"
+
+        formatted_price = format_currency(
+            item["Nilai"], "IDR", locale="id_ID", decimal_quantization=False
+        )[:-3]
+
+        return {
+            "date": formatted_date,
+            "name": item["Komoditas"],
+            "price": formatted_price
+        }
+
+    except requests.exceptions.RequestException as e:
+        flash(f"Error fetching data: {e}", category='error')
+        return {"error": "Error fetching data"}
+
+def confirm_token(token, expiration=3600):
+    serializer = URLSafeTimedSerializer(current_app.config['SECRET_KEY'])
+    try:
+        email = serializer.loads(
+            token,
+            salt=current_app.config['SECURITY_PASSWORD_SALT'],
+            max_age=expiration
+        )
+        return email
+    except Exception as e:
+        current_app.logger.error(f"Error confirming token: {str(e)}")
+        return False
 
 def send_password_reset_email(user):
     """Sends an email with a link to reset the user's password."""
@@ -81,8 +150,8 @@ def send_password_reset_email(user):
             subject='Reset Password Rindang',
             recipients=[user.email],
             html=render_template('auth/reset_password_email_template.html', 
-                               reset_url=reset_url, 
-                               user=user)
+                                reset_url=reset_url, 
+                                user=user)
         )
         
         with mail.connect() as conn:
@@ -96,7 +165,7 @@ def send_password_reset_email(user):
 # def get_unread_notifications():
 #     if current_user.is_authenticated:
 #         return Notification.query.filter_by(recipient_id=current_user.id, is_read=False).all()
-    # return []  # Return an empty list if not logged in
+#     return []  # Return an empty list if not logged in
 
 # def get_user_notification_room(user_id):
 #     return f"user_{user_id}_notifications"

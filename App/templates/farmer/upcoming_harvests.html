@@ -1,0 +1,100 @@
+{% extends 'layout/farmer_base.html' %}
+{% block title %}Panen yang Akan Datang{% endblock %}
+
+{% block content %}
+<main class="container py-4">
+    <div class="row mb-4">
+        <div class="col-12">
+            <a href="{{ url_for('farmer.manajemen_produksi') }}" class="btn btn-secondary">&larr; Kembali</a>
+            <h3 class="mt-3">Panen yang Akan Datang</h3>
+            <p class="text-muted">Berikut adalah daftar tanaman yang diperkirakan akan panen dalam 7 hari ke depan.</p>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-12">
+            {% if notifications %}
+            <div class="card">
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead>
+                                <tr>
+                                    <th>Komoditas</th>
+                                    <th>Kebun</th>
+                                    <th>Estimasi Panen</th>
+                                    <th>Waktu Tersisa</th>
+                                    <th>Tindakan</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for notification in notifications %}
+                                <tr>
+                                    <td>{{ notification.komoditas }}</td>
+                                    <td>{{ notification.kebun }}</td>
+                                    <td>{{ notification.estimasi_panen }}</td>
+                                    <td>
+                                        <span class="badge bg-{{ 'warning' if notification.days_until_harvest <= 3 else 'info' }}">
+                                            {{ notification.days_until_harvest }} hari lagi
+                                        </span>
+                                    </td>
+                                    <td>
+                                        <a href="{{ url_for('farmer.market_add_product', komoditas_id=notification.komoditas_id) }}" class="btn btn-sm btn-outline-success">
+                                            <i class="bi bi-plus-circle me-1"></i> Buat Produk
+                                        </a>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+            {% else %}
+            <div class="alert alert-info">
+                <i class="bi bi-info-circle-fill me-2"></i>
+                Tidak ada tanaman yang diperkirakan akan panen dalam 7 hari ke depan.
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <div class="row mt-4">
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header bg-light">
+                    <h5 class="card-title mb-0">Persiapan Panen</h5>
+                </div>
+                <div class="card-body">
+                    <p>Beberapa hal yang perlu dipersiapkan menjelang panen:</p>
+                    <ul>
+                        <li>Siapkan peralatan panen yang diperlukan</li>
+                        <li>Pastikan area penyimpanan hasil panen sudah siap</li>
+                        <li>Persiapkan transportasi untuk distribusi hasil panen</li>
+                        <li>Buat produk di marketplace untuk hasil panen yang akan datang</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header bg-light">
+                    <h5 class="card-title mb-0">Manajemen Stok</h5>
+                </div>
+                <div class="card-body">
+                    <p>Tips manajemen stok produk:</p>
+                    <ul>
+                        <li>Perbarui stok produk segera setelah panen</li>
+                        <li>Buat batch produk untuk melacak asal hasil panen</li>
+                        <li>Tetapkan harga yang kompetitif berdasarkan kualitas hasil panen</li>
+                        <li>Pantau permintaan pasar untuk mengoptimalkan penjualan</li>
+                    </ul>
+                    <a href="{{ url_for('farmer.market_manage') }}" class="btn btn-outline-success mt-2">
+                        <i class="bi bi-shop me-1"></i> Kelola Produk
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</main>
+{% endblock %}

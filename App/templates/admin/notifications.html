@@ -1,0 +1,274 @@
+{% extends 'layout/admin_base.html' %}
+<!-- Title Block -->
+{% block title %}Dashboard Admin - Notifikasi{% endblock %}
+{% block page_title %}Notifikasi{% endblock %}
+
+<!-- Content Block -->
+{% block content %}
+<div class="container-fluid px-0">
+    <!-- Header with actions -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h3 class="fw-bold mb-0">Notifikasi</h3>
+            <p class="text-muted">Kelola notifikasi dan pemberitahuan sistem</p>
+        </div>
+        <div class="d-flex gap-2">
+            <button type="button" class="btn btn-outline-green" id="markAllReadBtn">
+                <i class="bi bi-check-all me-1"></i> Tandai Semua Dibaca
+            </button>
+            <div class="dropdown">
+                <button class="btn btn-green dropdown-toggle" type="button" id="filterDropdown" data-bs-toggle="dropdown" aria-expanded="false">
+                    <i class="bi bi-funnel me-1"></i> Filter
+                </button>
+                <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="filterDropdown">
+                    <li><a class="dropdown-item active" href="#" data-filter="all">Semua Notifikasi</a></li>
+                    <li><a class="dropdown-item" href="#" data-filter="unread">Belum Dibaca</a></li>
+                    <li><a class="dropdown-item" href="#" data-filter="read">Sudah Dibaca</a></li>
+                    <li><hr class="dropdown-divider"></li>
+                    <li><a class="dropdown-item" href="#" data-filter="user">Pengguna</a></li>
+                    <li><a class="dropdown-item" href="#" data-filter="article">Artikel</a></li>
+                    <li><a class="dropdown-item" href="#" data-filter="production">Produksi</a></li>
+                    <li><a class="dropdown-item" href="#" data-filter="sales">Penjualan</a></li>
+                </ul>
+            </div>
+        </div>
+    </div>
+
+    <!-- Notifications List -->
+    <div class="card border-0 shadow-sm">
+        <div class="card-header bg-white py-3">
+            <div class="d-flex justify-content-between align-items-center">
+                <h5 class="mb-0">Daftar Notifikasi</h5>
+                <span class="badge bg-green">{{ notifications|length }} Total</span>
+            </div>
+        </div>
+        <div class="card-body p-0">
+            <div class="list-group list-group-flush" id="notificationsList">
+                {% for notification in notifications %}
+                <div class="list-group-item notification-item {% if not notification.is_read %}unread{% endif %}" 
+                     data-id="{{ notification.id }}" 
+                     data-type="{{ notification.type }}">
+                    <div class="d-flex">
+                        <div class="flex-shrink-0 me-3">
+                            {% if notification.type == 'user' %}
+                            <div class="notification-icon bg-primary">
+                                <i class="bi bi-person"></i>
+                            </div>
+                            {% elif notification.type == 'article' %}
+                            <div class="notification-icon bg-info">
+                                <i class="bi bi-newspaper"></i>
+                            </div>
+                            {% elif notification.type == 'production' %}
+                            <div class="notification-icon bg-success">
+                                <i class="bi bi-graph-up"></i>
+                            </div>
+                            {% elif notification.type == 'sales' %}
+                            <div class="notification-icon bg-warning">
+                                <i class="bi bi-cash-stack"></i>
+                            </div>
+                            {% else %}
+                            <div class="notification-icon bg-secondary">
+                                <i class="bi bi-bell"></i>
+                            </div>
+                            {% endif %}
+                        </div>
+                        <div class="flex-grow-1">
+                            <div class="d-flex justify-content-between align-items-center mb-1">
+                                <h6 class="mb-0 fw-semibold">{{ notification.title }}</h6>
+                                <small class="text-muted">{{ notification.created_at }}</small>
+                            </div>
+                            <p class="mb-1">{{ notification.message }}</p>
+                            {% if notification.action_url %}
+                            <a href="{{ notification.action_url }}" class="btn btn-sm btn-outline-green mt-2">
+                                <i class="bi bi-arrow-right me-1"></i> {{ notification.action_text or 'Lihat Detail' }}
+                            </a>
+                            {% endif %}
+                        </div>
+                        <div class="flex-shrink-0 ms-3 d-flex flex-column align-items-center">
+                            {% if not notification.is_read %}
+                            <span class="badge bg-danger mb-2">Baru</span>
+                            {% endif %}
+                            <button type="button" class="btn btn-sm btn-outline-secondary mark-read-btn" data-id="{{ notification.id }}">
+                                <i class="bi bi-check"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                {% else %}
+                <div class="list-group-item py-5 text-center">
+                    <div class="text-muted">
+                        <i class="bi bi-bell-slash fs-1 d-block mb-3"></i>
+                        <h5>Tidak Ada Notifikasi</h5>
+                        <p class="mb-0">Anda tidak memiliki notifikasi saat ini</p>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+        {% if notifications|length > 0 %}
+        <div class="card-footer bg-white py-3">
+            <nav aria-label="Notification pagination">
+                <ul class="pagination justify-content-center mb-0">
+                    <li class="page-item disabled">
+                        <a class="page-link" href="#" tabindex="-1" aria-disabled="true">
+                            <i class="bi bi-chevron-left"></i>
+                        </a>
+                    </li>
+                    <li class="page-item active"><a class="page-link" href="#">1</a></li>
+                    <li class="page-item"><a class="page-link" href="#">2</a></li>
+                    <li class="page-item"><a class="page-link" href="#">3</a></li>
+                    <li class="page-item">
+                        <a class="page-link" href="#">
+                            <i class="bi bi-chevron-right"></i>
+                        </a>
+                    </li>
+                </ul>
+            </nav>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}
+
+{% block head_styles %}
+<style>
+    .notification-icon {
+        width: 48px;
+        height: 48px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: white;
+        font-size: 1.25rem;
+    }
+    
+    .notification-item {
+        transition: background-color 0.2s;
+        border-left: 3px solid transparent;
+    }
+    
+    .notification-item.unread {
+        background-color: rgba(40, 167, 69, 0.05);
+        border-left: 3px solid #28a745;
+    }
+    
+    .notification-item:hover {
+        background-color: rgba(0, 0, 0, 0.02);
+    }
+</style>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Mark as read button handler
+        document.querySelectorAll('.mark-read-btn').forEach(button => {
+            button.addEventListener('click', function() {
+                const notificationId = this.dataset.id;
+                const notificationItem = document.querySelector(`.notification-item[data-id="${notificationId}"]`);
+                
+                // Send AJAX request to mark as read
+                fetch(`{{ url_for('admin.mark_notification_read') }}`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-Requested-With': 'XMLHttpRequest'
+                    },
+                    body: JSON.stringify({ notification_id: notificationId })
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        // Update UI
+                        notificationItem.classList.remove('unread');
+                        const badge = notificationItem.querySelector('.badge.bg-danger');
+                        if (badge) badge.remove();
+                        
+                        // Update notification count in navbar
+                        updateNotificationCount();
+                    }
+                })
+                .catch(error => console.error('Error marking notification as read:', error));
+            });
+        });
+        
+        // Mark all as read button handler
+        document.getElementById('markAllReadBtn').addEventListener('click', function() {
+            // Send AJAX request to mark all as read
+            fetch(`{{ url_for('admin.mark_all_notifications_read') }}`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest'
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    // Update UI
+                    document.querySelectorAll('.notification-item.unread').forEach(item => {
+                        item.classList.remove('unread');
+                        const badge = item.querySelector('.badge.bg-danger');
+                        if (badge) badge.remove();
+                    });
+                    
+                    // Update notification count in navbar
+                    updateNotificationCount();
+                }
+            })
+            .catch(error => console.error('Error marking all notifications as read:', error));
+        });
+        
+        // Filter dropdown handler
+        document.querySelectorAll('[data-filter]').forEach(link => {
+            link.addEventListener('click', function(e) {
+                e.preventDefault();
+                
+                // Update active state
+                document.querySelectorAll('[data-filter]').forEach(item => {
+                    item.classList.remove('active');
+                });
+                this.classList.add('active');
+                
+                // Get filter value
+                const filter = this.dataset.filter;
+                
+                // Filter notifications
+                document.querySelectorAll('.notification-item').forEach(item => {
+                    if (filter === 'all') {
+                        item.style.display = '';
+                    } else if (filter === 'unread') {
+                        item.style.display = item.classList.contains('unread') ? '' : 'none';
+                    } else if (filter === 'read') {
+                        item.style.display = !item.classList.contains('unread') ? '' : 'none';
+                    } else {
+                        // Filter by type
+                        item.style.display = item.dataset.type === filter ? '' : 'none';
+                    }
+                });
+                
+                // Update dropdown button text
+                document.getElementById('filterDropdown').innerHTML = `
+                    <i class="bi bi-funnel me-1"></i> ${this.textContent}
+                `;
+            });
+        });
+        
+        // Function to update notification count in navbar
+        function updateNotificationCount() {
+            const unreadCount = document.querySelectorAll('.notification-item.unread').length;
+            const navbarBadge = document.querySelector('#navbarNotificationBadge');
+            
+            if (navbarBadge) {
+                if (unreadCount > 0) {
+                    navbarBadge.textContent = unreadCount;
+                    navbarBadge.style.display = '';
+                } else {
+                    navbarBadge.style.display = 'none';
+                }
+            }
+        }
+    });
+</script>
+{% endblock %}

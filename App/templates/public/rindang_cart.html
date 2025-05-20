@@ -1,0 +1,257 @@
+{% extends 'layout/public_base.html' %}
+{% block title %}Keranjang Belanja{% endblock %}
+{% block content %}
+<main class="container py-4 flex-grow-1">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2>Keranjang Belanja</h2>
+        <a href="{{ url_for('public.rindang_market' ) }}" class="btn btn-outline-secondary">
+            <i class="fa fa-arrow-left"></i> Lanjutkan Belanja
+        </a>
+    </div>
+
+    {% if items %}
+    <div class="row">
+        <div class="col-lg-8">
+            <div class="card mb-4">
+                <div class="card-header bg-light">
+                    <h5 class="card-title mb-0">Item dalam Keranjang</h5>
+                </div>
+                <div class="card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table table-hover mb-0">
+                            <thead class="table-light">
+                                <tr>
+                                    <th style="width: 50%">Produk</th>
+                                    <th class="text-center">Harga</th>
+                                    <th class="text-center">Jumlah</th>
+                                    <th class="text-end">Subtotal</th>
+                                    <th class="text-center">Aksi</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for it in items %}
+                                <tr>
+                                    <td>
+                                        <div class="d-flex align-items-center">
+                                            <img src="{{ url_for('static', filename='uploads/products/' ) }}{{ it.product.gambar_urls.split(',')[0] }}"
+                                                alt="{{ it.product.nama }}" class="img-thumbnail me-3"
+                                                style="width: 60px; height: 60px; object-fit: cover;">
+                                            <div>
+                                                <h6 class="mb-0">{{ it.product.nama }}</h6>
+                                                <small class="text-muted">{{ it.product.satuan }}</small>
+                                            </div>
+                                        </div>
+                                    </td>
+                                    <td class="text-center align-middle">Rp {{ it.product.harga|int }}</td>
+                                    <td class="text-center align-middle">
+                                        <div class="input-group input-group-sm"
+                                            style="max-width: 120px; margin: 0 auto;">
+                                            <button class="btn btn-outline-secondary qty-btn" type="button"
+                                                data-action="decrease">-</button>
+                                            <input type="number" class="form-control text-center qty-input"
+                                                value="{{ it.qty }}" min="1" max="{{ it.product.stok }}"
+                                                data-product-id="{{ it.product.id }}" readonly>
+                                            <button class="btn btn-outline-secondary qty-btn" type="button"
+                                                data-action="increase">+</button>
+                                        </div>
+                                    </td>
+                                    <td class="text-end align-middle fw-bold">Rp {{ it.subtotal|int }}</td>
+                                    <td class="text-center align-middle">
+                                        <button type="button" class="btn btn-sm btn-outline-danger remove-item"
+                                            data-product-id="{{ it.product.id }}">
+                                            <i class="fa fa-trash"></i>
+                                        </button>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-lg-4">
+            <div class="card mb-4">
+                <div class="card-header bg-light">
+                    <h5 class="card-title mb-0">Ringkasan Pesanan</h5>
+                </div>
+                <div class="card-body">
+                    <div class="d-flex justify-content-between mb-3">
+                        <span>Subtotal</span>
+                        <span>Rp {{ total|int }}</span>
+                    </div>
+                    <div class="d-flex justify-content-between mb-3">
+                        <span>Biaya Pengiriman</span>
+                        <span>Rp 0</span>
+                    </div>
+                    <hr>
+                    <div class="d-flex justify-content-between mb-4">
+                        <strong>Total</strong>
+                        <strong class="text-success">Rp {{ total|int }}</strong>
+                    </div>
+
+                    <form action="{{ url_for('public.cart_checkout') }}" method="post">
+                        <div class="mb-4">
+                            <h6>Metode Pembayaran</h6>
+                            <div class="form-check mb-2">
+                                <input class="form-check-input" type="radio" name="payment_method" id="qris"
+                                    value="qris" checked>
+                                <label class="form-check-label" for="qris">
+                                    <i class="fa fa-qrcode me-2"></i> QRIS
+                                </label>
+                                <small class="d-block text-muted ms-4">Pembayaran melalui scan kode QR</small>
+                            </div>
+                            <div class="form-check">
+                                <input class="form-check-input" type="radio" name="payment_method" id="va" value="va">
+                                <label class="form-check-label" for="va">
+                                    <i class="fa fa-university me-2"></i> Virtual Account
+                                </label>
+                                <small class="d-block text-muted ms-4">Transfer melalui rekening virtual</small>
+                            </div>
+                        </div>
+
+                        <div class="d-grid">
+                            <button type="submit" class="btn btn-green btn-lg">
+                                <i class="fa fa-check-circle me-2"></i> Checkout
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% else %}
+    <div class="card">
+        <div class="card-body text-center py-5">
+            <i class="fa fa-shopping-cart fa-4x text-muted mb-3"></i>
+            <h4>Keranjang Belanja Kosong</h4>
+            <p class="text-muted mb-4">Anda belum menambahkan produk apapun ke keranjang.</p>
+            <a href="{{ url_for('public.rindang_market') }}" class="btn btn-green">
+                <i class="fa fa-shopping-bag me-2"></i> Mulai Belanja
+            </a>
+        </div>
+    </div>
+    {% endif %}
+</main>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        // Get DOM elements
+        const totalElement = document.querySelector('.text-success');
+        const subtotalElement = document.querySelector('.d-flex.justify-content-between.mb-3 span:last-child');
+
+        // Fungsi untuk mengubah jumlah item
+        const qtyButtons = document.querySelectorAll('.qty-btn');
+        qtyButtons.forEach(button => {
+            button.addEventListener('click', function () {
+                const action = this.dataset.action;
+                const inputEl = this.parentNode.querySelector('.qty-input');
+                const productId = inputEl.dataset.productId;
+                let currentValue = parseInt(inputEl.value);
+
+                if (action === 'increase' && currentValue < parseInt(inputEl.max)) {
+                    inputEl.value = currentValue + 1;
+                    updateCart(productId, currentValue + 1, this);
+                } else if (action === 'decrease' && currentValue > 1) {
+                    inputEl.value = currentValue - 1;
+                    updateCart(productId, currentValue - 1, this);
+                }
+            });
+        });
+
+        // Fungsi untuk menghapus item
+        const removeButtons = document.querySelectorAll('.remove-item');
+        removeButtons.forEach(button => {
+            button.addEventListener('click', function () {
+                const productId = this.dataset.productId;
+                if (confirm('Apakah Anda yakin ingin menghapus item ini dari keranjang?')) {
+                    updateCart(productId, 0, this);
+                }
+            });
+        });
+
+        // Fungsi untuk update keranjang dengan AJAX
+        function updateCart(productId, quantity, buttonElement) {
+            // Disable button during request
+            if (buttonElement) {
+                buttonElement.disabled = true;
+            }
+
+            // Get the row element
+            const row = document.querySelector(`.qty-input[data-product-id="${productId}"]`).closest('tr');
+            const subtotalCell = row.querySelector('td:nth-child(4)');
+
+            // Create form data
+            const formData = new FormData();
+            formData.append('product_id', productId);
+            formData.append('quantity', quantity);
+
+            // Send AJAX request
+            fetch('{{ url_for("public.cart_update") }}', {
+                method: 'POST',
+                body: formData,
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest'
+                }
+            })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        // Update cart badge count
+                        const cartBadge = document.querySelector('.fa-cart-shopping').nextElementSibling;
+                        if (cartBadge) {
+                            cartBadge.textContent = data.cart_count;
+                        }
+
+                        // Update subtotal for this item
+                        if (quantity > 0) {
+                            subtotalCell.textContent = `Rp ${data.item_subtotal}`;
+                        } else {
+                            // Remove the row if item was deleted
+                            row.remove();
+
+                            // If cart is empty, reload the page to show empty cart message
+                            if (data.cart_count === 0) {
+                                location.reload();
+                                return;
+                            }
+                        }
+
+                        // Update total
+                        totalElement.textContent = `Rp ${data.cart_total}`;
+                        subtotalElement.textContent = `Rp ${data.cart_total}`;
+
+                        // Show success message
+                        const alertDiv = document.createElement('div');
+                        alertDiv.className = 'alert alert-success alert-dismissible fade show';
+                        alertDiv.innerHTML = `
+                        ${data.message}
+                        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                    `;
+                        document.querySelector('main').prepend(alertDiv);
+
+                        // Auto-dismiss alert after 3 seconds
+                        setTimeout(() => {
+                            alertDiv.classList.remove('show');
+                            setTimeout(() => alertDiv.remove(), 150);
+                        }, 3000);
+                    } else {
+                        // Show error message
+                        alert(data.message || 'Terjadi kesalahan saat memperbarui keranjang');
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    alert('Terjadi kesalahan saat memperbarui keranjang');
+                })
+                .finally(() => {
+                    // Re-enable button
+                    if (buttonElement) {
+                        buttonElement.disabled = false;
+                    }
+                });
+        }
+    });
+</script>
+{% endblock %}

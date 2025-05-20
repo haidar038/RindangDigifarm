@@ -129,6 +129,10 @@
                     <a href="{{ url_for('farmer.informasi_kebun') }}" class="nav-link text-white"><i
                             class="fa fa-fw fa-seedling fa-fw me-2"></i> Kebun</a>
                 </li>
+                <li class="nav-item {% if page=='farmer_market' %} bg-green-dark rounded-3 {% endif %}">
+                    <a href="{{ url_for('farmer.market_manage') }}" class="nav-link text-white"><i
+                            class="fa fa-fw fa-shop fa-fw me-2"></i> Pasar</a>
+                </li>
             </ul>
         </div>
 
@@ -137,11 +141,41 @@
             <div class="d-flex justify-content-between align-items-center mb-3">
                 <h5 class="fw-bold mb-0">{% block page_title %}{% endblock %}</h5>
                 <div class="d-lg-flex align-items-baseline gap-1">
+                    <!-- Notification Bell -->
+                    <div class="dropdown me-2">
+                        <button class="btn btn-light position-relative" type="button" id="notificationDropdown"
+                            data-bs-toggle="dropdown" aria-expanded="false">
+                            <i class="bi bi-bell-fill"></i>
+                            <span
+                                class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger notification-badge d-none">
+                                <span class="notification-count">0</span>
+                                <span class="visually-hidden">unread notifications</span>
+                            </span>
+                        </button>
+                        <div class="dropdown-menu dropdown-menu-end notification-dropdown p-0"
+                            aria-labelledby="notificationDropdown"
+                            style="width: 320px; max-height: 400px; overflow-y: auto;">
+                            <div class="p-2 border-bottom d-flex justify-content-between align-items-center">
+                                <h6 class="mb-0">Notifikasi</h6>
+                                <span class="badge bg-primary notification-count-text">0 baru</span>
+                            </div>
+                            <div class="notification-list p-2">
+                                <div class="text-center py-4 text-muted">
+                                    <i class="bi bi-bell-slash fs-4 mb-2 d-block"></i>
+                                    <p class="mb-0">Belum ada notifikasi</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
                     <div class="dropdown d-none d-lg-block">
                         <button class="btn dropdown-toggle" type="button" data-bs-toggle="dropdown"
                             aria-expanded="false">
-                            <img src="{{ url_for('static', filename='uploads/'+current_user.profile_pic) }}"
-                                class="rounded me-2" height="35" alt="" />
+                            <img src="{% if current_user.profile_pic %}
+                                {{ url_for('static', filename='uploads/' ~ current_user.profile_pic) }}
+                            {% else %}
+                                {{ url_for('static', filename='img/default_avatar.png') }}
+                            {% endif %}" class="rounded me-2" height="35" alt="{{ current_user.username }}" />
                             {{ current_user.username }}
                         </button>
                         <ul class="dropdown-menu">
@@ -238,6 +272,175 @@
 
         loadPreference(); // Load preference on page load
     </script>
+
+    <!-- Notification System -->
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            // Initialize notification system
+            initNotificationSystem();
+        });
+
+        function initNotificationSystem() {
+            // Check for notifications every 30 seconds
+            checkNotifications();
+            setInterval(checkNotifications, 30000);
+
+            // Add click handler for notification dropdown
+            document.getElementById('notificationDropdown').addEventListener('click', function () {
+                // Mark notifications as read when dropdown is opened
+                document.querySelector('.notification-badge').classList.add('d-none');
+            });
+        }
+
+        function checkNotifications() {
+            fetch('/petani/market/notifications', {
+                method: 'GET',
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest'
+                }
+            })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success && data.notifications && data.notifications.length > 0) {
+                        updateNotificationBadge(data.notifications.length);
+                        updateNotificationList(data.notifications);
+                    }
+                })
+                .catch(error => {
+                    console.error('Error checking notifications:', error);
+                });
+        }
+
+        function updateNotificationBadge(count) {
+            const badge = document.querySelector('.notification-badge');
+            const countElement = document.querySelector('.notification-count');
+            const countTextElement = document.querySelector('.notification-count-text');
+
+            if (count > 0) {
+                badge.classList.remove('d-none');
+                countElement.textContent = count;
+                countTextElement.textContent = `${count} baru`;
+            } else {
+                badge.classList.add('d-none');
+                countTextElement.textContent = '0 baru';
+            }
+        }
+
+        function updateNotificationList(notifications) {
+            const notificationList = document.querySelector('.notification-list');
+
+            // Clear existing notifications
+            notificationList.innerHTML = '';
+
+            // Add new notifications
+            notifications.forEach(notification => {
+                const notificationItem = document.createElement('div');
+                notificationItem.className = 'notification-item p-2 border-bottom';
+
+                // Format the notification based on type
+                let icon = 'bi-bell';
+                let bgColor = 'bg-light';
+
+                if (notification.type === 'new_order') {
+                    icon = 'bi-cart-check';
+                    bgColor = 'bg-success';
+                } else if (notification.type === 'payment') {
+                    icon = 'bi-credit-card';
+                    bgColor = 'bg-primary';
+                }
+
+                // Create the notification HTML
+                notificationItem.innerHTML = `
+                    <div class="d-flex">
+                        <div class="flex-shrink-0">
+                            <div class="rounded-circle p-2 ${bgColor} text-white">
+                                <i class="bi ${icon}"></i>
+                            </div>
+                        </div>
+                        <div class="flex-grow-1 ms-3">
+                            <p class="mb-1">${notification.message}</p>
+                            <small class="text-muted">${formatNotificationTime(notification.created_at)}</small>
+                        </div>
+                    </div>
+                `;
+
+                // Add click handler if there's an order_id
+                if (notification.order_id) {
+                    notificationItem.style.cursor = 'pointer';
+                    notificationItem.addEventListener('click', function () {
+                        window.location.href = `/petani/market?order_id=${notification.order_id}`;
+                    });
+                }
+
+                notificationList.appendChild(notificationItem);
+            });
+        }
+
+        function formatNotificationTime(timestamp) {
+            const date = new Date(timestamp);
+            const now = new Date();
+            const diffMs = now - date;
+            const diffSec = Math.floor(diffMs / 1000);
+            const diffMin = Math.floor(diffSec / 60);
+            const diffHour = Math.floor(diffMin / 60);
+            const diffDay = Math.floor(diffHour / 24);
+
+            if (diffSec < 60) {
+                return 'Baru saja';
+            } else if (diffMin < 60) {
+                return `${diffMin} menit yang lalu`;
+            } else if (diffHour < 24) {
+                return `${diffHour} jam yang lalu`;
+            } else {
+                return `${diffDay} hari yang lalu`;
+            }
+        }
+
+        // Function to show toast notifications
+        function showToast(message, type = 'success') {
+            // Create toast container if it doesn't exist
+            let toastContainer = document.querySelector('.toast-container');
+            if (!toastContainer) {
+                toastContainer = document.createElement('div');
+                toastContainer.className = 'toast-container position-fixed top-0 end-0 p-3';
+                toastContainer.style.zIndex = '1100';
+                document.body.appendChild(toastContainer);
+            }
+
+            // Create toast element
+            const toastEl = document.createElement('div');
+            toastEl.className = `toast align-items-center text-bg-${type} border-0`;
+            toastEl.setAttribute('role', 'alert');
+            toastEl.setAttribute('aria-live', 'assertive');
+            toastEl.setAttribute('aria-atomic', 'true');
+
+            // Create toast content
+            toastEl.innerHTML = `
+                <div class="d-flex">
+                    <div class="toast-body">
+                        ${message}
+                    </div>
+                    <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button>
+                </div>
+            `;
+
+            // Add toast to container
+            toastContainer.appendChild(toastEl);
+
+            // Initialize and show toast
+            const toast = new bootstrap.Toast(toastEl, {
+                autohide: true,
+                delay: 5000
+            });
+            toast.show();
+
+            // Remove toast from DOM after it's hidden
+            toastEl.addEventListener('hidden.bs.toast', function () {
+                toastEl.remove();
+            });
+        }
+    </script>
+
     {% block scripts %} {% endblock %}
 </body>
 

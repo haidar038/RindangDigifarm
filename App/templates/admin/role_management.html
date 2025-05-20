@@ -1,0 +1,448 @@
+{% extends 'layout/admin_base.html' %}
+<!-- Title Block -->
+{% block title %}Dashboard Admin - Manajemen Role{% endblock %}
+{% block page_title %}Manajemen Role{% endblock %}
+
+<!-- Content Block -->
+{% block content %}
+<div class="container-fluid px-0">
+    <!-- Header with actions -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h3 class="fw-bold mb-0">Manajemen Role</h3>
+            <p class="text-muted">Kelola role dan izin akses dalam sistem</p>
+        </div>
+        <div>
+            <button type="button" class="btn btn-green" data-bs-toggle="modal" data-bs-target="#addRoleModal">
+                <i class="bi bi-plus-lg me-1"></i> Tambah Role Baru
+            </button>
+        </div>
+    </div>
+
+    <div class="row">
+        <!-- Roles List -->
+        <div class="col-md-4 mb-4">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-header bg-white py-3">
+                    <h5 class="mb-0">Daftar Role</h5>
+                </div>
+                <div class="card-body p-0">
+                    <div class="list-group list-group-flush role-list">
+                        {% for role in roles %}
+                        <a href="#" class="list-group-item list-group-item-action d-flex justify-content-between align-items-center {% if loop.first %}active{% endif %}" data-role-id="{{ role.id }}">
+                            <div>
+                                <h6 class="mb-1">{{ role.name }}</h6>
+                                <p class="mb-0 small text-muted">{{ role.description }}</p>
+                            </div>
+                            <span class="badge bg-green rounded-pill">{{ role.user_count }}</span>
+                        </a>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Role Details -->
+        <div class="col-md-8 mb-4">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-header bg-white py-3">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <h5 class="mb-0" id="selectedRoleName">Detail Role</h5>
+                        <div>
+                            <button type="button" class="btn btn-outline-green btn-sm me-2" id="editRoleBtn">
+                                <i class="bi bi-pencil me-1"></i> Edit
+                            </button>
+                            <button type="button" class="btn btn-outline-danger btn-sm" id="deleteRoleBtn">
+                                <i class="bi bi-trash me-1"></i> Hapus
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <div id="roleDetails">
+                        <div class="mb-4">
+                            <h6 class="text-muted mb-2">Informasi Dasar</h6>
+                            <div class="row">
+                                <div class="col-md-6 mb-3">
+                                    <label class="form-label text-muted small">Nama Role</label>
+                                    <div class="form-control-plaintext" id="roleName"></div>
+                                </div>
+                                <div class="col-md-6 mb-3">
+                                    <label class="form-label text-muted small">Jumlah Pengguna</label>
+                                    <div class="form-control-plaintext" id="roleUserCount"></div>
+                                </div>
+                                <div class="col-12 mb-3">
+                                    <label class="form-label text-muted small">Deskripsi</label>
+                                    <div class="form-control-plaintext" id="roleDescription"></div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div>
+                            <h6 class="text-muted mb-3">Izin Akses</h6>
+                            <div class="row" id="permissionsContainer">
+                                <!-- Permissions will be loaded here -->
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Edit Role Form (initially hidden) -->
+                    <form id="editRoleForm" class="d-none">
+                        <div class="mb-4">
+                            <h6 class="text-muted mb-2">Informasi Dasar</h6>
+                            <div class="row">
+                                <div class="col-md-6 mb-3">
+                                    <label for="editRoleName" class="form-label">Nama Role</label>
+                                    <input type="text" class="form-control" id="editRoleName" required>
+                                </div>
+                                <div class="col-12 mb-3">
+                                    <label for="editRoleDescription" class="form-label">Deskripsi</label>
+                                    <textarea class="form-control" id="editRoleDescription" rows="2"></textarea>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div>
+                            <h6 class="text-muted mb-3">Izin Akses</h6>
+                            <div class="row" id="editPermissionsContainer">
+                                <!-- Permission checkboxes will be loaded here -->
+                            </div>
+                        </div>
+
+                        <div class="d-flex justify-content-end mt-4">
+                            <button type="button" class="btn btn-outline-secondary me-2" id="cancelEditBtn">
+                                Batal
+                            </button>
+                            <button type="submit" class="btn btn-green">
+                                <i class="bi bi-check-lg me-1"></i> Simpan Perubahan
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Users with Selected Role -->
+    <div class="card border-0 shadow-sm mb-4">
+        <div class="card-header bg-white py-3">
+            <h5 class="mb-0">Pengguna dengan Role <span id="roleNameHeader"></span></h5>
+        </div>
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th class="ps-3">ID</th>
+                            <th>Username</th>
+                            <th>Email</th>
+                            <th>Tanggal Daftar</th>
+                            <th class="text-end pe-3">Aksi</th>
+                        </tr>
+                    </thead>
+                    <tbody id="roleUsersTableBody">
+                        <!-- Users will be loaded here -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Add Role Modal -->
+<div class="modal fade" id="addRoleModal" tabindex="-1" aria-labelledby="addRoleModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow">
+            <div class="modal-header bg-light">
+                <h5 class="modal-title" id="addRoleModalLabel">
+                    <i class="bi bi-shield-plus me-2 text-green"></i>Tambah Role Baru
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form id="addRoleForm" action="{{ url_for('admin.add_role') }}" method="POST">
+                <div class="modal-body p-4">
+                    <div class="mb-3">
+                        <label for="newRoleName" class="form-label">Nama Role</label>
+                        <input type="text" class="form-control" id="newRoleName" name="name" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="newRoleDescription" class="form-label">Deskripsi</label>
+                        <textarea class="form-control" id="newRoleDescription" name="description" rows="2"></textarea>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Izin Akses</label>
+                        <div class="row g-3" id="newPermissionsContainer">
+                            <!-- Permission checkboxes will be loaded here -->
+                            {% for permission in permissions %}
+                            <div class="col-md-6">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" name="permissions" value="{{ permission.id }}" id="perm{{ permission.id }}">
+                                    <label class="form-check-label" for="perm{{ permission.id }}">
+                                        {{ permission.name }}
+                                    </label>
+                                </div>
+                            </div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer bg-light">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Batal</button>
+                    <button type="submit" class="btn btn-green">
+                        <i class="bi bi-plus-lg me-1"></i>Tambah Role
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Delete Role Confirmation Modal -->
+<div class="modal fade" id="deleteRoleModal" tabindex="-1" aria-labelledby="deleteRoleModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow">
+            <div class="modal-header bg-danger text-white">
+                <h5 class="modal-title" id="deleteRoleModalLabel">
+                    <i class="bi bi-exclamation-triangle-fill me-2"></i>Konfirmasi Hapus Role
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body p-4">
+                <div class="alert alert-warning">
+                    <div class="d-flex">
+                        <div class="me-3">
+                            <i class="bi bi-info-circle-fill fs-4"></i>
+                        </div>
+                        <div>
+                            <p class="mb-1">Apakah Anda yakin ingin menghapus role <strong id="deleteRoleName"></strong>?</p>
+                            <p class="mb-0 small">Tindakan ini akan menghapus role dari semua pengguna yang memilikinya. Pastikan tidak ada pengguna yang bergantung pada role ini.</p>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="form-check mb-3">
+                    <input class="form-check-input" type="checkbox" id="confirmDeleteRole" required>
+                    <label class="form-check-label" for="confirmDeleteRole">
+                        Saya mengerti bahwa tindakan ini tidak dapat dibatalkan
+                    </label>
+                </div>
+            </div>
+            <div class="modal-footer bg-light">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">
+                    <i class="bi bi-x-lg me-1"></i>Batal
+                </button>
+                <form action="{{ url_for('admin.delete_role') }}" method="POST" id="deleteRoleForm">
+                    <input type="hidden" name="role_id" id="deleteRoleId">
+                    <button type="submit" class="btn btn-danger" id="deleteRoleButton" disabled>
+                        <i class="bi bi-trash me-1"></i>Hapus Role
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Sample data for roles and permissions
+        const roles = {{ roles_json|safe }};
+        const permissions = {{ permissions_json|safe }};
+        
+        // DOM elements
+        const roleList = document.querySelector('.role-list');
+        const roleDetails = document.getElementById('roleDetails');
+        const editRoleForm = document.getElementById('editRoleForm');
+        const editRoleBtn = document.getElementById('editRoleBtn');
+        const deleteRoleBtn = document.getElementById('deleteRoleBtn');
+        const cancelEditBtn = document.getElementById('cancelEditBtn');
+        const confirmDeleteRole = document.getElementById('confirmDeleteRole');
+        const deleteRoleButton = document.getElementById('deleteRoleButton');
+        
+        // Initialize with first role selected
+        if (roles.length > 0) {
+            loadRoleDetails(roles[0]);
+        }
+        
+        // Role list click handler
+        roleList.addEventListener('click', function(e) {
+            const roleItem = e.target.closest('.list-group-item');
+            if (!roleItem) return;
+            
+            e.preventDefault();
+            
+            // Update active state
+            document.querySelectorAll('.role-list .list-group-item').forEach(item => {
+                item.classList.remove('active');
+            });
+            roleItem.classList.add('active');
+            
+            // Get role ID and load details
+            const roleId = roleItem.dataset.roleId;
+            const role = roles.find(r => r.id == roleId);
+            
+            if (role) {
+                loadRoleDetails(role);
+                // Reset to view mode
+                showViewMode();
+            }
+        });
+        
+        // Edit button click handler
+        editRoleBtn.addEventListener('click', function() {
+            showEditMode();
+        });
+        
+        // Cancel edit button click handler
+        cancelEditBtn.addEventListener('click', function() {
+            showViewMode();
+        });
+        
+        // Delete button click handler
+        deleteRoleBtn.addEventListener('click', function() {
+            const activeRole = getActiveRole();
+            if (activeRole) {
+                document.getElementById('deleteRoleName').textContent = activeRole.name;
+                document.getElementById('deleteRoleId').value = activeRole.id;
+                new bootstrap.Modal(document.getElementById('deleteRoleModal')).show();
+            }
+        });
+        
+        // Delete confirmation checkbox handler
+        confirmDeleteRole.addEventListener('change', function() {
+            deleteRoleButton.disabled = !this.checked;
+        });
+        
+        // Function to load role details
+        function loadRoleDetails(role) {
+            // Update role details view
+            document.getElementById('selectedRoleName').textContent = `Detail Role: ${role.name}`;
+            document.getElementById('roleName').textContent = role.name;
+            document.getElementById('roleDescription').textContent = role.description || 'Tidak ada deskripsi';
+            document.getElementById('roleUserCount').textContent = `${role.user_count} pengguna`;
+            document.getElementById('roleNameHeader').textContent = role.name;
+            
+            // Update permissions
+            const permissionsContainer = document.getElementById('permissionsContainer');
+            permissionsContainer.innerHTML = '';
+            
+            role.permissions.forEach(permId => {
+                const permission = permissions.find(p => p.id == permId);
+                if (permission) {
+                    const col = document.createElement('div');
+                    col.className = 'col-md-6 mb-2';
+                    col.innerHTML = `
+                        <div class="d-flex align-items-center">
+                            <i class="bi bi-check-circle-fill text-success me-2"></i>
+                            <span>${permission.name}</span>
+                        </div>
+                    `;
+                    permissionsContainer.appendChild(col);
+                }
+            });
+            
+            // If no permissions
+            if (role.permissions.length === 0) {
+                permissionsContainer.innerHTML = '<div class="col-12"><p class="text-muted">Tidak ada izin khusus yang ditetapkan.</p></div>';
+            }
+            
+            // Update edit form
+            document.getElementById('editRoleName').value = role.name;
+            document.getElementById('editRoleDescription').value = role.description || '';
+            
+            // Update edit permissions
+            const editPermissionsContainer = document.getElementById('editPermissionsContainer');
+            editPermissionsContainer.innerHTML = '';
+            
+            permissions.forEach(permission => {
+                const isChecked = role.permissions.includes(permission.id);
+                const col = document.createElement('div');
+                col.className = 'col-md-6 mb-2';
+                col.innerHTML = `
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" id="editPerm${permission.id}" 
+                               name="permissions" value="${permission.id}" ${isChecked ? 'checked' : ''}>
+                        <label class="form-check-label" for="editPerm${permission.id}">
+                            ${permission.name}
+                        </label>
+                    </div>
+                `;
+                editPermissionsContainer.appendChild(col);
+            });
+            
+            // Load users with this role
+            loadRoleUsers(role);
+        }
+        
+        // Function to load users with selected role
+        function loadRoleUsers(role) {
+            const tableBody = document.getElementById('roleUsersTableBody');
+            tableBody.innerHTML = '';
+            
+            if (role.users && role.users.length > 0) {
+                role.users.forEach(user => {
+                    const row = document.createElement('tr');
+                    row.innerHTML = `
+                        <td class="ps-3">${user.id}</td>
+                        <td>
+                            <div class="d-flex align-items-center">
+                                <div class="avatar me-2">
+                                    <img src="${user.profile_pic || '/static/default-profile.png'}" 
+                                         class="rounded-circle" width="40" height="40" 
+                                         alt="${user.username}" style="object-fit: cover;">
+                                </div>
+                                <div>
+                                    <div class="fw-semibold">${user.username}</div>
+                                    <div class="text-muted small">${user.nama_lengkap || ''}</div>
+                                </div>
+                            </div>
+                        </td>
+                        <td>${user.email}</td>
+                        <td>${user.created_at}</td>
+                        <td class="text-end pe-3">
+                            <a href="${user.edit_url}" class="btn btn-sm btn-outline-green">
+                                <i class="bi bi-pencil"></i>
+                            </a>
+                        </td>
+                    `;
+                    tableBody.appendChild(row);
+                });
+            } else {
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td colspan="5" class="text-center py-4">
+                        <div class="text-muted">
+                            <i class="bi bi-people fs-3 d-block mb-2"></i>
+                            Tidak ada pengguna dengan role ini
+                        </div>
+                    </td>
+                `;
+                tableBody.appendChild(row);
+            }
+        }
+        
+        // Function to show view mode
+        function showViewMode() {
+            roleDetails.classList.remove('d-none');
+            editRoleForm.classList.add('d-none');
+        }
+        
+        // Function to show edit mode
+        function showEditMode() {
+            roleDetails.classList.add('d-none');
+            editRoleForm.classList.remove('d-none');
+        }
+        
+        // Function to get active role
+        function getActiveRole() {
+            const activeRoleItem = document.querySelector('.role-list .list-group-item.active');
+            if (activeRoleItem) {
+                const roleId = activeRoleItem.dataset.roleId;
+                return roles.find(r => r.id == roleId);
+            }
+            return null;
+        }
+    });
+</script>
+{% endblock %}

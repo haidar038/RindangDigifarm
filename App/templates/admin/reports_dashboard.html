@@ -1,0 +1,523 @@
+{% extends 'layout/admin_base.html' %}
+<!-- Title Block -->
+{% block title %}Dashboard Admin - Laporan{% endblock %}
+{% block page_title %}Laporan & Statistik{% endblock %}
+
+{% block head_scripts %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.0.0"></script>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
+<script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+{% endblock %}
+
+<!-- Content Block -->
+{% block content %}
+<div class="container-fluid px-0">
+    <!-- Header with actions -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h3 class="fw-bold mb-0">Laporan & Statistik</h3>
+            <p class="text-muted">Analisis data dan laporan performa sistem</p>
+        </div>
+        <div class="d-flex gap-2">
+            <div class="dropdown">
+                <button class="btn btn-outline-green dropdown-toggle" type="button" id="exportDropdown"
+                    data-bs-toggle="dropdown" aria-expanded="false">
+                    <i class="bi bi-download me-1"></i> Export
+                </button>
+                <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="exportDropdown">
+                    <li><a class="dropdown-item" href="{{ url_for('admin.export_report', format='csv') }}"><i
+                                class="bi bi-filetype-csv me-2"></i>CSV</a></li>
+                    <li><a class="dropdown-item" href="{{ url_for('admin.export_report', format='excel') }}"><i
+                                class="bi bi-filetype-xlsx me-2"></i>Excel</a></li>
+                    <li><a class="dropdown-item" href="{{ url_for('admin.export_report', format='pdf') }}"><i
+                                class="bi bi-filetype-pdf me-2"></i>PDF</a></li>
+                </ul>
+            </div>
+            <button type="button" class="btn btn-green" id="refreshData">
+                <i class="bi bi-arrow-clockwise me-1"></i> Refresh Data
+            </button>
+        </div>
+    </div>
+
+    <!-- Date range filter -->
+    <div class="card border-0 shadow-sm mb-4">
+        <div class="card-body">
+            <div class="row g-3">
+                <div class="col-md-4">
+                    <label class="form-label">Rentang Waktu</label>
+                    <div class="input-group">
+                        <span class="input-group-text bg-light border-end-0">
+                            <i class="bi bi-calendar-range text-muted"></i>
+                        </span>
+                        <input type="text" class="form-control border-start-0" id="dateRangePicker"
+                            placeholder="Pilih rentang tanggal">
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">Jenis Laporan</label>
+                    <select class="form-select" id="reportType">
+                        <option value="all" selected>Semua Data</option>
+                        <option value="users">Pengguna</option>
+                        <option value="production">Produksi</option>
+                        <option value="sales">Penjualan</option>
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">Tampilkan</label>
+                    <select class="form-select" id="chartType">
+                        <option value="bar">Grafik Batang</option>
+                        <option value="line" selected>Grafik Garis</option>
+                        <option value="pie">Grafik Lingkaran</option>
+                    </select>
+                </div>
+                <div class="col-md-2 d-flex align-items-end">
+                    <button type="button" class="btn btn-green w-100" id="applyFilters">
+                        <i class="bi bi-funnel me-1"></i> Terapkan
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Summary cards -->
+    <div class="row mb-4">
+        <div class="col-md-3 mb-3">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <div>
+                            <h6 class="text-muted mb-1">Total Pengguna</h6>
+                            <h3 class="mb-0 fw-bold">{{ total_users }}</h3>
+                        </div>
+                        <div class="bg-green-secondary p-3 rounded">
+                            <i class="bi bi-people-fill text-green fs-4"></i>
+                        </div>
+                    </div>
+                    <div class="progress" style="height: 5px;">
+                        <div class="progress-bar bg-green" role="progressbar"
+                            style="width: {{ (total_users / 100) * 100 }}%"></div>
+                    </div>
+                    <div class="d-flex justify-content-between mt-2">
+                        <small class="text-success">
+                            <i class="bi bi-arrow-up"></i> {{ user_growth }}% dari bulan lalu
+                        </small>
+                        <small class="text-muted">Target: 100</small>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3 mb-3">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <div>
+                            <h6 class="text-muted mb-1">Total Produksi</h6>
+                            <h3 class="mb-0 fw-bold">{{ total_production }}kg</h3>
+                        </div>
+                        <div class="bg-green-secondary p-3 rounded">
+                            <i class="bi bi-graph-up text-green fs-4"></i>
+                        </div>
+                    </div>
+                    <div class="progress" style="height: 5px;">
+                        <div class="progress-bar bg-green" role="progressbar"
+                            style="width: {{ (total_production / 1000) * 100 }}%"></div>
+                    </div>
+                    <div class="d-flex justify-content-between mt-2">
+                        <small class="text-success">
+                            <i class="bi bi-arrow-up"></i> {{ production_growth }}% dari bulan lalu
+                        </small>
+                        <small class="text-muted">Target: 1000kg</small>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3 mb-3">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <div>
+                            <h6 class="text-muted mb-1">Total Penjualan</h6>
+                            <h3 class="mb-0 fw-bold">Rp {{ total_sales }}</h3>
+                        </div>
+                        <div class="bg-green-secondary p-3 rounded">
+                            <i class="bi bi-cash-stack text-green fs-4"></i>
+                        </div>
+                    </div>
+                    <div class="progress" style="height: 5px;">
+                        <div class="progress-bar bg-green" role="progressbar"
+                            style="width: {{ (total_sales / 10000000) * 100 }}%"></div>
+                    </div>
+                    <div class="d-flex justify-content-between mt-2">
+                        <small class="text-success">
+                            <i class="bi bi-arrow-up"></i> {{ sales_growth }}% dari bulan lalu
+                        </small>
+                        <small class="text-muted">Target: Rp 10.000.000</small>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3 mb-3">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <div>
+                            <h6 class="text-muted mb-1">Transaksi Sukses</h6>
+                            <h3 class="mb-0 fw-bold">{{ successful_transactions }}</h3>
+                        </div>
+                        <div class="bg-green-secondary p-3 rounded">
+                            <i class="bi bi-check-circle text-green fs-4"></i>
+                        </div>
+                    </div>
+                    <div class="progress" style="height: 5px;">
+                        <div class="progress-bar bg-green" role="progressbar"
+                            style="width: {{ (successful_transactions / total_transactions) * 100 }}%"></div>
+                    </div>
+                    <div class="d-flex justify-content-between mt-2">
+                        <small class="text-success">
+                            <i class="bi bi-arrow-up"></i> {{ transaction_success_rate }}% tingkat keberhasilan
+                        </small>
+                        <small class="text-muted">{{ successful_transactions }}/{{ total_transactions }}</small>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Charts -->
+    <div class="row mb-4">
+        <div class="col-md-8 mb-4">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-header bg-white py-3">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <h5 class="mb-0">Tren Data</h5>
+                        <div class="btn-group btn-group-sm">
+                            <button type="button" class="btn btn-outline-secondary active"
+                                data-period="week">Minggu</button>
+                            <button type="button" class="btn btn-outline-secondary" data-period="month">Bulan</button>
+                            <button type="button" class="btn btn-outline-secondary" data-period="year">Tahun</button>
+                        </div>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <canvas id="mainChart" height="300"></canvas>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4 mb-4">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-header bg-white py-3">
+                    <h5 class="mb-0">Distribusi Komoditas</h5>
+                </div>
+                <div class="card-body">
+                    <canvas id="pieChart" height="260"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Data tables -->
+    <div class="card border-0 shadow-sm mb-4">
+        <div class="card-header bg-white py-3">
+            <ul class="nav nav-tabs card-header-tabs" id="reportTabs" role="tablist">
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link active" id="users-tab" data-bs-toggle="tab" data-bs-target="#users-tab-pane"
+                        type="button" role="tab" aria-selected="true">
+                        <i class="bi bi-people me-1"></i>Pengguna
+                    </button>
+                </li>
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link" id="production-tab" data-bs-toggle="tab"
+                        data-bs-target="#production-tab-pane" type="button" role="tab" aria-selected="false">
+                        <i class="bi bi-graph-up me-1"></i>Produksi
+                    </button>
+                </li>
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link" id="sales-tab" data-bs-toggle="tab" data-bs-target="#sales-tab-pane"
+                        type="button" role="tab" aria-selected="false">
+                        <i class="bi bi-cash-stack me-1"></i>Penjualan
+                    </button>
+                </li>
+            </ul>
+        </div>
+        <div class="card-body p-0">
+            <div class="tab-content" id="reportTabsContent">
+                <!-- Users Tab -->
+                <div class="tab-pane fade show active" id="users-tab-pane" role="tabpanel" tabindex="0">
+                    <div class="table-responsive">
+                        <table class="table table-hover align-middle mb-0">
+                            <thead class="table-light">
+                                <tr>
+                                    <th class="ps-3">ID</th>
+                                    <th>Username</th>
+                                    <th>Email</th>
+                                    <th>Role</th>
+                                    <th>Tanggal Daftar</th>
+                                    <th class="text-end pe-3">Status</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for user in recent_users %}
+                                <tr>
+                                    <td class="ps-3">{{ user.id }}</td>
+                                    <td>{{ user.username }}</td>
+                                    <td>{{ user.email }}</td>
+                                    <td>
+                                        {% for role in user.roles %}
+                                        <span
+                                            class="badge {% if role.name == 'admin' %}bg-danger{% elif role.name == 'petani' %}bg-success{% elif role.name == 'ahli' %}bg-primary{% else %}bg-secondary{% endif %} rounded-pill">
+                                            {{ role.name }}
+                                        </span>
+                                        {% endfor %}
+                                    </td>
+                                    <td>{{ user.created_at.strftime('%d/%m/%Y') }}</td>
+                                    <td class="text-end pe-3">
+                                        <span
+                                            class="badge {% if user.is_deleted %}bg-danger{% else %}bg-success{% endif %}">
+                                            {{ 'Tidak Aktif' if user.is_deleted else 'Aktif' }}
+                                        </span>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- Production Tab -->
+                <div class="tab-pane fade" id="production-tab-pane" role="tabpanel" tabindex="0">
+                    <div class="table-responsive">
+                        <table class="table table-hover align-middle mb-0">
+                            <thead class="table-light">
+                                <tr>
+                                    <th class="ps-3">ID</th>
+                                    <th>Petani</th>
+                                    <th>Komoditas</th>
+                                    <th>Jumlah Panen</th>
+                                    <th>Tanggal Panen</th>
+                                    <th class="text-end pe-3">Status</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for production in recent_productions %}
+                                <tr>
+                                    <td class="ps-3">{{ production.id }}</td>
+                                    <td>{{ production.user.username }}</td>
+                                    <td>{{ production.komoditas.nama }}</td>
+                                    <td>{{ production.jml_panen }} kg</td>
+                                    <td>{{ production.tanggal_panen.strftime('%d/%m/%Y') }}</td>
+                                    <td class="text-end pe-3">
+                                        <span
+                                            class="badge {% if production.is_deleted %}bg-danger{% else %}bg-success{% endif %}">
+                                            {{ 'Dihapus' if production.is_deleted else 'Aktif' }}
+                                        </span>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- Sales Tab -->
+                <div class="tab-pane fade" id="sales-tab-pane" role="tabpanel" tabindex="0">
+                    <div class="table-responsive">
+                        <table class="table table-hover align-middle mb-0">
+                            <thead class="table-light">
+                                <tr>
+                                    <th class="ps-3">ID Transaksi</th>
+                                    <th>Pembeli</th>
+                                    <th>Penjual</th>
+                                    <th>Komoditas</th>
+                                    <th>Jumlah</th>
+                                    <th>Total</th>
+                                    <th>Tanggal</th>
+                                    <th class="text-end pe-3">Status</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for transaction in recent_transactions %}
+                                <tr>
+                                    <td class="ps-3">{{ transaction.id }}</td>
+                                    <td>{{ transaction.buyer.username }}</td>
+                                    <td>{{ transaction.seller.username }}</td>
+                                    <td>{{ transaction.komoditas.nama }}</td>
+                                    <td>{{ transaction.quantity }} kg</td>
+                                    <td>Rp {{ transaction.total_price }}</td>
+                                    <td>{{ transaction.created_at.strftime('%d/%m/%Y') }}</td>
+                                    <td class="text-end pe-3">
+                                        <span
+                                            class="badge {% if transaction.status == 'completed' %}bg-success{% elif transaction.status == 'pending' %}bg-warning{% else %}bg-danger{% endif %}">
+                                            {{ transaction.status|capitalize }}
+                                        </span>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        // Initialize date range picker
+        flatpickr("#dateRangePicker", {
+            mode: "range",
+            dateFormat: "Y-m-d",
+            defaultDate: [new Date().setDate(new Date().getDate() - 30), new Date()]
+        });
+
+        // Initialize charts
+        const mainChartCtx = document.getElementById('mainChart').getContext('2d');
+        const pieChartCtx = document.getElementById('pieChart').getContext('2d');
+
+        // Sample data for main chart
+        const mainChart = new Chart(mainChartCtx, {
+            type: 'line',
+            data: {
+                labels: {{ chart_labels| tojson }},
+        datasets: [
+        {
+            label: 'Pengguna',
+            data: {{ user_data| tojson }},
+        borderColor: '#28a745',
+        backgroundColor: 'rgba(40, 167, 69, 0.1)',
+        tension: 0.4,
+        fill: true
+                    },
+        {
+            label: 'Produksi (kg)',
+            data: {{ production_data| tojson }},
+        borderColor: '#17a2b8',
+        backgroundColor: 'rgba(23, 162, 184, 0.1)',
+        tension: 0.4,
+        fill: true
+                    },
+        {
+            label: 'Penjualan (Rp)',
+            data: {{ sales_data| tojson }},
+        borderColor: '#ffc107',
+        backgroundColor: 'rgba(255, 193, 7, 0.1)',
+        tension: 0.4,
+        fill: true
+                    }
+    ]
+            },
+        options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+            legend: {
+                position: 'top',
+            },
+            tooltip: {
+                mode: 'index',
+                intersect: false
+            }
+        },
+        scales: {
+            y: {
+                beginAtZero: true
+            }
+        }
+    }
+        });
+
+    // Sample data for pie chart
+    const pieChart = new Chart(pieChartCtx, {
+        type: 'pie',
+        data: {
+            labels: {{ commodity_labels| tojson }},
+    datasets: [{
+        data: {{ commodity_data| tojson }},
+        backgroundColor: [
+        '#28a745', '#17a2b8', '#ffc107', '#dc3545', '#6610f2',
+        '#fd7e14', '#20c997', '#e83e8c', '#6f42c1', '#007bff'
+    ],
+        borderWidth: 1
+                }]
+            },
+    options: {
+        responsive: true,
+            maintainAspectRatio: false,
+                plugins: {
+            legend: {
+                position: 'bottom'
+            }
+        }
+    }
+        });
+
+    // Handle period buttons
+    document.querySelectorAll('[data-period]').forEach(button => {
+        button.addEventListener('click', function () {
+            // Remove active class from all buttons
+            document.querySelectorAll('[data-period]').forEach(btn => {
+                btn.classList.remove('active');
+            });
+
+            // Add active class to clicked button
+            this.classList.add('active');
+
+            // Update chart data based on period
+            const period = this.dataset.period;
+
+            // Here you would typically fetch new data from the server
+            // For demo purposes, we'll just update with random data
+            updateChartData(mainChart, period);
+        });
+    });
+
+    // Function to update chart data (demo)
+    function updateChartData(chart, period) {
+        let labels = [];
+        let datasets = chart.data.datasets;
+
+        if (period === 'week') {
+            labels = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+        } else if (period === 'month') {
+            labels = Array.from({ length: 30 }, (_, i) => i + 1);
+        } else if (period === 'year') {
+            labels = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+        }
+
+        // Update labels
+        chart.data.labels = labels;
+
+        // Update datasets with random data
+        datasets.forEach(dataset => {
+            dataset.data = labels.map(() => Math.floor(Math.random() * 100));
+        });
+
+        chart.update();
+    }
+
+    // Handle refresh button
+    document.getElementById('refreshData').addEventListener('click', function () {
+        // Show loading spinner
+        this.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Loading...';
+        this.disabled = true;
+
+        // Simulate data refresh
+        setTimeout(() => {
+            // Update charts with new random data
+            updateChartData(mainChart, 'week');
+
+            // Update pie chart
+            pieChart.data.datasets[0].data = pieChart.data.labels.map(() => Math.floor(Math.random() * 100));
+            pieChart.update();
+
+            // Reset button
+            this.innerHTML = '<i class="bi bi-arrow-clockwise me-1"></i> Refresh Data';
+            this.disabled = false;
+        }, 1000);
+    });
+    });
+</script>
+{% endblock %}

@@ -18,3 +18,13 @@ instance/
 logs
 app.log
 *.log
+*.sql
+*.bat
+folder_structure.*
+/tests
+fix_database.py
+fix_petani_profiles.py
+manajemen_produksi.md
+folder_structure.txt
+run_tests.py
+/docs

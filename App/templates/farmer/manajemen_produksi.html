@@ -141,6 +141,11 @@
                             <li><a class="dropdown-item" href="#" data-bs-toggle="modal"
                                     data-bs-target="#importModal">Import Data</a></li>
                             <li>
+                                <a class="dropdown-item" href="{{ url_for('farmer.check_upcoming_harvests') }}">
+                                    <i class="fas fa-calendar-check"></i> Cek Panen yang Akan Datang
+                                </a>
+                            </li>
+                            <li>
                                 <button class="dropdown-item" id="generatePDF">
                                     <i class="fas fa-file-pdf"></i> Cetak Laporan
                                 </button>
@@ -365,6 +370,21 @@
                         <label for="tanggal_panen" class="form-label">Tanggal Panen</label>
                         <input type="date" class="form-control" value="{{ item.tanggal_panen }}" id="tanggal_panen"
                             name="tanggal_panen" required />
+                    </div>
+
+                    <div class="mb-3">
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" value="yes" id="update_stock{{ item.id }}"
+                                name="update_stock">
+                            <label class="form-check-label" for="update_stock{{ item.id }}">
+                                Update stok produk dari hasil panen
+                            </label>
+                        </div>
+                        <div class="form-text">
+                            <i class="bi bi-info-circle me-1"></i>
+                            Jika dicentang, Anda akan diarahkan untuk memilih produk yang akan diperbarui stoknya
+                            setelah panen dicatat.
+                        </div>
                     </div>
                 </form>
             </div>

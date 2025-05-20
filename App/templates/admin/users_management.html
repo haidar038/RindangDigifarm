@@ -1,99 +1,126 @@
 {% extends 'layout/admin_base.html' %}
 <!-- Head Block -->
 {% block title %}Dashboard Admin - Pengguna{% endblock %}
+{% block page_title %}Manajemen Pengguna{% endblock %}
+
 <!-- Content Block -->
 {% block content %}
-<main class="container">
-    <h3 class="mb-3 fw-bold">Manajemen Pengguna</h3>
-    <a href="{{ url_for('admin.add_user') }}" class="btn btn-green text-white btn-sm rounded-pill mb-3"><i
-            class="bi bi-plus-lg"></i> Tambah User Baru</a>
-    <div class="card">
-        <div class="card-header justify-content-between align-items-center d-flex">
-            <h6 class="card-title mb-0">Daftar Pengguna Saat Ini</h6>
+<div class="container-fluid px-0">
+    <!-- Header with actions -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h3 class="fw-bold mb-0">Manajemen Pengguna</h3>
+            <p class="text-muted">Kelola semua pengguna dalam sistem</p>
         </div>
+        <div>
+            <a href="{{ url_for('admin.add_user') }}" class="btn btn-green">
+                <i class="bi bi-plus-lg me-1"></i> Tambah User Baru
+            </a>
+        </div>
+    </div>
+
+    <!-- Filter and search -->
+    <div class="card border-0 shadow-sm mb-4">
         <div class="card-body">
-            <div class="table-responsive">
-                <table class="table table-striped">
-                    <thead>
-                        <tr>
-                            <th>ID</th>
-                            <th>Username</th>
-                            <th>Email</th>
-                            <th>Role</th>
-                            <th>Aksi</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for item in users %}
-                        {% if not item.is_deleted %}
-                        <tr class="align-middle">
-                            <td>{{ loop.index }}</td>
-                            <td>{{ item.username }}</td>
-                            <td>{{ item.email }}</td>
-                            <td>
-                                <div class="d-flex gap-1">
-                                    {% for role in item.roles %}
-                                    <span class="badge bg-outline-green rounded-pill text-capitalize">{{ role.name
-                                        }}</span>
-                                    {% endfor %}
-                                </div>
-                            </td>
-                            <td>
-                                <!-- Button trigger modal -->
-                                <div class="dropdown">
-                                    <button class="btn btn-light position-relative" type="button"
-                                        data-bs-toggle="dropdown" aria-expanded="false">
-                                        {% for requests in user_req %} {% if requests.status == 'pending' and
-                                        requests.user_id ==
-                                        item.id %}
-                                        <span
-                                            class="position-absolute top-0 start-100 translate-middle p-2 bg-danger border border-light rounded-circle">
-                                            <span class="visually-hidden">New alerts</span>
-                                        </span>
-                                        {% endif %} {% endfor %}
-                                        <i class="bi bi-three-dots-vertical"></i>
-                                    </button>
-                                    <ul class="dropdown-menu">
-                                        <li>
-                                            <a class="dropdown-item position-relative"
-                                                href="{{ url_for('admin.view_upgrade_requests' ) }}">
-                                                Upgrade Requests {% for requests in user_req %} {% if requests.status ==
-                                                'pending'
-                                                and requests.user_id == item.id %}
-                                                <span
-                                                    class="position-absolute top-0 start-100 translate-middle p-2 bg-danger border border-light rounded-circle">
-                                                    <span class="visually-hidden">New alerts</span>
-                                                </span>
-                                                {% endif %} {% endfor %}
-                                            </a>
-                                        </li>
-                                        <hr />
-                                        <li>
-                                            <button type="button" class="dropdown-item" data-bs-toggle="modal"
-                                                data-bs-target="#detailsModal{{ item.id }}">
-                                                Detail
-                                            </button>
-                                        </li>
-                                        <li><a class="dropdown-item"
-                                                href="{{ url_for('admin.edit_user', user_id=item.id) }}">Edit</a></li>
-                                        <li>
-                                            <button type="button" class="dropdown-item" data-bs-toggle="modal"
-                                                data-bs-target="#singleDeleteModal{{ item.id }}">
-                                                Hapus
-                                            </button>
-                                        </li>
-                                    </ul>
-                                </div>
-                            </td>
-                        </tr>
-                        {% endif %}
-                        {% endfor %}
-                    </tbody>
-                </table>
+            <div class="row g-3">
+                <div class="col-md-4">
+                    <div class="input-group">
+                        <span class="input-group-text bg-light border-end-0">
+                            <i class="bi bi-search text-muted"></i>
+                        </span>
+                        <input type="text" class="form-control border-start-0" id="searchInput"
+                            placeholder="Cari username atau email...">
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <select class="form-select" id="roleFilter">
+                        <option value="all" selected>Semua Role</option>
+                        <option value="admin">Admin</option>
+                        <option value="petani">Petani</option>
+                        <option value="ahli">Ahli</option>
+                        <option value="personal">Personal</option>
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <select class="form-select" id="sortOrder">
+                        <option value="newest">Terbaru</option>
+                        <option value="oldest">Terlama</option>
+                        <option value="username">Username (A-Z)</option>
+                    </select>
+                </div>
+                <div class="col-md-2 text-end">
+                    <button type="button" class="btn btn-outline-green" id="resetFilters">
+                        <i class="bi bi-arrow-counterclockwise me-1"></i> Reset
+                    </button>
+                </div>
             </div>
         </div>
     </div>
-</main>
+
+    <!-- Users table -->
+    <div class="card border-0 shadow-sm">
+        <div class="card-header bg-white py-3">
+            <div class="d-flex justify-content-between align-items-center">
+                <h5 class="mb-0">Daftar Pengguna</h5>
+                <span class="badge bg-green">{{ pagination.total }} Total</span>
+            </div>
+        </div>
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th class="ps-3">ID</th>
+                            <th>Username</th>
+                            <th>Email</th>
+                            <th>Role</th>
+                            <th class="text-end pe-3">Aksi</th>
+                        </tr>
+                    </thead>
+                    <!-- include partial pertama kali -->
+                    {% include 'admin/_users_table.html' %}
+                </table>
+            </div>
+        </div>
+        <div class="card-footer bg-white py-3">
+            <nav class="d-flex justify-content-between align-items-center">
+                <div class="text-muted small">
+                    Menampilkan {{ (pagination.page - 1) * pagination.per_page + 1 }} -
+                    {{ min(pagination.page * pagination.per_page, pagination.total) }}
+                    dari {{ pagination.total }} pengguna
+                </div>
+                <ul class="pagination mb-0" id="users-pagination">
+                    {# Previous #}
+                    <li class="page-item {% if not pagination.has_prev %}disabled{% endif %}">
+                        <a class="page-link" href="#"
+                            data-page="{{ pagination.prev_num if pagination.has_prev else 1 }}">
+                            <i class="bi bi-chevron-left small"></i>
+                        </a>
+                    </li>
+
+                    {# Page numbers #}
+                    {% for p in pagination.iter_pages(left_edge=2, right_edge=1, left_current=1, right_current=1) %}
+                    {% if p %}
+                    <li class="page-item {% if p == pagination.page %}active{% endif %}">
+                        <a class="page-link" href="#" data-page="{{ p }}">{{ p }}</a>
+                    </li>
+                    {% else %}
+                    <li class="page-item disabled"><span class="page-link">…</span></li>
+                    {% endif %}
+                    {% endfor %}
+
+                    {# Next #}
+                    <li class="page-item {% if not pagination.has_next %}disabled{% endif %}">
+                        <a class="page-link" href="#"
+                            data-page="{{ pagination.next_num if pagination.has_next else pagination.pages }}">
+                            <i class="bi bi-chevron-right small"></i>
+                        </a>
+                    </li>
+                </ul>
+            </nav>
+        </div>
+    </div>
+</div>
 
 <!-- Details Modal -->
 {% for item in users %}
@@ -101,102 +128,252 @@
 <div class="modal fade" id="detailsModal{{ item.id }}" tabindex="-1" aria-labelledby="detailsModal{{ item.id }}Label"
     aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered modal-lg">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h1 class="modal-title fs-5" id="detailsModal{{ item.id }}Label">Detail Pengguna: {{ item.username }}
-                </h1>
+        <div class="modal-content border-0 shadow">
+            <div class="modal-header bg-light">
+                <h5 class="modal-title" id="detailsModal{{ item.id }}Label">
+                    <i class="bi bi-person-circle me-2 text-green"></i>Detail Pengguna
+                </h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
-            <div class="modal-body">
-                <div class="row">
-                    <div class="col-md-4 text-center mb-3">
-                        <img src="{{ item.profile_pic or '/static/default-profile.png' }}"
-                            class="img-fluid rounded-circle mb-3" alt="Foto Profil {{ item.username }}"
-                            style="max-width: 200px; max-height: 200px; object-fit: cover;">
-                        <h5>{{ item.nama_lengkap or item.username }}</h5>
-                        <p class="text-muted">{{ item.email }}</p>
+            <div class="modal-body p-0">
+                <!-- User header with profile image -->
+                <div class="bg-green-secondary p-4 text-center">
+                    <img src="{{ item.profile_pic or '/static/default-profile.png' }}"
+                        class="rounded-circle border border-3 border-white shadow mb-3"
+                        alt="Foto Profil {{ item.username }}" style="width: 120px; height: 120px; object-fit: cover;">
+                    <h4 class="fw-bold mb-1">{{ item.nama_lengkap or item.username }}</h4>
+                    <p class="mb-2">{{ item.email }}</p>
+                    <div class="d-flex justify-content-center gap-2 mb-2">
+                        {% for role in item.roles %}
+                        <span
+                            class="badge {% if role.name == 'admin' %}bg-danger{% elif role.name == 'petani' %}bg-success{% elif role.name == 'ahli' %}bg-primary{% else %}bg-secondary{% endif %} rounded-pill">
+                            {{ role.name }}
+                        </span>
+                        {% endfor %}
                     </div>
-                    <div class="col-md-8">
-                        <table class="table">
-                            <tbody>
-                                <tr>
-                                    <th scope="row">Username</th>
-                                    <td>{{ item.username }}</td>
-                                </tr>
-                                <tr>
-                                    <th scope="row">Email</th>
-                                    <td>{{ item.email }}</td>
-                                </tr>
-                                <tr>
-                                    <th scope="row">Role</th>
-                                    <td>
-                                        {% for role in item.roles %}
-                                        <span class="badge bg-outline-green rounded-pill text-capitalize me-1">
-                                            {{ role.name }}
-                                        </span>
-                                        {% endfor %}
-                                    </td>
-                                </tr>
-                                <tr>
-                                    <th scope="row">Telepon</th>
-                                    <td>{{ item.phone or 'Tidak tersedia' }}</td>
-                                </tr>
-                                <tr>
-                                    <th scope="row">Pekerjaan</th>
-                                    <td>{{ item.pekerjaan or 'Tidak tersedia' }}</td>
-                                </tr>
-                                <tr>
-                                    <th scope="row">Lokasi</th>
-                                    <td>
-                                        {% if item.kelurahan or item.kec or item.kota %}
-                                        {{ [item.kelurahan, item.kec, item.kota]|select|join(', ') }}
-                                        {% else %}
-                                        Tidak tersedia
-                                        {% endif %}
-                                    </td>
-                                </tr>
-                                <tr>
-                                    <th scope="row">Bio</th>
-                                    <td>{{ item.bio or 'Tidak tersedia' }}</td>
-                                </tr>
-                                <tr>
-                                    <th scope="row">Akun Dibuat</th>
-                                    <td>{{ item.created_at.strftime('%d %B %Y, %H:%M') }}</td>
-                                </tr>
-                            </tbody>
-                        </table>
-                    </div>
+                    <p class="small text-muted mb-0">
+                        <i class="bi bi-calendar-check me-1"></i>
+                        Bergabung {{ item.created_at.strftime('%d %B %Y') }}
+                    </p>
                 </div>
 
-                {% if item.petani_profile %}
-                <div class="card mt-3">
-                    <div class="card-header">
-                        <h6 class="mb-0">Profil Petani</h6>
-                    </div>
-                    <div class="card-body">
-                        <p><strong>ID Unik:</strong> {{ item.petani_profile.unique_id }}</p>
-                        <p><strong>Luas Lahan:</strong> {{ item.petani_profile.luas_lahan or 'Tidak tersedia' }} m²</p>
-                    </div>
-                </div>
-                {% endif %}
+                <!-- User details in tabs -->
+                <div class="p-4">
+                    <ul class="nav nav-tabs mb-4" id="userDetailTabs{{ item.id }}" role="tablist">
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link active" id="profile-tab{{ item.id }}" data-bs-toggle="tab"
+                                data-bs-target="#profile-tab-pane{{ item.id }}" type="button" role="tab"
+                                aria-selected="true">
+                                <i class="bi bi-person me-1"></i>Profil
+                            </button>
+                        </li>
+                        {% if item.petani_profile %}
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link" id="petani-tab{{ item.id }}" data-bs-toggle="tab"
+                                data-bs-target="#petani-tab-pane{{ item.id }}" type="button" role="tab"
+                                aria-selected="false">
+                                <i class="bi bi-tree me-1"></i>Profil Petani
+                            </button>
+                        </li>
+                        {% endif %}
+                        {% if item.ahli_profile %}
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link" id="ahli-tab{{ item.id }}" data-bs-toggle="tab"
+                                data-bs-target="#ahli-tab-pane{{ item.id }}" type="button" role="tab"
+                                aria-selected="false">
+                                <i class="bi bi-mortarboard me-1"></i>Profil Ahli
+                            </button>
+                        </li>
+                        {% endif %}
+                    </ul>
 
-                {% if item.ahli_profile %}
-                <div class="card mt-3">
-                    <div class="card-header">
-                        <h6 class="mb-0">Profil Ahli</h6>
-                    </div>
-                    <div class="card-body">
-                        <p><strong>ID Unik:</strong> {{ item.ahli_profile.unique_id }}</p>
-                        <p><strong>Institusi:</strong> {{ item.ahli_profile.institusi or 'Tidak tersedia' }}</p>
-                        <p><strong>Bidang Keahlian:</strong> {{ item.ahli_profile.bidang_keahlian or 'Tidak tersedia' }}
-                        </p>
-                        <p><strong>Gelar:</strong> {{ item.ahli_profile.gelar or 'Tidak tersedia' }}</p>
+                    <div class="tab-content" id="userDetailTabsContent{{ item.id }}">
+                        <!-- Profile Tab -->
+                        <div class="tab-pane fade show active" id="profile-tab-pane{{ item.id }}" role="tabpanel"
+                            tabindex="0">
+                            <div class="row g-4">
+                                <div class="col-md-6">
+                                    <div class="mb-3">
+                                        <label class="form-label text-muted small">Username</label>
+                                        <div class="form-control-plaintext">{{ item.username }}</div>
+                                    </div>
+                                    <div class="mb-3">
+                                        <label class="form-label text-muted small">Email</label>
+                                        <div class="form-control-plaintext">{{ item.email }}</div>
+                                    </div>
+                                    <div class="mb-3">
+                                        <label class="form-label text-muted small">Telepon</label>
+                                        <div class="form-control-plaintext">
+                                            {% if item.phone %}
+                                            <i class="bi bi-telephone me-1"></i>{{ item.phone }}
+                                            {% else %}
+                                            <span class="text-muted fst-italic">Tidak tersedia</span>
+                                            {% endif %}
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="mb-3">
+                                        <label class="form-label text-muted small">Pekerjaan</label>
+                                        <div class="form-control-plaintext">
+                                            {% if item.pekerjaan %}
+                                            <i class="bi bi-briefcase me-1"></i>{{ item.pekerjaan }}
+                                            {% else %}
+                                            <span class="text-muted fst-italic">Tidak tersedia</span>
+                                            {% endif %}
+                                        </div>
+                                    </div>
+                                    <div class="mb-3">
+                                        <label class="form-label text-muted small">Lokasi</label>
+                                        <div class="form-control-plaintext">
+                                            {% if item.kelurahan or item.kec or item.kota %}
+                                            <i class="bi bi-geo-alt me-1"></i>{{ [item.kelurahan, item.kec,
+                                            item.kota]|select|join(', ') }}
+                                            {% else %}
+                                            <span class="text-muted fst-italic">Tidak tersedia</span>
+                                            {% endif %}
+                                        </div>
+                                    </div>
+                                    <div class="mb-3">
+                                        <label class="form-label text-muted small">Bio</label>
+                                        <div class="form-control-plaintext">
+                                            {% if item.bio %}
+                                            {{ item.bio }}
+                                            {% else %}
+                                            <span class="text-muted fst-italic">Tidak tersedia</span>
+                                            {% endif %}
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Petani Profile Tab -->
+                        {% if item.petani_profile %}
+                        <div class="tab-pane fade" id="petani-tab-pane{{ item.id }}" role="tabpanel" tabindex="0">
+                            <div class="row g-4">
+                                <div class="col-md-6">
+                                    <div class="mb-3">
+                                        <label class="form-label text-muted small">ID Petani</label>
+                                        <div class="form-control-plaintext">
+                                            <span class="badge bg-success">{{ item.petani_profile.unique_id }}</span>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="mb-3">
+                                        <label class="form-label text-muted small">Luas Lahan</label>
+                                        <div class="form-control-plaintext">
+                                            {% if item.petani_profile.luas_lahan %}
+                                            <i class="bi bi-rulers me-1"></i>{{ item.petani_profile.luas_lahan }} m²
+                                            {% else %}
+                                            <span class="text-muted fst-italic">Tidak tersedia</span>
+                                            {% endif %}
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Payment Information -->
+                                <div class="col-12">
+                                    <div class="card border-0 bg-light">
+                                        <div class="card-body">
+                                            <h6 class="card-title">
+                                                <i class="bi bi-credit-card me-1"></i>Informasi Pembayaran
+                                            </h6>
+                                            <div class="row g-3 mt-2">
+                                                <div class="col-md-6">
+                                                    <div class="mb-2">
+                                                        <label class="form-label text-muted small">QRIS Status</label>
+                                                        <div>
+                                                            {% if item.petani_profile.qris_static or
+                                                            item.petani_profile.qris_dynamic_enabled %}
+                                                            <span class="badge bg-success">Aktif</span>
+                                                            {% else %}
+                                                            <span class="badge bg-secondary">Tidak Aktif</span>
+                                                            {% endif %}
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                                <div class="col-md-6">
+                                                    <div class="mb-2">
+                                                        <label class="form-label text-muted small">Virtual
+                                                            Account</label>
+                                                        <div>
+                                                            {% if item.petani_profile.va_enabled %}
+                                                            <span class="badge bg-success">Aktif</span>
+                                                            {% if item.petani_profile.va_bank_code %}
+                                                            <span class="ms-1">{{ item.petani_profile.va_bank_code
+                                                                }}</span>
+                                                            {% endif %}
+                                                            {% else %}
+                                                            <span class="badge bg-secondary">Tidak Aktif</span>
+                                                            {% endif %}
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        {% endif %}
+
+                        <!-- Ahli Profile Tab -->
+                        {% if item.ahli_profile %}
+                        <div class="tab-pane fade" id="ahli-tab-pane{{ item.id }}" role="tabpanel" tabindex="0">
+                            <div class="row g-4">
+                                <div class="col-md-6">
+                                    <div class="mb-3">
+                                        <label class="form-label text-muted small">ID Ahli</label>
+                                        <div class="form-control-plaintext">
+                                            <span class="badge bg-primary">{{ item.ahli_profile.unique_id }}</span>
+                                        </div>
+                                    </div>
+                                    <div class="mb-3">
+                                        <label class="form-label text-muted small">Gelar</label>
+                                        <div class="form-control-plaintext">
+                                            {% if item.ahli_profile.gelar %}
+                                            <i class="bi bi-award me-1"></i>{{ item.ahli_profile.gelar }}
+                                            {% else %}
+                                            <span class="text-muted fst-italic">Tidak tersedia</span>
+                                            {% endif %}
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="mb-3">
+                                        <label class="form-label text-muted small">Institusi</label>
+                                        <div class="form-control-plaintext">
+                                            {% if item.ahli_profile.institusi %}
+                                            <i class="bi bi-building me-1"></i>{{ item.ahli_profile.institusi }}
+                                            {% else %}
+                                            <span class="text-muted fst-italic">Tidak tersedia</span>
+                                            {% endif %}
+                                        </div>
+                                    </div>
+                                    <div class="mb-3">
+                                        <label class="form-label text-muted small">Bidang Keahlian</label>
+                                        <div class="form-control-plaintext">
+                                            {% if item.ahli_profile.bidang_keahlian %}
+                                            <i class="bi bi-book me-1"></i>{{ item.ahli_profile.bidang_keahlian }}
+                                            {% else %}
+                                            <span class="text-muted fst-italic">Tidak tersedia</span>
+                                            {% endif %}
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        {% endif %}
                     </div>
                 </div>
-                {% endif %}
             </div>
             <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Tutup</button>
+                <a href="{{ url_for('admin.edit_user', user_id=item.id) }}" class="btn btn-green">
+                    <i class="bi bi-pencil me-1"></i>Edit Pengguna
+                </a>
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Tutup</button>
             </div>
         </div>
     </div>
@@ -210,24 +387,205 @@
 <div class="modal fade" id="singleDeleteModal{{ item.id }}" tabindex="-1"
     aria-labelledby="singleDeleteModal{{ item.id }}Label" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title" id="singleDeleteModal{{ item.id }}Label">Konfirmasi Hapus Pengguna</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        <div class="modal-content border-0 shadow">
+            <div class="modal-header bg-danger text-white">
+                <h5 class="modal-title" id="singleDeleteModal{{ item.id }}Label">
+                    <i class="bi bi-exclamation-triangle-fill me-2"></i>Konfirmasi Hapus Pengguna
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"
+                    aria-label="Close"></button>
             </div>
-            <div class="modal-body">
-                Apakah Anda yakin ingin menghapus pengguna {{ item.username }}?
-                Tindakan ini akan mengubah status pengguna menjadi dihapus.
+            <div class="modal-body p-4">
+                <div class="text-center mb-4">
+                    <div class="avatar mb-3">
+                        <img src="{{ item.profile_pic or '/static/default-profile.png' }}"
+                            class="rounded-circle border border-3 border-light shadow" alt="{{ item.username }}"
+                            width="80" height="80" style="object-fit: cover;">
+                    </div>
+                    <h5 class="mb-1">{{ item.nama_lengkap or item.username }}</h5>
+                    <p class="text-muted">{{ item.email }}</p>
+                </div>
+
+                <div class="alert alert-warning">
+                    <div class="d-flex">
+                        <div class="me-3">
+                            <i class="bi bi-info-circle-fill fs-4"></i>
+                        </div>
+                        <div>
+                            <p class="mb-1">Apakah Anda yakin ingin menghapus pengguna ini?</p>
+                            <p class="mb-0 small">Tindakan ini akan mengubah status pengguna menjadi
+                                <strong>dihapus</strong> dan tidak dapat diakses oleh pengguna tersebut.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="form-check mb-3">
+                    <input class="form-check-input" type="checkbox" id="confirmDelete{{ item.id }}" required>
+                    <label class="form-check-label" for="confirmDelete{{ item.id }}">
+                        Saya mengerti bahwa tindakan ini tidak dapat dibatalkan
+                    </label>
+                </div>
             </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Batal</button>
+            <div class="modal-footer bg-light">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">
+                    <i class="bi bi-x-lg me-1"></i>Batal
+                </button>
                 <form action="{{ url_for('admin.delete_user', user_id=item.id) }}" method="POST">
-                    <button type="submit" class="btn btn-danger">Hapus</button>
+                    <button type="submit" class="btn btn-danger" id="deleteButton{{ item.id }}" disabled>
+                        <i class="bi bi-trash me-1"></i>Hapus Pengguna
+                    </button>
                 </form>
             </div>
         </div>
     </div>
 </div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        const confirmCheckbox = document.getElementById('confirmDelete{{ item.id }}');
+        const deleteButton = document.getElementById('deleteButton{{ item.id }}');
+
+        confirmCheckbox.addEventListener('change', function () {
+            deleteButton.disabled = !this.checked;
+        });
+    });
+</script>
 {% endif %}
 {% endfor %}
+{% endblock %}
+
+{% block scripts %}
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        const tableBody = document.getElementById('users-table-body');
+        const pagination = document.getElementById('users-pagination');
+        const searchInput = document.getElementById('searchInput');
+        const roleFilter = document.getElementById('roleFilter');
+        const sortOrder = document.getElementById('sortOrder');
+        const resetFilters = document.getElementById('resetFilters');
+
+        // Handle pagination
+        pagination.addEventListener('click', function (e) {
+            e.preventDefault();
+            const link = e.target.closest('a.page-link');
+            if (!link) return;
+            const page = link.dataset.page;
+
+            // Get current filter values
+            const search = searchInput.value;
+            const role = roleFilter.value;
+            const sort = sortOrder.value;
+
+            // Build query string
+            let queryParams = `page=${page}`;
+            if (search) queryParams += `&search=${encodeURIComponent(search)}`;
+            if (role !== 'all') queryParams += `&role=${role}`;
+            if (sort) queryParams += `&sort=${sort}`;
+
+            fetch(`{{ url_for('admin.users_management_table') }}?${queryParams}`, {
+                headers: { 'X-Requested-With': 'XMLHttpRequest' }
+            })
+                .then(resp => resp.text())
+                .then(html => {
+                    // Update table content
+                    tableBody.innerHTML = html;
+
+                    // Update active class in pagination
+                    document.querySelectorAll('#users-pagination .page-item').forEach(li => li.classList.remove('active'));
+                    link.parentElement.classList.add('active');
+
+                    // Apply client-side filtering again (in case server filtering is not implemented yet)
+                    applyClientSideFilters();
+                })
+                .catch(err => console.error('Error loading page', err));
+        });
+
+        // Client-side filtering and search
+        function applyClientSideFilters() {
+            const searchTerm = searchInput.value.toLowerCase();
+            const roleValue = roleFilter.value;
+
+            // Get all user rows
+            const rows = document.querySelectorAll('.user-row');
+
+            rows.forEach(row => {
+                const username = row.dataset.username.toLowerCase();
+                const email = row.dataset.email.toLowerCase();
+                const roles = row.dataset.roles.split(',');
+
+                // Check if row matches search term
+                const matchesSearch = searchTerm === '' ||
+                    username.includes(searchTerm) ||
+                    email.includes(searchTerm);
+
+                // Check if row matches role filter
+                const matchesRole = roleValue === 'all' || roles.includes(roleValue);
+
+                // Show/hide row based on filters
+                if (matchesSearch && matchesRole) {
+                    row.style.display = '';
+                } else {
+                    row.style.display = 'none';
+                }
+            });
+
+            // Check if any rows are visible
+            const visibleRows = document.querySelectorAll('.user-row[style="display: "]');
+            const noResultsRow = document.querySelector('.no-results-row');
+
+            if (visibleRows.length === 0 && !noResultsRow) {
+                // Add "no results" row if none exists
+                const tbody = document.getElementById('users-table-body');
+                const tr = document.createElement('tr');
+                tr.className = 'no-results-row';
+                tr.innerHTML = `
+                    <td colspan="5" class="text-center py-4">
+                        <div class="text-muted">
+                            <i class="bi bi-search fs-3 d-block mb-2"></i>
+                            Tidak ada pengguna yang ditemukan
+                        </div>
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            } else if (visibleRows.length > 0 && noResultsRow) {
+                // Remove "no results" row if results exist
+                noResultsRow.remove();
+            }
+        }
+
+        // Add event listeners for filters
+        searchInput.addEventListener('input', applyClientSideFilters);
+        roleFilter.addEventListener('change', applyClientSideFilters);
+
+        // Reset filters
+        resetFilters.addEventListener('click', function () {
+            searchInput.value = '';
+            roleFilter.value = 'all';
+            sortOrder.value = 'newest';
+            applyClientSideFilters();
+        });
+
+        // Sort functionality
+        sortOrder.addEventListener('change', function () {
+            const sortValue = this.value;
+            const tbody = document.getElementById('users-table-body');
+            const rows = Array.from(tbody.querySelectorAll('.user-row'));
+
+            // Sort rows based on selected option
+            rows.sort((a, b) => {
+                if (sortValue === 'username') {
+                    return a.dataset.username.localeCompare(b.dataset.username);
+                } else {
+                    // For now, we'll just use the row order as a proxy for creation date
+                    // In a real implementation, you'd want to sort by actual date
+                    return sortValue === 'oldest' ? 1 : -1;
+                }
+            });
+
+            // Reorder rows in the DOM
+            rows.forEach(row => tbody.appendChild(row));
+        });
+    });
+</script>
 {% endblock %}

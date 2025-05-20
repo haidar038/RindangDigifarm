@@ -102,6 +102,16 @@
                                 <i class="fa fa-gear fa-fw me-2"></i> Role Manager
                             </a>
                         </li>
+                        <li class="nav-item">
+                            <a href="{{ url_for('admin.reports_dashboard') }}" class="nav-link text-white">
+                                <i class="bi bi-graph-up me-2"></i> Laporan & Statistik
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a href="{{ url_for('admin.notifications') }}" class="nav-link text-white">
+                                <i class="bi bi-bell me-2"></i> Notifikasi
+                            </a>
+                        </li>
                         {% endif %}
 
                         <!-- Menu yang bisa diakses semua -->
@@ -153,6 +163,16 @@
                         <i class="fa fa-gear fa-fw me-2"></i> Role Manager
                     </a>
                 </li>
+                <li class="nav-item">
+                    <a href="{{ url_for('admin.reports_dashboard') }}" class="nav-link text-white">
+                        <i class="bi bi-graph-up me-2"></i> Laporan & Statistik
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="{{ url_for('admin.notifications') }}" class="nav-link text-white">
+                        <i class="bi bi-bell me-2"></i> Notifikasi
+                    </a>
+                </li>
                 {% endif %}
 
                 <!-- Menu yang bisa diakses semua -->
@@ -168,7 +188,82 @@
         <div class="container-fluid flex-grow-1 px-4 py-3" role="main">
             <div class="d-flex justify-content-between align-items-center mb-3">
                 <h5 class="fw-bold mb-0">{% block page_title %}{% endblock %}</h5>
-                <div class="d-flex align-items-baseline gap-1">
+                <div class="d-flex align-items-center gap-3">
+                    <!-- Notifications -->
+                    <div class="dropdown">
+                        <button class="btn position-relative" type="button" data-bs-toggle="dropdown"
+                            aria-expanded="false">
+                            <i class="bi bi-bell fs-5"></i>
+                            <span
+                                class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger"
+                                id="navbarNotificationBadge">
+                                3
+                                <span class="visually-hidden">unread notifications</span>
+                            </span>
+                        </button>
+                        <div class="dropdown-menu dropdown-menu-end p-0"
+                            style="width: 320px; max-height: 400px; overflow-y: auto;">
+                            <div class="p-2 border-bottom d-flex justify-content-between align-items-center">
+                                <h6 class="mb-0">Notifikasi</h6>
+                                <a href="{{ url_for('admin.notifications') }}" class="text-decoration-none small">Lihat
+                                    Semua</a>
+                            </div>
+                            <div class="notification-list">
+                                <a href="{{ url_for('admin.users_management') }}"
+                                    class="dropdown-item p-2 border-bottom">
+                                    <div class="d-flex">
+                                        <div class="flex-shrink-0 me-2">
+                                            <div class="notification-icon bg-primary text-white rounded-circle"
+                                                style="width: 40px; height: 40px; display: flex; align-items: center; justify-content: center;">
+                                                <i class="bi bi-person"></i>
+                                            </div>
+                                        </div>
+                                        <div>
+                                            <p class="mb-0 fw-semibold">Pengguna Baru Terdaftar</p>
+                                            <p class="mb-0 small text-muted">Pengguna baru dengan username "johndoe"
+                                                telah mendaftar.</p>
+                                            <small class="text-muted">1 jam yang lalu</small>
+                                        </div>
+                                    </div>
+                                </a>
+                                <a href="{{ url_for('admin.view_upgrade_requests') }}"
+                                    class="dropdown-item p-2 border-bottom">
+                                    <div class="d-flex">
+                                        <div class="flex-shrink-0 me-2">
+                                            <div class="notification-icon bg-warning text-white rounded-circle"
+                                                style="width: 40px; height: 40px; display: flex; align-items: center; justify-content: center;">
+                                                <i class="bi bi-arrow-up-circle"></i>
+                                            </div>
+                                        </div>
+                                        <div>
+                                            <p class="mb-0 fw-semibold">Permintaan Upgrade Role</p>
+                                            <p class="mb-0 small text-muted">Pengguna "janedoe" meminta upgrade ke role
+                                                "petani".</p>
+                                            <small class="text-muted">3 jam yang lalu</small>
+                                        </div>
+                                    </div>
+                                </a>
+                                <a href="{{ url_for('admin.articles_management') }}" class="dropdown-item p-2">
+                                    <div class="d-flex">
+                                        <div class="flex-shrink-0 me-2">
+                                            <div class="notification-icon bg-info text-white rounded-circle"
+                                                style="width: 40px; height: 40px; display: flex; align-items: center; justify-content: center;">
+                                                <i class="bi bi-newspaper"></i>
+                                            </div>
+                                        </div>
+                                        <div>
+                                            <p class="mb-0 fw-semibold">Artikel Baru Ditambahkan</p>
+                                            <p class="mb-0 small text-muted">Artikel baru "Cara Menanam Padi yang
+                                                Efektif" telah ditambahkan.</p>
+                                            <small class="text-muted">1 hari yang lalu</small>
+                                        </div>
+                                    </div>
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- User dropdown -->
                     <div class="dropdown d-none d-lg-block">
                         <button class="btn dropdown-toggle" type="button" data-bs-toggle="dropdown"
                             aria-expanded="false">
@@ -176,11 +271,13 @@
                                 height="35" alt="" />
                             {{ current_user.username }}
                         </button>
-                        <ul class="dropdown-menu">
+                        <ul class="dropdown-menu dropdown-menu-end">
                             <li><a class="dropdown-item" href="{{ url_for('admin.settings' ) }}">Pengaturan</a></li>
                             <li><a class="dropdown-item" href="{{ url_for('auth.logout') }}">Keluar</a></li>
                         </ul>
                     </div>
+
+                    <!-- Dark mode toggle -->
                     <button id="darkModeToggle" class="btn btn-light"><i class="bi bi-sun-fill"></i></button>
                 </div>
             </div>

@@ -17,9 +17,11 @@ from typing import Optional, Tuple
 from openpyxl import load_workbook, Workbook
 from functools import wraps
 from io import BytesIO
+from decimal import Decimal
 
 from App import db, cache
-from App.models import Kebun, DataPangan, KebunKomoditas, Komoditas
+from App.models import Kebun, DataPangan, KebunKomoditas, Komoditas, Order, OrderItem, Product, PetaniProfile, Transaction, User, ProductBatch
+from App.services.xendit_client import XenditClient, XenditError
 
 farmer = Blueprint('farmer', __name__)
 
@@ -95,7 +97,7 @@ def fetch_commodity_data(target_date, commodity_id):
         "provId": PROVINCE_ID,
         "_": int(datetime.now().timestamp() * 1000)
     }
-    
+
     try:
         response = requests.get(API_URL, params=params)
         response.raise_for_status()
@@ -173,7 +175,7 @@ def get_cabai_productivity():
             return jsonify({'productivity': 0, 'trend': 'none'})
 
         productivity = ((current_harvest - previous_harvest) / previous_harvest * 100)
-        
+
         return jsonify({
             'productivity': round(productivity, 1),
             'trend': 'up' if productivity > 0 else 'down' if productivity < 0 else 'none'
@@ -198,11 +200,11 @@ def get_calendar_data():
 
         calendar_data = []
         today = datetime.now().date()
-        
+
         for planting in plantings:
             estimated_harvest = planting.tanggal_bibit + timedelta(days=60)
             days_remaining = (estimated_harvest - today).days
-            
+
             if days_remaining > 0:  # Only include future harvests
                 calendar_data.append({
                     'date': estimated_harvest.isoformat(),
@@ -234,7 +236,7 @@ def get_daily_productivity():
         for i in range(1, len(harvests)):
             current = harvests[i].jml_panen
             previous = harvests[i-1].jml_panen
-            
+
             if previous > 0:
                 change = ((current - previous) / previous * 100)
                 productivity_data.append({
@@ -249,20 +251,36 @@ def get_daily_productivity():
 
 @farmer.route('/api/get-price-data', methods=['GET'])
 def getpricedata():
-    target_date = datetime.today().strftime("%b %d, %Y")
+
+    target_date = datetime.today().strftime("%d/%m/%Y")
     all_data = []
-    
+
     for commodity_name, commodity_id in COMMODITY_IDS.items():
         data = fetch_commodity_data(target_date, commodity_id)
         if data and data.get('data'):
             item = data['data'][0]
-            formatted_date = datetime.strptime(item["Tanggal"], "%d %b %y").strftime("%d/%m/%Y")
+
+            # Parse Indonesian month abbreviations
+            raw = item["Tanggal"]            # e.g. "09 Mei 25"
+            day, mon_id, yy = raw.split()    # ["09", "Mei", "25"]
+
+            # Map Indonesian month abbreviations to numeric months
+            MONTHS = {
+                'Jan':'01','Feb':'02','Mar':'03','Apr':'04',
+                'Mei':'05','Jun':'06','Jul':'07','Agu':'08',
+                'Sep':'09','Okt':'10','Nov':'11','Des':'12'
+            }
+
+            # Format the date properly
+            yyyy = '20' + yy                # "25" → "2025"
+            formatted_date = f"{day}/{MONTHS[mon_id]}/{yyyy}"
+
             all_data.append({
                 "date": formatted_date,
                 "name": commodity_name,
                 "price": format_currency(item["Nilai"], "IDR", locale="id_ID", decimal_quantization=False)[:-3]
             })
-    
+
     return jsonify(all_data)
 
 @farmer.route('/api/price-data', methods=['GET', 'POST'])
@@ -274,7 +292,7 @@ def get_price_data():
     end_date = request.args.get('end_date')
 
     url = f"https://panelharga.badanpangan.go.id/data/kabkota-range-by-levelharga/{KAB_KOTA}/{KOMODITAS_ID}/{start_date}/{end_date}"
-    
+
     try:
         response = requests.get(url)
         response.raise_for_status()  # Raise an error for bad responses
@@ -292,7 +310,7 @@ def index():
         status='Penanaman',
         is_deleted=False
     ).all()
-    
+
     # Query untuk menghitung produktivitas
     harvested_data = DataPangan.query.filter(
         DataPangan.user_id == current_user.id,
@@ -309,7 +327,7 @@ def index():
         previous_harvest = harvested_data[1].jml_panen
         if previous_harvest > 0:  # Hindari pembagian dengan nol
             productivity_change = ((current_harvest - previous_harvest) / previous_harvest) * 100
-    
+
     # Total panen (dari kode yang sudah ada)
     all_data = DataPangan.query.filter_by(
         user_id=current_user.id,
@@ -321,7 +339,7 @@ def index():
     today = date.today()
     harvest_data = []
     next_harvest_days = None
-    
+
     for estPanen in data_pangan:
         if estPanen.estimasi_panen:
             est_date = datetime.strptime(estPanen.estimasi_panen.strftime('%Y-%m-%d'), '%Y-%m-%d').date()
@@ -414,7 +432,7 @@ def manajemen_produksi():
         'nama_lengkap': current_user.nama_lengkap,
         'kelurahan': current_user.kelurahan,
         'kota': current_user.kota,
-        'luas_lahan': sum(kebun.luas_kebun for kebun in current_user.kebun) 
+        'luas_lahan': sum(kebun.luas_kebun for kebun in current_user.kebun)
     }
 
     print(current_user.kebun)
@@ -431,6 +449,747 @@ def manajemen_produksi():
                             page='farmer_manajemen_produksi'
                             )
 
+@farmer.route('/petani/market/check-new-orders', methods=['GET'])
+@login_required
+@role_required('petani')
+def check_new_orders():
+    """Check for new orders since a given timestamp."""
+    since = request.args.get('since')
+
+    if not since:
+        return jsonify({'success': False, 'message': 'Missing since parameter'}), 400
+
+    try:
+        # Parse the timestamp
+        since_dt = datetime.fromisoformat(since.replace('Z', '+00:00'))
+
+        # Query new orders
+        new_orders = (Order.query
+            .join(OrderItem)
+            .join(Product)
+            .filter(
+                Product.seller_id == current_user.id,
+                Order.created_at > since_dt
+            )
+            .order_by(Order.created_at.desc())
+            .all())
+
+        # Count pending and paid orders
+        pending_count = sum(1 for o in new_orders if o.status == 'pending')
+        paid_count = sum(1 for o in new_orders if o.status == 'paid')
+
+        # Format order data for the response
+        orders_data = []
+        for order in new_orders:
+            orders_data.append({
+                'id': order.id,
+                'created_at': order.created_at.isoformat(),
+                'buyer_name': order.buyer.nama_lengkap or order.buyer.username,
+                'items_count': len(order.items),
+                'total_amount': int(order.total_amount),
+                'status': order.status
+            })
+
+        # Check for notifications from webhook
+        notifications = []
+        notification_file = os.path.join(current_app.root_path, 'static', 'notifications', f'seller_{current_user.id}_notifications.json')
+        if os.path.exists(notification_file):
+            try:
+                with open(notification_file, 'r') as f:
+                    notifications = json.load(f)
+
+                # Filter notifications by timestamp
+                new_notifications = [n for n in notifications if datetime.fromisoformat(n['created_at'].replace('Z', '+00:00')) > since_dt]
+
+                # If we have new notifications but no new orders from the database query,
+                # we should check if there are any orders that were updated via webhook
+                if new_notifications and not new_orders:
+                    for notification in new_notifications:
+                        if notification.get('order_id'):
+                            # Check if this order belongs to the current user
+                            order = Order.query.get(notification['order_id'])
+                            if order:
+                                # Check if any of the order items are for products sold by this user
+                                for item in order.items:
+                                    if item.product and item.product.seller_id == current_user.id:
+                                        # Add this order to the response
+                                        orders_data.append({
+                                            'id': order.id,
+                                            'created_at': order.created_at.isoformat(),
+                                            'buyer_name': order.buyer.nama_lengkap or order.buyer.username,
+                                            'items_count': len(order.items),
+                                            'total_amount': int(order.total_amount),
+                                            'status': order.status
+                                        })
+
+                                        # Update counts
+                                        if order.status == 'pending':
+                                            pending_count += 1
+                                        elif order.status == 'paid':
+                                            paid_count += 1
+
+                                        break
+            except Exception as e:
+                current_app.logger.error(f"Error reading notifications: {str(e)}")
+
+        # Get total counts for all orders
+        all_pending_count = Order.query.join(OrderItem).join(Product).filter(
+            Product.seller_id == current_user.id,
+            Order.status == 'pending'
+        ).count()
+
+        all_paid_count = Order.query.join(OrderItem).join(Product).filter(
+            Product.seller_id == current_user.id,
+            Order.status == 'paid'
+        ).count()
+
+        return jsonify({
+            'success': True,
+            'new_orders_count': len(orders_data),
+            'pending_count': all_pending_count,
+            'paid_count': all_paid_count,
+            'orders': orders_data
+        })
+
+    except Exception as e:
+        current_app.logger.error(f"Error checking for new orders: {str(e)}")
+        return jsonify({'success': False, 'message': str(e)}), 500
+
+@farmer.route('/petani/market/notifications', methods=['GET'])
+@login_required
+@role_required('petani')
+def get_notifications():
+    """Get notifications for the current user."""
+    try:
+        # Check for notifications from webhook
+        notifications = []
+        notification_file = os.path.join(current_app.root_path, 'static', 'notifications', f'seller_{current_user.id}_notifications.json')
+        if os.path.exists(notification_file):
+            try:
+                with open(notification_file, 'r') as f:
+                    notifications = json.load(f)
+
+                # Sort notifications by timestamp (newest first)
+                notifications.sort(key=lambda n: n['created_at'], reverse=True)
+
+                # Limit to 10 most recent notifications
+                notifications = notifications[:10]
+
+            except Exception as e:
+                current_app.logger.error(f"Error reading notifications: {str(e)}")
+
+        return jsonify({
+            'success': True,
+            'notifications': notifications
+        })
+
+    except Exception as e:
+        current_app.logger.error(f"Error getting notifications: {str(e)}")
+        return jsonify({'success': False, 'message': str(e)}), 500
+
+@farmer.route('/petani/market', methods=['GET'])
+@login_required
+@role_required('petani')
+def market_manage():
+    """List semua produk milik petani + ringkasan pesanan masuk dengan pagination."""
+    # Get pagination parameters
+    product_page = request.args.get('product_page', 1, type=int)
+    order_page = request.args.get('order_page', 1, type=int)
+    per_page = 8  # 8 items per page
+
+    # Get search parameters
+    product_search = request.args.get('product_search', '')
+    order_search = request.args.get('order_search', '')
+    order_status_filter = request.args.get('order_status', '')
+
+    # Query products with pagination and search
+    product_query = Product.query.filter_by(seller_id=current_user.id)
+    if product_search:
+        product_query = product_query.filter(Product.nama.ilike(f'%{product_search}%'))
+
+    products_pagination = product_query.order_by(Product.updated_at.desc()).paginate(
+        page=product_page, per_page=per_page, error_out=False
+    )
+
+    # Query orders with pagination, search, and filter
+    order_query = (Order.query
+        .join(OrderItem)
+        .join(Product)
+        .filter(Product.seller_id == current_user.id)
+    )
+
+    if order_search:
+        # Search by order ID or buyer username
+        order_query = order_query.join(User, Order.buyer_id == User.id).filter(
+            db.or_(
+                Order.id.cast(db.String).ilike(f'%{order_search}%'),
+                User.username.ilike(f'%{order_search}%')
+            )
+        )
+
+    if order_status_filter:
+        order_query = order_query.filter(Order.status == order_status_filter)
+
+    orders_pagination = order_query.order_by(Order.created_at.desc()).paginate(
+        page=order_page, per_page=per_page, error_out=False
+    )
+
+    # Get all orders for statistics (without pagination)
+    all_orders = (Order.query
+        .join(OrderItem)
+        .join(Product)
+        .filter(Product.seller_id == current_user.id)
+        .all()
+    )
+
+    # Calculate statistics
+    total_income = sum(
+        float(order.total_amount)
+        for order in all_orders
+        if order.status in ['paid', 'processed', 'shipped', 'completed']
+    )
+
+    pending_orders_count = sum(1 for order in all_orders if order.status == 'pending')
+    paid_orders_count = sum(1 for order in all_orders if order.status == 'paid')
+    processing_orders_count = sum(1 for order in all_orders if order.status in ['processed', 'shipped'])
+    completed_orders_count = sum(1 for order in all_orders if order.status == 'completed')
+
+    # Get statistics for products
+    active_products_count = Product.query.filter_by(seller_id=current_user.id, is_active=True).count()
+    low_stock_products_count = Product.query.filter(
+        Product.seller_id == current_user.id,
+        Product.is_active == True,
+        Product.stok <= 5,
+        Product.stok > 0
+    ).count()
+
+    # Tambahkan total_income ke context
+    return render_template(
+        'farmer/market_manage.html',
+        products_pagination=products_pagination,
+        orders_pagination=orders_pagination,
+        total_income=total_income,
+        pending_orders_count=pending_orders_count,
+        paid_orders_count=paid_orders_count,
+        processing_orders_count=processing_orders_count,
+        completed_orders_count=completed_orders_count,
+        active_products_count=active_products_count,
+        low_stock_products_count=low_stock_products_count,
+        product_search=product_search,
+        order_search=order_search,
+        order_status_filter=order_status_filter,
+        page='farmer_market'
+    )
+
+@farmer.route('/petani/market/transactions', methods=['GET'])
+@login_required
+@role_required('petani')
+def market_transactions():
+    """View transaction history"""
+    # Get transactions where the farmer is the recipient
+    transactions = Transaction.query.filter_by(
+        to_user_id=current_user.id
+    ).order_by(Transaction.created_at.desc()).all()
+
+    return render_template(
+        'farmer/transaction_history.html',
+        transactions=transactions,
+        page='farmer_market'
+    )
+
+@farmer.route('/petani/market/pengaturan', methods=['POST', 'GET'])
+@login_required
+@role_required('petani')
+def market_settings():
+    """Update market settings including QRIS and VA settings"""
+    upload_folder = current_app.config['UPLOAD_FOLDER']
+
+    if request.method == 'POST':
+        try:
+            # Get or create petani profile
+            profile = current_user.petani_profile
+            if not profile:
+                # Create profile if it doesn't exist
+                profile = PetaniProfile(
+                    user_id=current_user.id,
+                    unique_id=f"PTN_{secrets.token_hex(4).upper()}"
+                )
+                db.session.add(profile)
+                db.session.flush()
+
+            # Process QRIS settings
+            qris_type = request.form.get('qris_type')
+
+            if qris_type == 'static':
+                # Process static QRIS picture upload
+                if 'qris_picture' in request.files:
+                    file = request.files['qris_picture']
+                    if file and file.filename:
+                        if picture_allowed_file(file.filename):
+                            # Generate unique filename
+                            filename = secrets.token_hex(8) + '_' + secure_filename(file.filename)
+
+                            # Ensure directory exists
+                            qris_dir = os.path.join(upload_folder, 'qris')
+                            os.makedirs(qris_dir, exist_ok=True)
+
+                            # Save file
+                            file_path = os.path.join(qris_dir, filename)
+                            file.save(file_path)
+
+                            # Delete old QRIS file if exists
+                            if profile.qris_static:
+                                old_file_path = os.path.join(qris_dir, profile.qris_static)
+                                if os.path.exists(old_file_path):
+                                    os.remove(old_file_path)
+
+                            # Update profile with new QRIS
+                            profile.qris_static = filename
+
+                            # Disable dynamic QR
+                            profile.qris_dynamic_enabled = False
+                            profile.qris_dynamic_id = None
+                            profile.qris_dynamic_string = None
+
+                            # Update all products to use the new QRIS
+                            products = Product.query.filter_by(seller_id=current_user.id).all()
+                            for product in products:
+                                product.qris_static = filename
+
+                            flash('QRIS statis berhasil diperbarui!', 'success')
+                        else:
+                            flash('File yang diizinkan hanya JPG, JPEG, dan PNG.', 'warning')
+
+            elif qris_type == 'dynamic':
+                # Enable dynamic QR code generation
+                profile.qris_dynamic_enabled = True
+
+                # Create a dynamic QR code using Xendit
+                try:
+                    # Create a dynamic QR code for the seller
+                    qr_data = XenditClient.create_qr_code(
+                        seller_id=current_user.id,
+                        external_id=f"seller-{current_user.id}-{int(datetime.now().timestamp())}",
+                        amount=None  # No amount for seller profile QR
+                    )
+
+                    # Store the QR code data in the profile
+                    profile.qris_dynamic_id = qr_data.get('id')
+                    profile.qris_dynamic_string = qr_data.get('qr_string')
+
+                    # Clear static QR
+                    if profile.qris_static:
+                        qris_dir = os.path.join(upload_folder, 'qris')
+                        old_file_path = os.path.join(qris_dir, profile.qris_static)
+                        if os.path.exists(old_file_path):
+                            os.remove(old_file_path)
+                        profile.qris_static = None
+
+                    flash('QRIS dinamis berhasil diaktifkan!', 'success')
+                except XenditError as e:
+                    current_app.logger.error(f"Xendit error creating dynamic QR: {str(e)}")
+                    flash(f'Gagal membuat QRIS dinamis: {str(e)}', 'danger')
+                    return redirect(url_for('farmer.market_manage'))
+
+            # Process VA settings
+            va_enabled = request.form.get('va_enabled') == 'on'
+            va_bank_code = request.form.get('va_bank_code')
+
+            # Update VA settings
+            profile.va_enabled = va_enabled
+            if va_bank_code:
+                profile.va_bank_code = va_bank_code
+
+            if va_enabled:
+                flash('Virtual Account berhasil diaktifkan!', 'success')
+            else:
+                flash('Virtual Account dinonaktifkan', 'info')
+
+            db.session.commit()
+
+        except Exception as e:
+            db.session.rollback()
+            current_app.logger.error(f"Error updating market settings: {str(e)}")
+            flash(f'Gagal memperbarui pengaturan: {str(e)}', 'danger')
+
+    return redirect(url_for('farmer.market_manage'))
+
+def save_qris_photo(photo_file):
+    if not picture_allowed_file(photo_file.filename):
+        raise ValueError("Format file tidak diizinkan")
+    filename = secure_filename(secrets.token_hex(8) + "_" + photo_file.filename)
+    path = os.path.join(current_app.root_path, 'static/uploads/qris', filename)
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    photo_file.save(path)
+    return url_for('static', filename=f'uploads/qris/{filename}', _external=True)
+
+def save_product_photo(photo_file):
+    if not picture_allowed_file(photo_file.filename):
+        raise ValueError("Format file tidak diizinkan")
+    filename = secure_filename(secrets.token_hex(8) + "_" + photo_file.filename)
+    path = os.path.join(filename)
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    photo_file.save(path)
+    return url_for('static', filename=f'uploads/products/{filename}', _external=True)
+
+@farmer.route('/petani/produksi/check-upcoming-harvests')
+@login_required
+@role_required('petani')
+def check_upcoming_harvests():
+    """Check for upcoming harvests and send notifications"""
+    today = datetime.now().date()
+    upcoming_harvests = DataPangan.query.filter(
+        DataPangan.user_id == current_user.id,
+        DataPangan.status == 'Penanaman',
+        DataPangan.is_deleted == False,
+        DataPangan.estimasi_panen.between(today, today + timedelta(days=7))
+    ).all()
+
+    notifications = []
+    for harvest in upcoming_harvests:
+        days_until_harvest = (harvest.estimasi_panen - today).days
+        notification = {
+            'komoditas': harvest.komoditas_info.nama,
+            'kebun': harvest.kebun.nama,
+            'estimasi_panen': harvest.estimasi_panen.strftime('%d/%m/%Y'),
+            'days_until_harvest': days_until_harvest,
+            'produksi_id': harvest.id
+        }
+        notifications.append(notification)
+
+    return render_template('farmer/upcoming_harvests.html', notifications=notifications)
+
+@farmer.route('/petani/market/product/add', methods=['GET','POST'])
+@login_required
+@role_required('petani')
+def market_add_product():
+    """Add a new product to the marketplace"""
+    # Get all komoditas for the dropdown
+    komoditas = Komoditas.query.filter_by(is_deleted=False).all()
+
+    # Check if we have initial values from harvest
+    komoditas_id = request.args.get('komoditas_id')
+    initial_stock = request.args.get('initial_stock', type=int)
+    produksi_id = request.args.get('produksi_id', type=int)
+
+    # Pre-select komoditas if provided
+    selected_komoditas = None
+    if komoditas_id:
+        selected_komoditas = Komoditas.query.get(komoditas_id)
+
+    if request.method=='POST':
+        try:
+            # Process product photos
+            photos = request.files.getlist('product_images')
+            if not photos or not photos[0].filename:
+                flash('Minimal satu foto produk diperlukan', 'warning')
+                return render_template('farmer/market_form.html',
+                                        product=None,
+                                        komoditas=komoditas,
+                                        selected_komoditas=selected_komoditas,
+                                        initial_stock=initial_stock)
+
+            # Save photos and get URLs
+            urls = [save_product_photo(f) for f in photos if f and f.filename]
+
+            # Get QRIS from farmer profile
+            default_qr = None
+            if hasattr(current_user, 'petani_profile') and current_user.petani_profile:
+                default_qr = current_user.petani_profile.qris_static
+
+            # Create product
+            p = Product(
+                seller_id=current_user.id,
+                nama=request.form['nama'],
+                deskripsi=request.form.get('deskripsi', ''),
+                komoditas_id=request.form.get('komoditas_id') or None,  # Handle empty string
+                harga=Decimal(request.form['harga']),
+                stok=int(request.form['stok']),
+                satuan=request.form['satuan'],
+                gambar_urls=",".join(urls),
+                qris_static=default_qr,
+                is_active=True
+            )
+
+            db.session.add(p)
+            db.session.flush()  # Get the product ID without committing
+
+            # If this product is created from a harvest, create a batch
+            if produksi_id and initial_stock:
+                produksi = DataPangan.query.get(produksi_id)
+                if produksi and produksi.user_id == current_user.id:
+                    batch = ProductBatch.create_from_harvest(
+                        product_id=p.id,
+                        data_pangan_id=produksi_id,
+                        quantity=initial_stock,
+                        notes=f"Batch awal dari panen tanggal {produksi.tanggal_panen.strftime('%d/%m/%Y')}"
+                    )
+                    db.session.add(batch)
+
+            db.session.commit()
+
+            flash('Produk berhasil ditambahkan', 'success')
+            return redirect(url_for('farmer.market_manage'))
+
+        except Exception as e:
+            db.session.rollback()
+            current_app.logger.error(f"Error adding product: {str(e)}")
+            flash(f'Gagal menambahkan produk: {str(e)}', 'danger')
+
+    return render_template('farmer/market_form.html',
+                          product=None,
+                          komoditas=komoditas,
+                          selected_komoditas=selected_komoditas,
+                          initial_stock=initial_stock)
+
+@farmer.route('/petani/market/product/edit/<int:id>', methods=['GET','POST'])
+@login_required
+@role_required('petani')
+def market_edit_product(id):
+    """Edit an existing product"""
+    # Get product
+    p = Product.query.get_or_404(id)
+
+    # Check if user owns the product
+    if p.seller_id != current_user.id:
+        flash('Akses ditolak', 'danger')
+        return redirect(url_for('farmer.market_manage'))
+
+    # Get all komoditas for the dropdown
+    komoditas = Komoditas.query.filter_by(is_deleted=False).all()
+
+    if request.method == 'POST':
+        try:
+            # Update basic product info
+            p.nama = request.form['nama']
+            p.deskripsi = request.form.get('deskripsi', '')
+            p.komoditas_id = request.form.get('komoditas_id') or None  # Handle empty string
+            p.harga = Decimal(request.form['harga'])
+            p.stok = int(request.form['stok'])
+            p.satuan = request.form['satuan']
+
+            # Process new photos if uploaded
+            photos = request.files.getlist('product_images')
+            if photos and photos[0].filename:
+                # Save new photos and get URLs
+                new_urls = [save_product_photo(f) for f in photos if f and f.filename]
+
+                # Update or append to existing photos
+                if p.gambar_urls:
+                    p.gambar_urls = p.gambar_urls + "," + ",".join(new_urls)
+                else:
+                    p.gambar_urls = ",".join(new_urls)
+
+            # Update product
+            p.updated_at = datetime.now()
+            db.session.commit()
+
+            flash('Produk berhasil diperbarui', 'success')
+            return redirect(url_for('farmer.market_manage'))
+
+        except Exception as e:
+            db.session.rollback()
+            current_app.logger.error(f"Error updating product: {str(e)}")
+            flash(f'Gagal memperbarui produk: {str(e)}', 'danger')
+
+    return render_template('farmer/market_form.html', product=p, komoditas=komoditas)
+
+@farmer.route('/petani/market/product/delete/<int:id>', methods=['POST'])
+@login_required
+@role_required('petani')
+def market_delete_product(id):
+    p = Product.query.get_or_404(id)
+    if p.seller_id == current_user.id:
+        p.is_active = False
+        db.session.commit()
+        flash('Produk dinonaktifkan','warning')
+    return redirect(url_for('farmer.market_manage'))
+
+@farmer.route('/petani/market/product/activate/<int:id>', methods=['POST'])
+@login_required
+@role_required('petani')
+def market_activate_product(id):
+    p = Product.query.get_or_404(id)
+    if p.seller_id == current_user.id:
+        p.is_active = True
+        db.session.commit()
+        flash('Produk diaktifkan','success')
+    return redirect(url_for('farmer.market_manage'))
+
+@farmer.route('/petani/market/product/<int:id>/update-stock', methods=['POST'])
+@login_required
+@role_required('petani')
+def market_update_product_stock(id):
+    """Update product stock via AJAX"""
+    try:
+        product = Product.query.get_or_404(id)
+
+        # Check if the product belongs to this seller
+        if product.seller_id != current_user.id:
+            return jsonify({
+                'success': False,
+                'message': 'Anda tidak memiliki akses ke produk ini'
+            }), 403
+
+        # Get new stock value from request
+        data = request.get_json()
+        new_stock = data.get('stock')
+
+        if new_stock is None:
+            return jsonify({
+                'success': False,
+                'message': 'Nilai stok tidak valid'
+            }), 400
+
+        try:
+            new_stock = int(new_stock)
+            if new_stock < 0:
+                raise ValueError("Stok tidak boleh negatif")
+        except ValueError:
+            return jsonify({
+                'success': False,
+                'message': 'Nilai stok harus berupa angka positif'
+            }), 400
+
+        # Update product stock
+        product.stok = new_stock
+        product.updated_at = datetime.now()
+        db.session.commit()
+
+        return jsonify({
+            'success': True,
+            'product_id': product.id,
+            'new_stock': new_stock
+        })
+
+    except Exception as e:
+        db.session.rollback()
+        current_app.logger.error(f"Error updating product stock: {str(e)}")
+        return jsonify({
+            'success': False,
+            'message': f'Terjadi kesalahan: {str(e)}'
+        }), 500
+
+@farmer.route('/petani/market/order/<int:order_id>/update', methods=['POST'])
+@login_required
+@role_required('petani')
+def market_update_order(order_id):
+    """Petani bisa tandai pesanan: processed, shipped, completed."""
+    order = Order.query.get_or_404(order_id)
+    new_status = request.form.get('status')
+    update_stock = request.form.get('update_stock') == 'yes'
+
+    # Check if the order belongs to this seller
+    order_items = OrderItem.query.filter_by(order_id=order.id).all()
+    seller_ids = set(item.product.seller_id for item in order_items if item.product)
+
+    if current_user.id not in seller_ids:
+        flash('Anda tidak memiliki akses ke pesanan ini', 'danger')
+        return redirect(url_for('farmer.market_manage'))
+
+    if new_status in ('pending','paid','processed','shipped','completed','cancelled'):
+        order.status = new_status
+
+        # If order is being processed and update_stock is checked, update product stock
+        if new_status == 'processed' and update_stock:
+            for item in order_items:
+                if item.product and item.product.seller_id == current_user.id:
+                    # Get product batches ordered by harvest date (oldest first)
+                    batches = ProductBatch.query.filter_by(
+                        product_id=item.product.id,
+                        is_deleted=False
+                    ).filter(ProductBatch.quantity > 0).order_by(ProductBatch.harvest_date.asc()).all()
+
+                    remaining_quantity = item.quantity
+
+                    # Deduct from batches using FIFO method
+                    for batch in batches:
+                        if remaining_quantity <= 0:
+                            break
+
+                        if batch.quantity > 0:
+                            deduct_amount = min(batch.quantity, remaining_quantity)
+                            batch.quantity -= deduct_amount
+                            remaining_quantity -= deduct_amount
+
+                    # Update product stock
+                    item.product.update_stock_from_batches()
+
+                    # If no batches or not enough quantity in batches, just deduct from product stock
+                    if remaining_quantity > 0:
+                        item.product.stok = max(0, item.product.stok - remaining_quantity)
+
+        db.session.commit()
+        flash('Status pesanan diperbarui','success')
+
+    # Check if this is an AJAX request
+    if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+        return jsonify({
+            'success': True,
+            'order_id': order.id,
+            'new_status': new_status,
+            'status_badge': get_status_badge_html(new_status)
+        })
+
+    return redirect(url_for('farmer.market_manage'))
+
+def get_status_badge_html(status):
+    """Helper function to generate status badge HTML"""
+    badge_class = {
+        'pending': 'bg-warning',
+        'paid': 'bg-success',
+        'processed': 'bg-info',
+        'shipped': 'bg-primary',
+        'completed': 'bg-success',
+        'cancelled': 'bg-danger',
+        'expired': 'bg-secondary'
+    }.get(status, 'bg-secondary')
+
+    return f'<span class="badge {badge_class}">{status.capitalize()}</span>'
+
+@farmer.route('/petani/market/order/<int:order_id>/update-ajax', methods=['POST'])
+@login_required
+@role_required('petani')
+def market_update_order_ajax(order_id):
+    """AJAX endpoint for updating order status"""
+    try:
+        order = Order.query.get_or_404(order_id)
+        new_status = request.json.get('status')
+
+        # Check if the order belongs to this seller
+        order_items = OrderItem.query.filter_by(order_id=order.id).all()
+        seller_ids = set(item.product.seller_id for item in order_items if item.product)
+
+        if current_user.id not in seller_ids:
+            return jsonify({
+                'success': False,
+                'message': 'Anda tidak memiliki akses ke pesanan ini'
+            }), 403
+
+        if new_status in ('pending','paid','processed','shipped','completed','cancelled'):
+            order.status = new_status
+            db.session.commit()
+
+            return jsonify({
+                'success': True,
+                'order_id': order.id,
+                'new_status': new_status,
+                'status_badge': get_status_badge_html(new_status)
+            })
+        else:
+            return jsonify({
+                'success': False,
+                'message': 'Status tidak valid'
+            }), 400
+
+    except Exception as e:
+        db.session.rollback()
+        current_app.logger.error(f"Error updating order status: {str(e)}")
+        return jsonify({
+            'success': False,
+            'message': f'Terjadi kesalahan: {str(e)}'
+        }), 500
+
 def save_kebun_photo(photo_file) -> Tuple[bool, str]:
     """
     Save uploaded kebun photo and return status and filename
@@ -441,7 +1200,7 @@ def save_kebun_photo(photo_file) -> Tuple[bool, str]:
 
         if not picture_allowed_file(photo_file.filename):
             return False, 'Format file tidak diizinkan!'
-        
+
         filename = secrets.token_hex(8) + '_' + secure_filename(photo_file.filename)
         upload_folder = os.path.join(current_app.root_path, 'static', 'uploads', 'foto_kebun')
         os.makedirs(upload_folder, exist_ok=True)
@@ -458,11 +1217,11 @@ def validate_kebun_data(nama: str, user_id: int) -> Optional[str]:
     """
     if not nama or not nama.strip():
         return 'Nama kebun tidak boleh kosong'
-        
+
     existing_kebun = Kebun.query.filter_by(nama=nama, user_id=user_id, is_deleted=False).first()
     if existing_kebun:
         return 'Nama kebun sudah ada, silakan gunakan nama lain'
-    
+
     return None
 
 @farmer.route('/api/komoditas')
@@ -496,17 +1255,17 @@ def handle_komoditas_input(komoditas_names):
     Returns list of Komoditas objects
     """
     komoditas_objects = []
-    
+
     for nama in komoditas_names:
         if not nama:  # Skip empty names
             continue
-            
+
         # Check if komoditas already exists
         komoditas = Komoditas.query.filter_by(
             nama=nama,
             is_deleted=False
         ).first()
-        
+
         if not komoditas:
             # Create new komoditas if it doesn't exist
             komoditas = Komoditas(
@@ -521,9 +1280,9 @@ def handle_komoditas_input(komoditas_names):
                 current_app.logger.error(f"Error creating komoditas: {str(e)}")
                 db.session.rollback()
                 continue
-                
+
         komoditas_objects.append(komoditas)
-    
+
     return komoditas_objects
 
 def create_kebun_komoditas(kebun, komoditas_list, luas_tanam=None):
@@ -557,13 +1316,13 @@ def add_kebun():
             # Handle komoditas input
             komoditas = request.form.getlist('komoditas[]')
             komoditas_lainnya = request.form.get('komoditas_lainnya')
-            
+
             if komoditas_lainnya:
                 komoditas.append(komoditas_lainnya)
-            
+
             # Remove empty values and duplicates
             komoditas = list(filter(None, set(komoditas)))
-            
+
             # Handle photo uploads
             uploaded_photos = request.files.getlist('fotoKebun[]')
             if not uploaded_photos or uploaded_photos[0].filename == '':
@@ -582,7 +1341,7 @@ def add_kebun():
             # Begin transaction
             # 1. Create or get Komoditas objects
             komoditas_objects = handle_komoditas_input(komoditas)
-            
+
             if not komoditas_objects:
                 flash('Minimal satu komoditas harus dipilih', 'warning')
                 return redirect(request.url)
@@ -598,16 +1357,16 @@ def add_kebun():
                 unique_id=generate_unique_id()
             )
             new_kebun.users.append(current_user)
-            
+
             db.session.add(new_kebun)
             db.session.flush()  # Get the ID without committing
-            
+
             # 3. Create KebunKomoditas relationships
             create_kebun_komoditas(new_kebun, komoditas_objects)
-            
+
             # 4. Commit all changes
             db.session.commit()
-            
+
             flash('Kebun Berhasil Ditambahkan!', 'success')
             return redirect(url_for('farmer.informasi_kebun'))
 
@@ -623,7 +1382,7 @@ def add_kebun():
             db.session.rollback()
             current_app.logger.error(f"Unexpected error in add_kebun: {str(e)}")
             flash('Terjadi kesalahan sistem', 'danger')
-        
+
     return redirect(request.referrer)
 
 @farmer.route('/petani/informasi-kebun/update/<int:id>', methods=['POST'])
@@ -633,12 +1392,12 @@ def update_kebun(id: int):
     """Update existing garden"""
     try:
         kebun = Kebun.query.get_or_404(id)
-        
+
         # Check authorization
         if current_user not in kebun.users:
             flash('Anda tidak memiliki akses untuk mengubah kebun ini', 'danger')
             return redirect(url_for('farmer.informasi_kebun'))
-        
+
         # Validate new name
         new_name = request.form.get('nama_kebun')
         if kebun.nama != new_name:  # Only check if name is being changed
@@ -685,7 +1444,7 @@ def import_kebun():
     if 'excel_file' not in request.files:
         flash('Tidak ada file yang dipilih!', 'error')
         return redirect(request.url)
-        
+
     excel_file = request.files['excel_file']
     if excel_file.filename == '' or not report_allowed_file(excel_file.filename):
         flash('File tidak valid. Unggah file Excel (.xlsx)!', 'error')
@@ -694,22 +1453,22 @@ def import_kebun():
     try:
         wb = load_workbook(excel_file)
         sheet = wb.active
-        
+
         # Begin transaction
         added_kebun = 0
         skipped_kebun = 0
-        
+
         for row in sheet.iter_rows(min_row=2):
             nama_kebun = row[0].value
             if not nama_kebun:  # Skip empty rows
                 continue
-                
+
             # Validate garden name
             error_message = validate_kebun_data(nama_kebun, current_user.id)
             if error_message:
                 skipped_kebun += 1
                 continue
-            
+
             # Create new garden
             new_kebun = Kebun(
                 nama=nama_kebun,
@@ -721,19 +1480,19 @@ def import_kebun():
             new_kebun.users.append(current_user)
             db.session.add(new_kebun)
             added_kebun += 1
-            
+
         db.session.commit()
-        
+
         message = f'Berhasil mengimpor {added_kebun} kebun'
         if skipped_kebun > 0:
             message += f' ({skipped_kebun} kebun dilewati karena duplikat)'
         flash(message, 'success')
-        
+
     except Exception as e:
         db.session.rollback()
         current_app.logger.error(f"Error importing kebun: {str(e)}")
         flash('Gagal mengimpor data. Pastikan format file sesuai template.', 'error')
-    
+
     return redirect(url_for('farmer.informasi_kebun'))
 
 @farmer.route('/petani/informasi-kebun/delete_kebun/<int:id>', methods=['POST', 'GET'])
@@ -743,27 +1502,27 @@ def del_kebun(id):
     """Soft delete garden"""
     try:
         kebun = Kebun.query.get_or_404(id)
-        
+
         # Mengecek authorization
         if current_user not in kebun.users:
             flash('Anda tidak diizinkan menghapus kebun ini', 'danger')
             return redirect(url_for('farmer.informasi_kebun'))
-        
+
         # Soft 'delete' untuk data kebun
         kebun.is_deleted = True
         kebun.deleted_at = datetime.now()
-        
+
         # Menghapus semua user yang terkait
         kebun.users.clear()
-        
+
         db.session.commit()
         flash('Kebun Berhasil Dihapus!', 'danger')
-        
+
     except SQLAlchemyError as e:
         db.session.rollback()
         current_app.logger.error(f"Database error in del_kebun: {str(e)}")
         flash('Gagal menghapus kebun ', 'danger')
-        
+
     return redirect(url_for('farmer.informasi_kebun'))
 
 @farmer.route('/petani/produksi/tambah', methods=['GET', 'POST'])
@@ -855,17 +1614,41 @@ def update_panen(id):
         try:
             jml_panen = request.form.get('hasil_panen')
             tanggal_panen = request.form.get('tanggal_panen')
-            print(tanggal_panen)
+            update_stock = request.form.get('update_stock') == 'yes'
 
             # Mengubah format tanggal panen
             produksi.tanggal_panen = datetime.strptime(tanggal_panen, '%Y-%m-%d')  # Pastikan format tanggal sesuai
 
-            # Update status dan jumlah bibit
+            # Update status dan jumlah panen
             produksi.jml_panen = jml_panen
             produksi.status = 'Panen'
 
             db.session.commit()
             flash('Data produksi berhasil diperbarui!', 'success')
+
+            # Jika user ingin update stok produk
+            if update_stock:
+                # Cari produk dengan komoditas yang sama
+                matching_products = Product.query.filter_by(
+                    seller_id=current_user.id,
+                    komoditas_id=produksi.komoditas_id,
+                    is_active=True
+                ).all()
+
+                if matching_products:
+                    # Jika ada produk yang cocok, tampilkan halaman untuk memilih produk
+                    return render_template(
+                        'farmer/update_product_stock.html',
+                        products=matching_products,
+                        harvest_amount=jml_panen,
+                        produksi_id=produksi.id,
+                        produksi=produksi
+                    )
+                else:
+                    # Jika tidak ada produk yang cocok, tawarkan untuk membuat produk baru
+                    flash('Panen berhasil dicatat! Anda belum memiliki produk untuk komoditas ini. Ingin membuat produk baru?', 'info')
+                    return redirect(url_for('farmer.market_add_product', komoditas_id=produksi.komoditas_id, initial_stock=jml_panen))
+
             return redirect(url_for('farmer.manajemen_produksi'))  # Kembali ke halaman manajemen produksi
         except SQLAlchemyError as e:
             db.session.rollback()
@@ -883,13 +1666,13 @@ def delete_produksi():
         if not delete_ids:
             flash('Tidak ada data yang dipilih untuk dihapus', 'warning')
             return redirect(url_for('farmer.manajemen_produksi'))
-            
+
         # Soft delete untuk semua ID yang dipilih
         DataPangan.query.filter(
             DataPangan.id.in_(delete_ids),
             DataPangan.user_id == current_user.id  # Pastikan hanya data milik user yang bisa dihapus
         ).update({DataPangan.is_deleted: True}, synchronize_session=False)
-        
+
         db.session.commit()
         flash('Data produksi berhasil dihapus!', 'success')
     except SQLAlchemyError as e:
@@ -922,10 +1705,10 @@ def import_produksi():
     if 'excel_file' not in request.files:
         flash('Tidak ada file yang dipilih!', 'error')
         return redirect(request.url)
-        
+
     excel_file = request.files['excel_file']
     import_type = request.form.get('import_type', 'penanaman')
-    
+
     if excel_file.filename == '':
         flash('Tidak ada file yang dipilih!', 'error')
         return redirect(request.url)
@@ -939,7 +1722,7 @@ def import_produksi():
     if not report_allowed_file(excel_file.filename):
         flash('File tidak valid. Unggah file Excel (.xlsx)!', 'error')
         return redirect(request.url)
-        
+
     # Validate filename matches import type
     file_name_without_extension = os.path.splitext(excel_file.filename)[0].lower()
     if import_type not in file_name_without_extension:
@@ -949,11 +1732,11 @@ def import_produksi():
     try:
         wb = load_workbook(excel_file)
         sheet = wb.active
-        
+
         # Begin transaction
         added_records = 0
         skipped_records = 0
-        
+
         for row in sheet.iter_rows(min_row=2):  # Skip header row
             try:
                 # Basic validation for required fields
@@ -976,11 +1759,11 @@ def import_produksi():
 
                 # Check if kebun belongs to user
                 kebun = Kebun.query.filter_by(
-                    id=kebun_id, 
+                    id=kebun_id,
                     user_id=current_user.id,
                     is_deleted=False
                 ).first()
-                
+
                 if not kebun:
                     skipped_records += 1
                     continue
@@ -990,7 +1773,7 @@ def import_produksi():
                     id=komoditas_id,
                     is_deleted=False
                 ).first()
-                
+
                 if not komoditas:
                     skipped_records += 1
                     continue
@@ -1009,11 +1792,11 @@ def import_produksi():
                 if import_type == 'panen':
                     jml_panen = row[4].value
                     tanggal_panen = row[5].value
-                    
+
                     if not jml_panen or not tanggal_panen:
                         skipped_records += 1
                         continue
-                        
+
                     if isinstance(tanggal_panen, str):
                         try:
                             tanggal_panen = datetime.strptime(tanggal_panen, '%Y-%m-%d')
@@ -1036,17 +1819,17 @@ def import_produksi():
                 continue
 
         db.session.commit()
-        
+
         message = f'Berhasil mengimpor {added_records} data produksi'
         if skipped_records > 0:
             message += f' ({skipped_records} data dilewati karena tidak valid)'
         flash(message, 'success')
-        
+
     except Exception as e:
         db.session.rollback()
         current_app.logger.error(f"Error importing production data: {str(e)}")
         flash('Gagal mengimpor data. Pastikan format file sesuai template.', 'error')
-    
+
     return redirect(url_for('farmer.manajemen_produksi'))
 
 @farmer.route('/api/download-template/<template_type>')
@@ -1064,7 +1847,7 @@ def download_template(template_type):
         if template_type == 'penanaman':
             headers = ['ID Kebun', 'ID Komoditas', 'Jumlah Bibit', 'Tanggal Bibit (YYYY-MM-DD)']
         elif template_type == 'panen':
-            headers = ['ID Kebun', 'ID Komoditas', 'Jumlah Bibit', 'Tanggal Bibit (YYYY-MM-DD)', 
+            headers = ['ID Kebun', 'ID Komoditas', 'Jumlah Bibit', 'Tanggal Bibit (YYYY-MM-DD)',
                        'Jumlah Panen', 'Tanggal Panen (YYYY-MM-DD)']
         else:
             return jsonify({'error': 'Template type not valid'}), 400
@@ -1075,13 +1858,13 @@ def download_template(template_type):
 
         # Create helper sheet
         help_sheet = wb.create_sheet(title="Bantuan")
-        
+
         # Get user's active gardens
         kebun_list = Kebun.query.filter_by(
             user_id=current_user.id,
             is_deleted=False
         ).all()
-        
+
         # Get active commodities
         komoditas_list = Komoditas.query.filter_by(
             is_deleted=False
@@ -1091,7 +1874,7 @@ def download_template(template_type):
         help_sheet['A1'] = 'Daftar Kebun:'
         help_sheet['A2'] = 'ID Kebun'
         help_sheet['B2'] = 'Nama Kebun'
-        
+
         for i, kebun in enumerate(kebun_list, 3):
             help_sheet[f'A{i}'] = kebun.id
             help_sheet[f'B{i}'] = kebun.nama
@@ -1101,7 +1884,7 @@ def download_template(template_type):
         help_sheet[f'A{row_start}'] = 'Daftar Komoditas:'
         help_sheet[f'A{row_start+1}'] = 'ID Komoditas'
         help_sheet[f'B{row_start+1}'] = 'Nama Komoditas'
-        
+
         for i, komoditas in enumerate(komoditas_list, row_start+2):
             help_sheet[f'A{i}'] = komoditas.id
             help_sheet[f'B{i}'] = komoditas.nama
@@ -1117,7 +1900,7 @@ def download_template(template_type):
             '5. Field wajib tidak boleh kosong',
             f'6. Status akan otomatis diisi {"Panen" if template_type == "panen" else "Penanaman"}'
         ]
-        
+
         for i, instruction in enumerate(instructions, row_start+1):
             help_sheet[f'A{i}'] = instruction
 
@@ -1141,7 +1924,7 @@ def download_template(template_type):
         return jsonify({'error': 'Failed to generate template'}), 500
 
 @farmer.route('/api/produksi', methods=['GET'])
-@login_required 
+@login_required
 @role_required('petani')
 def api_produksi():
     field_id = request.args.get('field')
@@ -1167,7 +1950,7 @@ def api_produksi():
         query = query.filter(DataPangan.tanggal_bibit <= datetime.strptime(end_date, '%Y-%m-%d'))
 
     produksi = query.all()
-    
+
     chart_data = []
     for prod in produksi:
         if prod.tanggal_panen and prod.jml_panen:
@@ -1248,7 +2031,7 @@ def cetak_laporan_produksi():
 
         # Buat buffer untuk PDF
         buffer = BytesIO()
-        
+
         # Buat dokumen PDF
         doc = SimpleDocTemplate(
             buffer,
@@ -1258,10 +2041,10 @@ def cetak_laporan_produksi():
             topMargin=30,
             bottomMargin=30
         )
-        
+
         # Daftar elemen yang akan ditambahkan ke PDF
         elements = []
-        
+
         # Tambahkan judul
         styles = getSampleStyleSheet()
         title_style = ParagraphStyle(
@@ -1271,10 +2054,10 @@ def cetak_laporan_produksi():
             spaceAfter=30
         )
         elements.append(Paragraph("Laporan Hasil Penanaman - Panen", title_style))
-        
+
         # Persiapkan data untuk tabel
         data = [['Kebun', 'Jumlah Bibit', 'Tanggal Bibit', 'Status', 'Hasil Panen']]
-        
+
         for p in produksi:
             hasil_panen = f"{p.jml_panen}kg, {format_date(p.tanggal_panen, format='d MMM Y', locale='id')}" if p.jml_panen and p.tanggal_panen else "Belum panen"
             data.append([
@@ -1284,10 +2067,10 @@ def cetak_laporan_produksi():
                 p.status,
                 hasil_panen
             ])
-        
+
         # Buat tabel
         table = Table(data, colWidths=[120, 80, 100, 80, 120])
-        
+
         # Style tabel
         table.setStyle(TableStyle([
             ('BACKGROUND', (0, 0), (-1, 0), colors.grey),
@@ -1306,12 +2089,12 @@ def cetak_laporan_produksi():
             ('TOPPADDING', (0, 0), (-1, -1), 10),
             ('BOTTOMPADDING', (0, 0), (-1, -1), 10),
         ]))
-        
+
         elements.append(table)
-        
+
         # Buat PDF
         doc.build(elements)
-        
+
         # Siapkan file untuk didownload
         buffer.seek(0)
         return send_file(
@@ -1325,6 +2108,61 @@ def cetak_laporan_produksi():
         flash('Gagal membuat laporan PDF', 'error')
         return redirect(url_for('farmer.manajemen_produksi'))
 
+@farmer.route('/petani/produksi/update-product-stock', methods=['POST'])
+@login_required
+@role_required('petani')
+def update_product_stock_from_harvest():
+    """Update product stock from harvest data"""
+    if request.method == 'POST':
+        try:
+            produksi_id = request.form.get('produksi_id')
+            product_id = request.form.get('product_id')
+            quantity = request.form.get('quantity', type=int)
+            notes = request.form.get('notes')
+
+            # Validate inputs
+            if not produksi_id or not product_id or not quantity:
+                flash('Semua kolom wajib diisi', 'warning')
+                return redirect(url_for('farmer.manajemen_produksi'))
+
+            # Get the harvest and product data
+            produksi = DataPangan.query.get_or_404(produksi_id)
+            product = Product.query.get_or_404(product_id)
+
+            # Verify ownership
+            if produksi.user_id != current_user.id or product.seller_id != current_user.id:
+                flash('Anda tidak memiliki akses ke data ini', 'danger')
+                return redirect(url_for('farmer.manajemen_produksi'))
+
+            # Create a new batch
+            batch = ProductBatch.create_from_harvest(
+                product_id=product.id,
+                data_pangan_id=produksi.id,
+                quantity=quantity,
+                notes=notes
+            )
+
+            db.session.add(batch)
+
+            # Update product stock
+            product.stok += quantity
+
+            db.session.commit()
+
+            flash(f'Stok produk {product.nama} berhasil diperbarui dengan {quantity} {product.satuan} dari hasil panen', 'success')
+            return redirect(url_for('farmer.market_manage'))
+
+        except ValueError as e:
+            flash(f'Error: {str(e)}', 'danger')
+            return redirect(url_for('farmer.manajemen_produksi'))
+        except SQLAlchemyError as e:
+            db.session.rollback()
+            current_app.logger.error(f"Database error in update_product_stock_from_harvest: {str(e)}")
+            flash('Gagal memperbarui stok produk', 'danger')
+            return redirect(url_for('farmer.manajemen_produksi'))
+
+    return redirect(url_for('farmer.manajemen_produksi'))
+
 @farmer.route('/api/export-csv', methods=['GET'])
 @login_required
 @role_required('petani')
@@ -1334,9 +2172,9 @@ def export_csv():
         DataPangan.user_id == current_user.id,
         DataPangan.is_deleted == False
     )
-    
+
     produksi = query.all()
-    
+
     csv_data = []
     for prod in produksi:
         csv_data.append({
@@ -1347,5 +2185,5 @@ def export_csv():
             'tanggal_panen': prod.tanggal_panen.strftime('%Y-%m-%d') if prod.tanggal_panen else '',
             'jml_panen': prod.jml_panen if prod.jml_panen else ''
         })
-    
+
     return jsonify(csv_data)

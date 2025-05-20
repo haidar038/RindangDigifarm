@@ -61,7 +61,8 @@
                             {{ form.remember(class="form-check-input", id="remember", value="remember") }}
                             <label class="form-check-label" for="remember"> Ingat saya </label>
                         </div>
-                        <a href="{{ url_for('auth.forgot_password' ) }}" class="nav-link">Lupa Kata Sandi</a>
+                        <a href="{{ url_for('auth.forgot_password' ) }}"
+                            class="nav-link link-color-primary fw-bold">Lupa Kata Sandi</a>
                     </div>
                     <button type="submit" class="btn btn-green text-center fw-bold text-light w-100 mb-3">Masuk</button>
                 </form>

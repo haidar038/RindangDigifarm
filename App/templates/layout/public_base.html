@@ -89,6 +89,8 @@ https://cdn.jsdelivr.net/npm/@splidejs/splide@4.1.4/dist/css/splide.min.css
                             <ul class="dropdown-menu dropdown-menu-end">
                                 <li><a class="dropdown-item" href="{{ url_for('public.rindang_pedia' ) }}">Rindang
                                         Pedia</a></li>
+                                <li><a class="dropdown-item" href="{{ url_for('public.rindang_market' ) }}">Rindang
+                                        Market</a></li>
                                 {% if current_user.is_authenticated %}
                                 <li><a class="dropdown-item" href="{{ url_for('personal.rindang_ask' ) }}">Rindang
                                         Ask</a></li>

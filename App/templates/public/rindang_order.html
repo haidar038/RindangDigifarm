@@ -1,0 +1,639 @@
+{% extends 'layout/public_base.html' %}
+{% block title %}Detail Pesanan #{{ order.id }}{% endblock %}
+{% block content %}
+<main class="container py-4">
+    {% if is_test_mode %}
+    <div class="alert alert-warning mb-4">
+        <div class="d-flex align-items-center">
+            <i class="fa fa-flask fa-2x me-3"></i>
+            <div>
+                <h5 class="mb-1">Mode Test Xendit Aktif</h5>
+                <p class="mb-0">Aplikasi berjalan dalam mode test Xendit. Pembayaran yang dilakukan hanya simulasi dan
+                    tidak akan mempengaruhi saldo nyata.</p>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <nav aria-label="breadcrumb" class="mb-4">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a href="{{ url_for('public.index') }}">Beranda</a></li>
+            <li class="breadcrumb-item"><a href="{{ url_for('public.rindang_market') }}">Rindang Market</a></li>
+            <li class="breadcrumb-item active" aria-current="page">Pesanan #{{ order.id }}</li>
+        </ol>
+    </nav>
+
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2 class="mb-0">Detail Pesanan #{{ order.id }}</h2>
+        <div>
+            <a href="{{ url_for('public.rindang_market') }}" class="btn btn-outline-secondary me-2">
+                <i class="fa fa-shopping-bag"></i> Lanjutkan Belanja
+            </a>
+            {% if order.status == 'completed' %}
+            <a href="#" class="btn btn-success">
+                <i class="fa fa-star"></i> Beri Ulasan
+            </a>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Status Pesanan -->
+    <div class="card mb-4">
+        <div class="card-body">
+            <div class="d-flex justify-content-between align-items-center">
+                <h5 class="mb-0">Status Pesanan</h5>
+                <div>
+                    <span id="order-status-badge" class="badge
+                        {% if order.status == 'pending' %}bg-warning
+                        {% elif order.status == 'paid' %}bg-success
+                        {% elif order.status == 'processed' %}bg-info
+                        {% elif order.status == 'shipped' %}bg-primary
+                        {% elif order.status == 'completed' %}bg-success
+                        {% elif order.status == 'cancelled' %}bg-danger
+                        {% elif order.status == 'expired' %}bg-secondary
+                        {% else %}bg-secondary{% endif %} fs-6">
+                        {{ order.status.capitalize() }}
+                    </span>
+
+                    <!-- Refresh button -->
+                    <button id="refresh-status" class="btn btn-sm btn-outline-secondary ms-2" title="Refresh Status">
+                        <i class="fa fa-sync-alt"></i>
+                    </button>
+                </div>
+            </div>
+
+            <div class="progress mt-3" style="height: 8px;">
+                {% set progress = {
+                'pending': 20,
+                'paid': 40,
+                'processed': 60,
+                'shipped': 80,
+                'completed': 100
+                } %}
+
+                {% if order.status in progress %}
+                <div id="order-progress-bar" class="progress-bar bg-success" role="progressbar"
+                    style="width: {{ progress[order.status] }}%" aria-valuenow="{{ progress[order.status] }}"
+                    aria-valuemin="0" aria-valuemax="100"></div>
+                {% elif order.status == 'cancelled' or order.status == 'expired' %}
+                <div id="order-progress-bar" class="progress-bar bg-danger" role="progressbar" style="width: 100%"
+                    aria-valuenow="100" aria-valuemin="0" aria-valuemax="100"></div>
+                {% endif %}
+            </div>
+
+            <div class="d-flex justify-content-between mt-2">
+                <div class="text-center">
+                    <span class="badge rounded-pill bg-success mb-1">
+                        <i class="fa fa-check"></i>
+                    </span>
+                    <span class="small d-block">Pesanan Dibuat</span>
+                    <small class="text-muted">{{ order.created_at.strftime('%d/%m/%Y') }}</small>
+                </div>
+
+                <div class="text-center">
+                    <span id="status-paid"
+                        class="badge rounded-pill {% if order.status == 'pending' %}bg-secondary{% else %}bg-success{% endif %} mb-1">
+                        {% if order.status == 'pending' %}<i class="fa fa-clock"></i>{% else %}<i
+                            class="fa fa-check"></i>{% endif %}
+                    </span>
+                    <span class="small d-block">Dibayar</span>
+                    {% if order.status != 'pending' %}
+                    <small class="text-muted">{{ order.updated_at.strftime('%d/%m/%Y') if order.updated_at else ''
+                        }}</small>
+                    {% endif %}
+                </div>
+
+                <div class="text-center">
+                    <span id="status-processed"
+                        class="badge rounded-pill {% if order.status in ['pending', 'paid'] %}bg-secondary{% else %}bg-success{% endif %} mb-1">
+                        {% if order.status in ['pending', 'paid'] %}<i class="fa fa-clock"></i>{% else %}<i
+                            class="fa fa-check"></i>{% endif %}
+                    </span>
+                    <span class="small d-block">Diproses</span>
+                </div>
+
+                <div class="text-center">
+                    <span id="status-shipped"
+                        class="badge rounded-pill {% if order.status in ['pending', 'paid', 'processed'] %}bg-secondary{% else %}bg-success{% endif %} mb-1">
+                        {% if order.status in ['pending', 'paid', 'processed'] %}<i class="fa fa-clock"></i>{% else %}<i
+                            class="fa fa-check"></i>{% endif %}
+                    </span>
+                    <span class="small d-block">Dikirim</span>
+                </div>
+
+                <div class="text-center">
+                    <span id="status-completed"
+                        class="badge rounded-pill {% if order.status != 'completed' %}bg-secondary{% else %}bg-success{% endif %} mb-1">
+                        {% if order.status != 'completed' %}<i class="fa fa-clock"></i>{% else %}<i
+                            class="fa fa-check"></i>{% endif %}
+                    </span>
+                    <span class="small d-block">Selesai</span>
+                </div>
+            </div>
+
+            <!-- Estimated delivery time -->
+            {% if order.status in ['paid', 'processed', 'shipped'] %}
+            <div class="alert alert-info mt-3 mb-0">
+                <div class="d-flex align-items-center">
+                    <i class="fa fa-info-circle fa-2x me-3"></i>
+                    <div>
+                        <h6 class="mb-1">Estimasi Pengiriman</h6>
+                        <p class="mb-0">Pesanan Anda diperkirakan akan sampai dalam 1-3 hari kerja.</p>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-md-8">
+            <div class="card mb-4">
+                <div class="card-header bg-light d-flex justify-content-between align-items-center">
+                    <h5 class="card-title mb-0">Informasi Pesanan</h5>
+                    <span class="text-muted small">{{ order.created_at.strftime('%d %B %Y, %H:%M') }}</span>
+                </div>
+                <div class="card-body">
+                    <div class="row mb-4">
+                        <div class="col-md-6">
+                            <h6 class="text-muted mb-3">Informasi Pembeli</h6>
+                            <p class="mb-1"><strong>Nama:</strong> {{ order.buyer.nama_lengkap or order.buyer.username
+                                }}</p>
+                            <p class="mb-1"><strong>Email:</strong> {{ order.buyer.email }}</p>
+                            {% if order.buyer.no_hp %}
+                            <p class="mb-1"><strong>Telepon:</strong> {{ order.buyer.no_hp }}</p>
+                            {% endif %}
+                        </div>
+                        <div class="col-md-6">
+                            <h6 class="text-muted mb-3">Informasi Pembayaran</h6>
+                            <p class="mb-1"><strong>Metode:</strong> {{ order.payment_method.upper() }}</p>
+                            {% if order.payment_id %}
+                            <p class="mb-1"><strong>ID Pembayaran:</strong> {{ order.payment_id }}</p>
+                            {% endif %}
+                            <p class="mb-1"><strong>Total:</strong> <span class="text-success fw-bold">Rp {{
+                                    order.total_amount|int }}</span></p>
+                        </div>
+                    </div>
+
+                    <h6 class="text-muted mb-3">Detail Produk</h6>
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead class="table-light">
+                                <tr>
+                                    <th style="width: 50%">Produk</th>
+                                    <th class="text-center">Harga</th>
+                                    <th class="text-center">Jumlah</th>
+                                    <th class="text-end">Subtotal</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for it in order.items %}
+                                <tr>
+                                    <td>
+                                        <div class="d-flex align-items-center">
+                                            {% if it.product and it.product.gambar_urls %}
+                                            <img src="{{ url_for('static', filename='uploads/products/' ) }}{{ it.product.gambar_urls.split(',')[0] }}"
+                                                alt="{{ it.product.nama }}" class="img-thumbnail me-3"
+                                                style="width: 50px; height: 50px; object-fit: cover;">
+                                            {% endif %}
+                                            <div>
+                                                {% if it.product %}
+                                                <a href="{{ url_for('public.rindang_product_detail', id=it.product.id) }}"
+                                                    class="text-decoration-none">
+                                                    {{ it.product.nama }}
+                                                </a>
+                                                <small class="d-block text-muted">{{ it.product.satuan }}</small>
+                                                {% else %}
+                                                <span class="text-muted">Produk tidak tersedia</span>
+                                                {% endif %}
+                                            </div>
+                                        </div>
+                                    </td>
+                                    <td class="text-center align-middle">Rp {{ it.unit_price|int }}</td>
+                                    <td class="text-center align-middle">{{ it.quantity }}</td>
+                                    <td class="text-end align-middle fw-bold">Rp {{ (it.unit_price*it.quantity)|int }}
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                            <tfoot>
+                                <tr>
+                                    <td colspan="3" class="text-end">Subtotal</td>
+                                    <td class="text-end">Rp {{ order.total_amount|int }}</td>
+                                </tr>
+                                <tr>
+                                    <td colspan="3" class="text-end">Biaya Pengiriman</td>
+                                    <td class="text-end">Rp 0</td>
+                                </tr>
+                                <tr>
+                                    <th colspan="3" class="text-end">Total</th>
+                                    <th class="text-end text-success">Rp {{ order.total_amount|int }}</th>
+                                </tr>
+                            </tfoot>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-4">
+            <div class="card mb-4">
+                <div class="card-header bg-light">
+                    <h5 class="card-title mb-0">Status Pembayaran</h5>
+                </div>
+                <div class="card-body">
+                    {% if order.status == 'pending' %}
+                    <div class="alert alert-warning">
+                        <div class="d-flex align-items-center mb-2">
+                            <i class="fa fa-clock fa-2x me-3"></i>
+                            <h6 class="mb-0">Menunggu Pembayaran</h6>
+                        </div>
+                        <p class="mb-0">Silakan selesaikan pembayaran Anda.</p>
+                    </div>
+
+                    {% if order.payment_method == 'va' %}
+                    <div class="card border-info mb-3">
+                        <div class="card-header bg-info text-white">
+                            <h6 class="mb-0"><i class="fa fa-university me-2"></i> Virtual Account</h6>
+                        </div>
+                        <div class="card-body">
+                            <p class="mb-2">Silakan transfer ke nomor VA berikut:</p>
+                            <div class="input-group mb-3">
+                                <input type="text" class="form-control form-control-lg text-center fw-bold"
+                                    value="{{ order.payment_qris }}" readonly>
+                                <button class="btn btn-outline-secondary" type="button"
+                                    onclick="copyToClipboard('{{ order.payment_qris }}')">
+                                    <i class="fa fa-copy"></i>
+                                </button>
+                            </div>
+                            <div class="d-flex justify-content-between mb-2">
+                                <span>Total Pembayaran:</span>
+                                <span class="fw-bold">Rp {{ order.total_amount|int }}</span>
+                            </div>
+                            <p class="small text-muted mb-0">Pembayaran akan diproses otomatis setelah transfer
+                                berhasil.</p>
+
+                            {% if is_test_mode %}
+                            <div class="mt-3">
+                                <form action="{{ url_for('public.simulate_payment', order_id=order.id) }}"
+                                    method="post">
+                                    <button type="submit" class="btn btn-warning w-100">
+                                        <i class="fa fa-bolt me-2"></i> Simulasi Pembayaran (Mode Test)
+                                    </button>
+                                </form>
+                                <div class="alert alert-secondary mt-2 mb-0 py-2 small">
+                                    <i class="fa fa-info-circle me-1"></i> Tombol ini hanya tersedia dalam mode test.
+                                </div>
+                            </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                    {% else %}
+                    <div class="card border-info mb-3">
+                        <div class="card-header bg-info text-white">
+                            <h6 class="mb-0"><i class="fa fa-qrcode me-2"></i> QRIS</h6>
+                        </div>
+                        <div class="card-body text-center">
+                            <p class="mb-3">Scan QR code berikut untuk melakukan pembayaran:</p>
+                            <div class="bg-light p-3 rounded mb-3 text-center">
+                                {% if order.payment_qris and order.payment_qris.startswith('http') %}
+                                <!-- If it's a URL to an image -->
+                                <img src="{{ order.payment_qris }}" class="img-fluid" alt="QRIS Order"
+                                    style="max-width: 200px;">
+                                {% elif order.payment_qris and '/' in order.payment_qris and not
+                                order.payment_qris.startswith('00') %}
+                                <!-- If it's a path to an image -->
+                                <img src="{{ url_for('static', filename='uploads/qris/' + order.payment_qris) }}"
+                                    class="img-fluid" alt="QRIS Order" style="max-width: 200px;">
+                                {% elif order.payment_qris %}
+                                <!-- If it's a QR string, generate QR code on the fly -->
+                                <div id="qrcode"></div>
+                                <script
+                                    src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.min.js"></script>
+                                <script>
+                                    document.addEventListener('DOMContentLoaded', function () {
+                                        var qrString = "{{ order.payment_qris }}";
+                                        var qr = qrcode(0, 'M');
+                                        qr.addData(qrString);
+                                        qr.make();
+                                        document.getElementById('qrcode').innerHTML = qr.createImgTag(5);
+                                    });
+                                </script>
+
+                                <!-- Add a note for dynamic QR codes -->
+                                {% if order.payment_id %}
+                                <div class="mt-2 text-success small">
+                                    <i class="fa fa-check-circle"></i> QRIS Dinamis - Jumlah pembayaran sudah terisi
+                                    otomatis
+                                </div>
+                                {% endif %}
+                                {% else %}
+                                <div class="alert alert-warning">
+                                    QR code tidak tersedia. Silakan hubungi admin.
+                                </div>
+                                {% endif %}
+                            </div>
+                            <div class="d-flex justify-content-between mb-3">
+                                <span>Total Pembayaran:</span>
+                                <span class="fw-bold">Rp {{ order.total_amount|int }}</span>
+                            </div>
+
+                            {% if is_test_mode %}
+                            <form action="{{ url_for('public.simulate_payment', order_id=order.id) }}" method="post">
+                                <button type="submit" class="btn btn-warning w-100">
+                                    <i class="fa fa-bolt me-2"></i> Simulasi Pembayaran (Mode Test)
+                                </button>
+                            </form>
+                            <div class="alert alert-secondary mt-2 mb-0 py-2 small">
+                                <i class="fa fa-info-circle me-1"></i> Tombol ini hanya tersedia dalam mode test.
+                            </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                    {% endif %}
+
+                    {% if is_test_mode %}
+                    <div class="alert alert-info">
+                        <div class="d-flex align-items-center">
+                            <i class="fa fa-flask fa-2x me-3"></i>
+                            <div>
+                                <h6 class="mb-1">Mode Test Aktif</h6>
+                                <p class="mb-0 small">Aplikasi berjalan dalam mode test Xendit. Pembayaran yang
+                                    dilakukan hanya simulasi.</p>
+                            </div>
+                        </div>
+                    </div>
+                    {% endif %}
+
+                    {% elif order.status == 'paid' %}
+                    <div class="alert alert-success">
+                        <div class="d-flex align-items-center mb-2">
+                            <i class="fa fa-check-circle fa-2x me-3"></i>
+                            <h6 class="mb-0">Pembayaran Berhasil</h6>
+                        </div>
+                        <p class="mb-0">Pembayaran Anda telah diterima. Pesanan sedang diproses.</p>
+                    </div>
+                    {% elif order.status == 'processed' %}
+                    <div class="alert alert-info">
+                        <div class="d-flex align-items-center mb-2">
+                            <i class="fa fa-box fa-2x me-3"></i>
+                            <h6 class="mb-0">Pesanan Diproses</h6>
+                        </div>
+                        <p class="mb-0">Pesanan Anda sedang diproses oleh penjual.</p>
+                    </div>
+                    {% elif order.status == 'shipped' %}
+                    <div class="alert alert-primary">
+                        <div class="d-flex align-items-center mb-2">
+                            <i class="fa fa-truck fa-2x me-3"></i>
+                            <h6 class="mb-0">Pesanan Dikirim</h6>
+                        </div>
+                        <p class="mb-0">Pesanan Anda sedang dalam pengiriman.</p>
+                    </div>
+                    {% elif order.status == 'completed' %}
+                    <div class="alert alert-success">
+                        <div class="d-flex align-items-center mb-2">
+                            <i class="fa fa-check-double fa-2x me-3"></i>
+                            <h6 class="mb-0">Pesanan Selesai</h6>
+                        </div>
+                        <p class="mb-0">Pesanan Anda telah selesai. Terima kasih telah berbelanja!</p>
+                    </div>
+                    {% elif order.status == 'cancelled' %}
+                    <div class="alert alert-danger">
+                        <div class="d-flex align-items-center mb-2">
+                            <i class="fa fa-times-circle fa-2x me-3"></i>
+                            <h6 class="mb-0">Pesanan Dibatalkan</h6>
+                        </div>
+                        <p class="mb-0">Pesanan Anda telah dibatalkan.</p>
+                    </div>
+                    {% elif order.status == 'expired' %}
+                    <div class="alert alert-secondary">
+                        <div class="d-flex align-items-center mb-2">
+                            <i class="fa fa-exclamation-circle fa-2x me-3"></i>
+                            <h6 class="mb-0">Pembayaran Kedaluwarsa</h6>
+                        </div>
+                        <p class="mb-0">Batas waktu pembayaran telah berakhir.</p>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-header bg-light">
+                    <h5 class="card-title mb-0">Riwayat Transaksi</h5>
+                </div>
+                <div class="card-body">
+                    {% if order.transactions %}
+                    <ul class="list-group list-group-flush">
+                        {% for tx in order.transactions %}
+                        <li class="list-group-item px-0">
+                            <div class="d-flex justify-content-between align-items-center mb-1">
+                                <span class="fw-bold">{{ tx.transaction_type.capitalize() }}</span>
+                                <span class="badge
+                                    {% if tx.status == 'completed' %}bg-success
+                                    {% elif tx.status == 'pending' %}bg-warning
+                                    {% elif tx.status == 'failed' %}bg-danger
+                                    {% else %}bg-secondary{% endif %}">
+                                    {{ tx.status.capitalize() }}
+                                </span>
+                            </div>
+                            <div class="d-flex justify-content-between align-items-center">
+                                <span class="small text-muted">{{ tx.created_at.strftime('%d %B %Y, %H:%M') }}</span>
+                                <span class="fw-bold">Rp {{ tx.amount|int }}</span>
+                            </div>
+                            {% if tx.notes %}
+                            <div class="small text-muted mt-1">{{ tx.notes }}</div>
+                            {% endif %}
+                        </li>
+                        {% endfor %}
+                    </ul>
+                    {% else %}
+                    <div class="text-center py-3">
+                        <i class="fa fa-receipt fa-3x text-muted mb-3"></i>
+                        <p class="text-muted mb-0">Belum ada riwayat transaksi.</p>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <script>
+            function copyToClipboard(text) {
+                navigator.clipboard.writeText(text).then(function () {
+                    // Create toast notification instead of alert
+                    const toastEl = document.createElement('div');
+                    toastEl.className = 'toast align-items-center text-white bg-success border-0 position-fixed bottom-0 end-0 m-3';
+                    toastEl.setAttribute('role', 'alert');
+                    toastEl.setAttribute('aria-live', 'assertive');
+                    toastEl.setAttribute('aria-atomic', 'true');
+                    toastEl.innerHTML = `
+                        <div class="d-flex">
+                            <div class="toast-body">
+                                <i class="fa fa-check-circle me-2"></i> Nomor VA berhasil disalin!
+                            </div>
+                            <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button>
+                        </div>
+                    `;
+                    document.body.appendChild(toastEl);
+
+                    // Initialize and show toast
+                    const toast = new bootstrap.Toast(toastEl, { delay: 3000 });
+                    toast.show();
+
+                    // Remove from DOM after hiding
+                    toastEl.addEventListener('hidden.bs.toast', function () {
+                        toastEl.remove();
+                    });
+                }, function () {
+                    alert('Gagal menyalin nomor VA');
+                });
+            }
+
+            // Real-time order status updates
+            document.addEventListener('DOMContentLoaded', function () {
+                const refreshButton = document.getElementById('refresh-status');
+                const orderId = {{ order.id }
+            };
+
+            if (refreshButton) {
+                refreshButton.addEventListener('click', function () {
+                    // Show loading state
+                    const originalContent = refreshButton.innerHTML;
+                    refreshButton.innerHTML = '<i class="fa fa-spinner fa-spin"></i>';
+                    refreshButton.disabled = true;
+
+                    // Fetch updated order status
+                    fetch(`/api/orders/${orderId}/status`)
+                        .then(response => response.json())
+                        .then(data => {
+                            if (data.success) {
+                                // Update status badge
+                                const statusBadge = document.getElementById('order-status-badge');
+                                if (statusBadge) {
+                                    // Remove all bg-* classes
+                                    statusBadge.classList.remove('bg-warning', 'bg-success', 'bg-info', 'bg-primary', 'bg-danger', 'bg-secondary');
+
+                                    // Add appropriate class based on status
+                                    if (data.status === 'pending') statusBadge.classList.add('bg-warning');
+                                    else if (data.status === 'paid') statusBadge.classList.add('bg-success');
+                                    else if (data.status === 'processed') statusBadge.classList.add('bg-info');
+                                    else if (data.status === 'shipped') statusBadge.classList.add('bg-primary');
+                                    else if (data.status === 'completed') statusBadge.classList.add('bg-success');
+                                    else if (data.status === 'cancelled') statusBadge.classList.add('bg-danger');
+                                    else if (data.status === 'expired') statusBadge.classList.add('bg-secondary');
+                                    else statusBadge.classList.add('bg-secondary');
+
+                                    // Update text
+                                    statusBadge.textContent = data.status.charAt(0).toUpperCase() + data.status.slice(1);
+                                }
+
+                                // Update progress bar
+                                const progressBar = document.getElementById('order-progress-bar');
+                                if (progressBar) {
+                                    const progressValues = {
+                                        'pending': 20,
+                                        'paid': 40,
+                                        'processed': 60,
+                                        'shipped': 80,
+                                        'completed': 100
+                                    };
+
+                                    if (data.status in progressValues) {
+                                        progressBar.style.width = `${progressValues[data.status]}%`;
+                                        progressBar.setAttribute('aria-valuenow', progressValues[data.status]);
+
+                                        // Make sure it's green for normal progress
+                                        progressBar.classList.remove('bg-danger');
+                                        progressBar.classList.add('bg-success');
+                                    } else if (data.status === 'cancelled' || data.status === 'expired') {
+                                        progressBar.style.width = '100%';
+                                        progressBar.setAttribute('aria-valuenow', 100);
+
+                                        // Make it red for cancelled/expired
+                                        progressBar.classList.remove('bg-success');
+                                        progressBar.classList.add('bg-danger');
+                                    }
+                                }
+
+                                // Update status indicators
+                                updateStatusIndicator('status-paid', data.status !== 'pending');
+                                updateStatusIndicator('status-processed', !['pending', 'paid'].includes(data.status));
+                                updateStatusIndicator('status-shipped', !['pending', 'paid', 'processed'].includes(data.status));
+                                updateStatusIndicator('status-completed', data.status === 'completed');
+
+                                // Show success message
+                                const toastEl = document.createElement('div');
+                                toastEl.className = 'toast align-items-center text-white bg-success border-0 position-fixed bottom-0 end-0 m-3';
+                                toastEl.setAttribute('role', 'alert');
+                                toastEl.setAttribute('aria-live', 'assertive');
+                                toastEl.setAttribute('aria-atomic', 'true');
+                                toastEl.innerHTML = `
+                                        <div class="d-flex">
+                                            <div class="toast-body">
+                                                <i class="fa fa-check-circle me-2"></i> Status pesanan berhasil diperbarui!
+                                            </div>
+                                            <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button>
+                                        </div>
+                                    `;
+                                document.body.appendChild(toastEl);
+
+                                // Initialize and show toast
+                                const toast = new bootstrap.Toast(toastEl, { delay: 3000 });
+                                toast.show();
+
+                                // Remove from DOM after hiding
+                                toastEl.addEventListener('hidden.bs.toast', function () {
+                                    toastEl.remove();
+                                });
+
+                                // If status changed to paid and page shows pending, reload the page
+                                if (data.status !== 'pending' && statusBadge.textContent.trim() === 'Pending') {
+                                    setTimeout(() => {
+                                        location.reload();
+                                    }, 1500);
+                                }
+                            } else {
+                                // Show error message
+                                alert('Gagal memperbarui status pesanan');
+                            }
+                        })
+                        .catch(error => {
+                            console.error('Error:', error);
+                            alert('Terjadi kesalahan saat memperbarui status pesanan');
+                        })
+                        .finally(() => {
+                            // Restore button state
+                            refreshButton.innerHTML = originalContent;
+                            refreshButton.disabled = false;
+                        });
+                });
+            }
+
+            // Helper function to update status indicators
+            function updateStatusIndicator(id, isCompleted) {
+                const indicator = document.getElementById(id);
+                if (indicator) {
+                    // Update class
+                    indicator.classList.remove(isCompleted ? 'bg-secondary' : 'bg-success');
+                    indicator.classList.add(isCompleted ? 'bg-success' : 'bg-secondary');
+
+                    // Update icon
+                    indicator.innerHTML = isCompleted ?
+                        '<i class="fa fa-check"></i>' :
+                        '<i class="fa fa-clock"></i>';
+                }
+            }
+
+            // Auto-refresh status every 30 seconds for pending orders
+            const statusBadge = document.getElementById('order-status-badge');
+            if (statusBadge && statusBadge.textContent.trim() === 'Pending') {
+                setInterval(() => {
+                    if (document.visibilityState === 'visible') {
+                        refreshButton.click();
+                    }
+                }, 30000);
+            }
+            });
+        </script>
+    </div>
+</main>
+{% endblock %}

@@ -1,0 +1,205 @@
+{% extends 'layout/public_base.html' %}
+{% block title %}{{ product.nama }} | Rindang Market{% endblock %}
+{% block content %}
+<main class="container py-4">
+    <nav aria-label="breadcrumb" class="mb-4">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a href="{{ url_for('public.index') }}">Beranda</a></li>
+            <li class="breadcrumb-item"><a href="{{ url_for('public.rindang_market') }}">Rindang Market</a></li>
+            <li class="breadcrumb-item active" aria-current="page">{{ product.nama }}</li>
+        </ol>
+    </nav>
+
+    <div class="row">
+        <div class="col-md-5">
+            <div class="card border-0 shadow-sm mb-4">
+                <div class="card-body p-0">
+                    <!-- Gambar Utama -->
+                    <div class="position-relative">
+                        <img src="{{ url_for('static', filename='uploads/products/' ) }}{{ product.gambar_urls.split(',')[0] }}"
+                            class="img-fluid" alt="{{ product.nama }}" id="mainImage">
+                        {% if product.stok <= 5 and product.stok> 0 %}
+                            <span class="position-absolute top-0 end-0 badge bg-warning m-2">Stok Terbatas</span>
+                            {% elif product.stok <= 0 %} <span
+                                class="position-absolute top-0 end-0 badge bg-danger m-2">Habis</span>
+                                {% endif %}
+                    </div>
+
+                    <!-- Thumbnail Gambar -->
+                    {% if product.gambar_urls and ',' in product.gambar_urls %}
+                    <div class="d-flex mt-2 overflow-auto">
+                        {% for img_url in product.gambar_urls.split(',') %}
+                        <div class="thumbnail-container me-2" style="width: 80px; height: 80px; cursor: pointer;">
+                            <img src="{{ img_url }}" class="img-thumbnail product-thumbnail" alt="{{ product.nama }}"
+                                style="width: 100%; height: 100%; object-fit: cover;">
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-7">
+            <div class="card shadow-sm mb-4">
+                <div class="card-body">
+                    <h2 class="mb-2">{{ product.nama }}</h2>
+                    <div class="d-flex align-items-center mb-3">
+                        <span class="badge bg-success me-2">{{ product.komoditas_info.nama if product.komoditas_info
+                            else 'Produk Pertanian' }}</span>
+                        <span class="text-muted">Dijual oleh: <strong>{{ product.seller.nama_lengkap }}</strong></span>
+                    </div>
+
+                    <h3 class="text-success mb-4">Rp {{ product.harga|int }} <small class="text-muted">/ {{
+                            product.satuan }}</small></h3>
+
+                    <div class="row mb-4">
+                        <div class="col-md-6">
+                            <div class="d-flex align-items-center">
+                                <i class="fa fa-box me-2 text-muted"></i>
+                                <span>Stok: <strong>{{ product.stok }} {{ product.satuan }}</strong></span>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="d-flex align-items-center">
+                                <i class="fa fa-truck me-2 text-muted"></i>
+                                <span>Pengiriman: <strong>Tersedia</strong></span>
+                            </div>
+                        </div>
+                    </div>
+
+                    {% if product.stok > 0 %}
+                    <form action="{{ url_for('public.cart_add') }}" method="post" class="mb-4">
+                        <input type="hidden" name="product_id" value="{{ product.id }}">
+                        <div class="row">
+                            <div class="col-md-4">
+                                <label class="form-label">Jumlah</label>
+                                <div class="input-group mb-3">
+                                    <button class="btn btn-outline-secondary" type="button" id="decreaseQty">-</button>
+                                    <input type="number" name="quantity" id="quantityInput"
+                                        class="form-control text-center" min="1" max="{{ product.stok }}" value="1">
+                                    <button class="btn btn-outline-secondary" type="button" id="increaseQty">+</button>
+                                </div>
+                            </div>
+                            <div class="col-md-8 d-flex align-items-end">
+                                <div class="d-grid gap-2 w-100">
+                                    <button class="btn btn-green" type="submit">
+                                        <i class="fa fa-cart-plus me-2"></i> Tambahkan ke Keranjang
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </form>
+                    {% else %}
+                    <div class="alert alert-danger mb-4">
+                        <i class="fa fa-exclamation-circle me-2"></i> Maaf, produk ini sedang tidak tersedia
+                    </div>
+                    {% endif %}
+
+                    <div class="card mb-3">
+                        <div class="card-header bg-light">
+                            <h5 class="mb-0">Deskripsi Produk</h5>
+                        </div>
+                        <div class="card-body">
+                            <p>{{ product.deskripsi or 'Tidak ada deskripsi produk.' }}</p>
+                        </div>
+                    </div>
+
+                    <div class="card">
+                        <div class="card-header bg-light">
+                            <h5 class="mb-0">Metode Pembayaran</h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <div class="d-flex align-items-center mb-3">
+                                        <i class="fa fa-qrcode fa-2x me-3 text-primary"></i>
+                                        <div>
+                                            <h6 class="mb-0">QRIS</h6>
+                                            <small class="text-muted">Scan kode QR untuk pembayaran instan</small>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="d-flex align-items-center mb-3">
+                                        <i class="fa fa-university fa-2x me-3 text-primary"></i>
+                                        <div>
+                                            <h6 class="mb-0">Virtual Account</h6>
+                                            <small class="text-muted">Transfer melalui rekening virtual</small>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="text-center mt-3">
+                                <button type="button" class="btn btn-outline-primary" data-bs-toggle="modal"
+                                    data-bs-target="#qrisModal">
+                                    <i class="fa fa-qrcode me-2"></i> Lihat QRIS
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</main>
+
+<!-- Modal QRIS -->
+<div class="modal fade" id="qrisModal" tabindex="-1" aria-labelledby="qrisModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="qrisModalLabel">QRIS Pembayaran</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body text-center">
+                <p>Scan kode QR berikut untuk melakukan pembayaran:</p>
+                <img src="{{ url_for('static', filename='uploads/qris/' + product.qris_static) }}" class="img-fluid"
+                    alt="QRIS" style="max-width: 300px;">
+                <p class="mt-3 text-muted small">Pembayaran akan diproses secara otomatis setelah Anda melakukan scan
+                    dan pembayaran.</p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Tutup</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        // Fungsi untuk thumbnail gambar
+        const thumbnails = document.querySelectorAll('.product-thumbnail');
+        const mainImage = document.getElementById('mainImage');
+
+        thumbnails.forEach(thumbnail => {
+            thumbnail.addEventListener('click', function () {
+                mainImage.src = this.src;
+            });
+        });
+
+        // Fungsi untuk quantity input
+        const decreaseBtn = document.getElementById('decreaseQty');
+        const increaseBtn = document.getElementById('increaseQty');
+        const quantityInput = document.getElementById('quantityInput');
+
+        if (decreaseBtn && increaseBtn && quantityInput) {
+            decreaseBtn.addEventListener('click', function () {
+                let currentValue = parseInt(quantityInput.value);
+                if (currentValue > 1) {
+                    quantityInput.value = currentValue - 1;
+                }
+            });
+
+            increaseBtn.addEventListener('click', function () {
+                let currentValue = parseInt(quantityInput.value);
+                let maxValue = parseInt(quantityInput.max);
+                if (currentValue < maxValue) {
+                    quantityInput.value = currentValue + 1;
+                }
+            });
+        }
+    });
+</script>
+{% endblock %}

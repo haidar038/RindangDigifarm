@@ -1,0 +1,73 @@
+{% extends 'layout/farmer_base.html' %}
+{% block title %}Update Stok Produk dari Panen{% endblock %}
+
+{% block content %}
+<main class="container py-4">
+    <div class="row">
+        <div class="col-md-8 mx-auto">
+            <div class="card border-0 shadow-sm">
+                <div class="card-header bg-white">
+                    <h5 class="card-title mb-0">Update Stok Produk dari Hasil Panen</h5>
+                </div>
+                <div class="card-body">
+                    <div class="alert alert-info">
+                        <i class="bi bi-info-circle-fill me-2"></i>
+                        Anda baru saja mencatat panen sebanyak <strong>{{ harvest_amount }} {{ produksi.komoditas_info.nama }}</strong>.
+                        Pilih produk yang ingin diperbarui stoknya atau buat produk baru.
+                    </div>
+
+                    <form action="{{ url_for('farmer.update_product_stock_from_harvest') }}" method="post">
+                        <input type="hidden" name="produksi_id" value="{{ produksi_id }}">
+                        <input type="hidden" name="harvest_amount" value="{{ harvest_amount }}">
+                        
+                        <div class="mb-3">
+                            <label class="form-label">Pilih Produk</label>
+                            <select name="product_id" class="form-select" id="product-select">
+                                <option value="">-- Pilih Produk --</option>
+                                {% for product in products %}
+                                <option value="{{ product.id }}" data-stock="{{ product.stok }}">
+                                    {{ product.nama }} (Stok saat ini: {{ product.stok }} {{ product.satuan }})
+                                </option>
+                                {% endfor %}
+                                <option value="new">+ Buat Produk Baru</option>
+                            </select>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label class="form-label">Jumlah yang Ditambahkan ke Stok</label>
+                            <input type="number" name="quantity" class="form-control" value="{{ harvest_amount }}" min="1" max="{{ harvest_amount }}">
+                            <small class="text-muted">Maksimal: {{ harvest_amount }}</small>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label class="form-label">Catatan (opsional)</label>
+                            <textarea name="notes" class="form-control" rows="3" placeholder="Catatan tentang batch produk ini..."></textarea>
+                        </div>
+                        
+                        <div class="d-flex justify-content-between">
+                            <a href="{{ url_for('farmer.manajemen_produksi') }}" class="btn btn-outline-secondary">
+                                <i class="bi bi-arrow-left me-2"></i> Kembali
+                            </a>
+                            <button type="submit" class="btn btn-success">
+                                <i class="bi bi-check-circle me-2"></i> Update Stok
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</main>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const productSelect = document.getElementById('product-select');
+        
+        productSelect.addEventListener('change', function() {
+            if (this.value === 'new') {
+                window.location.href = "{{ url_for('farmer.market_add_product', komoditas_id=produksi.komoditas_id, initial_stock=harvest_amount) }}";
+            }
+        });
+    });
+</script>
+{% endblock %}

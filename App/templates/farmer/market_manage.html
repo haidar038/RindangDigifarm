@@ -1,0 +1,875 @@
+{% extends 'layout/farmer_base.html' %}
+{% block title %}Kelola Market{% endblock %}
+
+{% block head_scripts %}
+<!-- Add Chart.js for statistics -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+{% endblock %}
+
+{% block styles %}
+<style>
+    .pagination {
+        --bs-pagination-padding-x: 0.75rem;
+        --bs-pagination-padding-y: 0.375rem;
+        --bs-pagination-font-size: 1rem;
+        --bs-pagination-color: var(--primary-color);
+        --bs-pagination-bg: var(--bs-body-bg);
+        --bs-pagination-border-width: var(--bs-border-width);
+        --bs-pagination-border-color: var(--bs-border-color);
+        --bs-pagination-border-radius: var(--bs-border-radius);
+        --bs-pagination-hover-color: var(--accent-green-color);
+        --bs-pagination-hover-bg: var(--bs-tertiary-bg);
+        --bs-pagination-hover-border-color: var(--bs-border-color);
+        --bs-pagination-focus-color: var(--accent-green-color);
+        --bs-pagination-focus-bg: var(--bs-secondary-bg);
+        --bs-pagination-focus-box-shadow: 0 0 0 0.25rem rgba(13, 110, 253, 0.25);
+        --bs-pagination-active-color: #fff;
+        --bs-pagination-disabled-color: var(--bs-secondary-color);
+        --bs-pagination-disabled-bg: var(--bs-secondary-bg);
+        --bs-pagination-disabled-border-color: var(--bs-border-color);
+        display: flex;
+        padding-left: 0;
+        list-style: none;
+    }
+
+    /* Highlight animation for new orders */
+    @keyframes highlight-pulse {
+        0% {
+            box-shadow: 0 0 0 0 rgba(25, 135, 84, 0.7);
+        }
+
+        70% {
+            box-shadow: 0 0 0 10px rgba(25, 135, 84, 0);
+        }
+
+        100% {
+            box-shadow: 0 0 0 0 rgba(25, 135, 84, 0);
+        }
+    }
+
+    .highlight-animation {
+        animation: highlight-pulse 2s infinite;
+    }
+
+    .new-order {
+        background-color: rgba(25, 135, 84, 0.1);
+    }
+
+    /* Improve table responsiveness */
+    .table-responsive {
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+    }
+
+    /* Improve card transitions */
+    .card {
+        transition: all 0.3s ease;
+    }
+
+    .card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 10px 20px rgba(0, 0, 0, 0.1) !important;
+    }
+
+    /* Improve mobile responsiveness */
+    @media (max-width: 768px) {
+        .card {
+            margin-bottom: 1rem;
+        }
+
+        .table td,
+        .table th {
+            padding: 0.5rem;
+        }
+
+        .btn-sm {
+            padding: 0.25rem 0.5rem;
+            font-size: 0.75rem;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<!-- Payment Settings Modal -->
+<div class="modal fade" id="paymentSettingsModal" tabindex="-1" aria-labelledby="paymentSettingsModalLabel"
+    aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="paymentSettingsModalLabel">Pengaturan Pembayaran</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <ul class="nav nav-tabs" id="paymentSettingsTabs" role="tablist">
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link active" id="qris-tab" data-bs-toggle="tab"
+                            data-bs-target="#qris-tab-pane" type="button" role="tab" aria-controls="qris-tab-pane"
+                            aria-selected="true">QRIS</button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link" id="va-tab" data-bs-toggle="tab" data-bs-target="#va-tab-pane"
+                            type="button" role="tab" aria-controls="va-tab-pane" aria-selected="false">Virtual
+                            Account</button>
+                    </li>
+                </ul>
+                <div class="tab-content pt-3" id="paymentSettingsTabContent">
+                    <div class="tab-pane fade show active" id="qris-tab-pane" role="tabpanel" aria-labelledby="qris-tab"
+                        tabindex="0">
+                        <div class="mb-3">
+                            <h6 class="mb-3">Pilih Jenis QRIS</h6>
+                            <ul class="nav nav-pills mb-3" id="qris-type-tab" role="tablist">
+                                <li class="nav-item" role="presentation">
+                                    <button class="nav-link active" id="static-qr-tab" data-bs-toggle="pill"
+                                        data-bs-target="#static-qr-pane" type="button" role="tab"
+                                        aria-controls="static-qr-pane" aria-selected="true">QRIS Statis</button>
+                                </li>
+                                <li class="nav-item" role="presentation">
+                                    <button class="nav-link" id="dynamic-qr-tab" data-bs-toggle="pill"
+                                        data-bs-target="#dynamic-qr-pane" type="button" role="tab"
+                                        aria-controls="dynamic-qr-pane" aria-selected="false">QRIS Dinamis</button>
+                                </li>
+                            </ul>
+                            <div class="tab-content" id="qris-type-tabContent">
+                                <div class="tab-pane fade show active" id="static-qr-pane" role="tabpanel"
+                                    aria-labelledby="static-qr-tab" tabindex="0">
+                                    <form action="{{ url_for('farmer.market_settings') }}" method="post"
+                                        enctype="multipart/form-data">
+                                        <input type="hidden" name="qris_type" value="static">
+                                        <div class="mb-3">
+                                            <label class="form-label">Upload QRIS Statis</label>
+                                            <input type="file" name="qris_picture" class="form-control" accept="image/*"
+                                                required>
+                                            <div class="form-text">Upload gambar QRIS dari penyedia pembayaran Anda
+                                                (Xendit, DANA,
+                                                OVO, dll).</div>
+                                        </div>
+
+                                        {% if current_user.petani_profile and current_user.petani_profile.qris_static %}
+                                        <div class="mb-3">
+                                            <label class="form-label">QRIS Statis Saat Ini:</label>
+                                            <div class="text-center p-3 border rounded">
+                                                <img src="{{ url_for('static', filename='uploads/qris/' + current_user.petani_profile.qris_static) }}"
+                                                    class="img-fluid" style="max-width: 200px;" alt="QRIS">
+                                            </div>
+                                        </div>
+                                        {% endif %}
+
+                                        <div class="d-grid">
+                                            <button type="submit" class="btn btn-green">Simpan QRIS Statis</button>
+                                        </div>
+                                    </form>
+                                </div>
+                                <div class="tab-pane fade" id="dynamic-qr-pane" role="tabpanel"
+                                    aria-labelledby="dynamic-qr-tab" tabindex="0">
+                                    <div class="alert alert-info">
+                                        <i class="bi bi-info-circle me-2"></i>
+                                        <strong>QRIS Dinamis</strong> akan dibuat secara otomatis untuk setiap transaksi
+                                        dengan jumlah yang sesuai.
+                                        Ini lebih aman dan mengurangi kesalahan pembayaran.
+                                    </div>
+
+                                    <form action="{{ url_for('farmer.market_settings') }}" method="post">
+                                        <input type="hidden" name="qris_type" value="dynamic">
+
+                                        {% if current_user.petani_profile and
+                                        current_user.petani_profile.qris_dynamic_enabled %}
+                                        <div class="mb-3">
+                                            <div class="alert alert-success">
+                                                <i class="bi bi-check-circle me-2"></i>
+                                                QRIS Dinamis sudah aktif
+                                            </div>
+                                            {% if current_user.petani_profile.qris_dynamic_string %}
+                                            <div class="text-center p-3 border rounded">
+                                                <img src="https://chart.googleapis.com/chart?chs=300x300&cht=qr&chl={{ current_user.petani_profile.qris_dynamic_string|urlencode }}"
+                                                    class="img-fluid" style="max-width: 200px;" alt="Dynamic QRIS">
+                                                <p class="small text-muted mt-2">QRIS ID: {{
+                                                    current_user.petani_profile.qris_dynamic_id }}</p>
+                                            </div>
+                                            {% endif %}
+                                        </div>
+                                        {% endif %}
+
+                                        <div class="d-grid">
+                                            <button type="submit" class="btn btn-green">
+                                                {% if current_user.petani_profile and
+                                                current_user.petani_profile.qris_dynamic_enabled %}
+                                                Perbarui QRIS Dinamis
+                                                {% else %}
+                                                Aktifkan QRIS Dinamis
+                                                {% endif %}
+                                            </button>
+                                        </div>
+                                    </form>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="tab-pane fade" id="va-tab-pane" role="tabpanel" aria-labelledby="va-tab" tabindex="0">
+                        <form action="{{ url_for('farmer.market_settings') }}" method="post">
+                            <div class="mb-3">
+                                <div class="form-check form-switch">
+                                    <input class="form-check-input" type="checkbox" role="switch" id="va_enabled"
+                                        name="va_enabled" {% if current_user.petani_profile and
+                                        current_user.petani_profile.va_enabled %}checked{% endif %}>
+                                    <label class="form-check-label" for="va_enabled">Aktifkan Virtual Account</label>
+                                </div>
+                                <div class="form-text">Aktifkan untuk menerima pembayaran melalui Virtual Account.</div>
+                            </div>
+
+                            <div class="mb-3">
+                                <label class="form-label">Bank</label>
+                                <select name="va_bank_code" class="form-select" required>
+                                    <option value="">Pilih Bank</option>
+                                    <option value="BCA" {% if current_user.petani_profile and
+                                        current_user.petani_profile.va_bank_code=='BCA' %}selected{% endif %}>BCA
+                                    </option>
+                                    <option value="BNI" {% if current_user.petani_profile and
+                                        current_user.petani_profile.va_bank_code=='BNI' %}selected{% endif %}>BNI
+                                    </option>
+                                    <option value="BRI" {% if current_user.petani_profile and
+                                        current_user.petani_profile.va_bank_code=='BRI' %}selected{% endif %}>BRI
+                                    </option>
+                                    <option value="MANDIRI" {% if current_user.petani_profile and
+                                        current_user.petani_profile.va_bank_code=='MANDIRI' %}selected{% endif %}>
+                                        Mandiri</option>
+                                    <option value="PERMATA" {% if current_user.petani_profile and
+                                        current_user.petani_profile.va_bank_code=='PERMATA' %}selected{% endif %}>
+                                        Permata</option>
+                                </select>
+                                <div class="form-text">Pilih bank untuk Virtual Account Anda.</div>
+                            </div>
+
+                            <div class="d-grid">
+                                <button type="submit" class="btn btn-green">Simpan Pengaturan VA</button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<main class="container">
+    <h3 class="mb-4">Market Saya</h3>
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header  d-flex justify-content-between align-items-center">
+                    <h5 class="card-title mb-0">Pengaturan Pembayaran</h5>
+                    <button type="button" class="btn btn-green btn-sm" data-bs-toggle="modal"
+                        data-bs-target="#paymentSettingsModal">
+                        <i class="bi bi-gear"></i> Kelola Pengaturan
+                    </button>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <h6>QRIS (Quick Response Code Indonesian Standard)</h6>
+                            <p class="small">QRIS memungkinkan pembeli melakukan pembayaran dengan memindai kode QR.</p>
+                            {% if current_user.petani_profile and (current_user.petani_profile.qris_static or
+                            current_user.petani_profile.qris_dynamic_enabled) %}
+                            <div class="alert alert-success">
+                                <i class="bi bi-check-circle"></i>
+                                {% if current_user.petani_profile.qris_dynamic_enabled %}
+                                QRIS Dinamis telah dikonfigurasi
+                                {% else %}
+                                QRIS Statis telah dikonfigurasi
+                                {% endif %}
+                            </div>
+                            {% else %}
+                            <div class="alert alert-warning">
+                                <i class="bi bi-exclamation-triangle"></i> QRIS belum dikonfigurasi
+                            </div>
+                            {% endif %}
+                        </div>
+                        <div class="col-md-6">
+                            <h6>Virtual Account</h6>
+                            <p class="small">Virtual Account memungkinkan pembeli melakukan transfer bank ke nomor
+                                rekening virtual.</p>
+                            {% if current_user.petani_profile and current_user.petani_profile.va_enabled %}
+                            <div class="alert alert-success">
+                                <i class="bi bi-check-circle"></i> Virtual Account aktif ({{
+                                current_user.petani_profile.va_bank_code }})
+                            </div>
+                            {% else %}
+                            <div class="alert alert-warning">
+                                <i class="bi bi-exclamation-triangle"></i> Virtual Account tidak aktif
+                            </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row mb-4">
+        <div class="col-md-3">
+            <div class="card border-0 shadow-sm">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="text-muted mb-2">Total Produk</h6>
+                            <h3 class="mb-0">{{ active_products_count }}</h3>
+                        </div>
+                        <div class="rounded-circle  p-3">
+                            <i class="bi bi-box fs-4 text-primary"></i>
+                        </div>
+                    </div>
+                    <div class="mt-3">
+                        <span class="badge bg-warning">{{ low_stock_products_count }} produk stok rendah</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card border-0 shadow-sm">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="text-muted mb-2">Pesanan Masuk</h6>
+                            <h3 class="mb-0">{{ pending_orders_count + paid_orders_count }}</h3>
+                        </div>
+                        <div class="rounded-circle  p-3">
+                            <i class="bi bi-cart fs-4 text-success"></i>
+                        </div>
+                    </div>
+                    <div class="mt-3">
+                        <span class="badge bg-warning">{{ pending_orders_count }} menunggu</span>
+                        <span class="badge bg-success">{{ paid_orders_count }} dibayar</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card border-0 shadow-sm">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="text-muted mb-2">Dalam Proses</h6>
+                            <h3 class="mb-0">{{ processing_orders_count }}</h3>
+                        </div>
+                        <div class="rounded-circle  p-3">
+                            <i class="bi bi-truck fs-4 text-info"></i>
+                        </div>
+                    </div>
+                    <div class="mt-3">
+                        <span class="badge bg-info">Diproses & Dikirim</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card border-0 shadow-sm">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="text-muted mb-2">Pendapatan</h6>
+                            <h3 class="mb-0">Rp {{ total_income|int }}</h3>
+                        </div>
+                        <div class="rounded-circle  p-3">
+                            <i class="bi bi-cash-stack fs-4 text-success"></i>
+                        </div>
+                    </div>
+                    <div class="mt-3">
+                        <span class="badge bg-success">{{ completed_orders_count }} pesanan selesai</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-md-6">
+            <div class="card mb-4 border-0 shadow-sm">
+                <div class="card-header  d-flex justify-content-between align-items-center">
+                    <h5 class="card-title mb-0">Daftar Produk</h5>
+                    <a href="{{ url_for('farmer.market_add_product' ) }}" class="btn btn-green btn-sm">
+                        <i class="bi bi-plus-circle me-2"></i> Tambah Produk
+                    </a>
+                </div>
+
+                <div class="card-body">
+                    <!-- Search form -->
+                    <form id="product-search-form" class="mb-3">
+                        <div class="input-group">
+                            <input type="text" name="product_search" class="form-control" placeholder="Cari produk..."
+                                value="{{ product_search }}">
+                            <button class="btn btn-outline-green" type="submit">
+                                <i class="bi bi-search"></i>
+                            </button>
+                        </div>
+                    </form>
+
+                    <div class="table-responsive">
+                        <table class="table table-hover align-middle mb-0">
+                            <thead class="">
+                                <tr>
+                                    <th>Produk</th>
+                                    <th>Harga</th>
+                                    <th>Stok</th>
+                                    <th>Aksi</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for p in products_pagination.items %}
+                                <tr>
+                                    <td>
+                                        <div class="d-flex align-items-center">
+                                            {% if p.gambar_urls %}
+                                            <img src="{{ url_for('static', filename='uploads/products/' ) }}{{ p.gambar_urls.split(',')[0] }}"
+                                                alt="{{ p.nama }}" class="rounded me-2"
+                                                style="width: 40px; height: 40px; object-fit: cover;">
+                                            {% else %}
+                                            <div class=" rounded me-2 d-flex align-items-center justify-content-center"
+                                                style="width: 40px; height: 40px;">
+                                                <i class="bi bi-image text-muted"></i>
+                                            </div>
+                                            {% endif %}
+                                            <div>
+                                                <div class="fw-bold">{{ p.nama }}
+                                                    {% if not p.is_active %}
+                                                    <span class="badge bg-secondary ms-1">Nonaktif</span>
+                                                    {% endif %}
+                                                </div>
+                                                <small class="text-muted">ID: {{ p.id }}</small>
+                                            </div>
+                                        </div>
+                                    </td>
+                                    <td>
+                                        <div class="fw-bold text-success">Rp {{ p.harga|int }}</div>
+                                        <small class="text-muted">per {{ p.satuan }}</small>
+                                    </td>
+                                    <td>
+                                        <div class="d-flex align-items-center">
+                                            <span id="product-stock-{{ p.id }}"
+                                                class="badge {% if p.stok > 10 %}bg-success{% elif p.stok > 0 %}bg-warning{% else %}bg-danger{% endif %} me-2">
+                                                {{ p.stok }}
+                                            </span>
+                                            <button type="button" class="btn btn-sm btn-outline-secondary"
+                                                data-bs-toggle="modal" data-bs-target="#stockModal{{ p.id }}"
+                                                data-bs-toggle="tooltip" title="Update stok">
+                                                <i class="bi bi-pencil-square"></i>
+                                            </button>
+                                        </div>
+                                    </td>
+                                    <td>
+                                        <form
+                                            action="{{ url_for('farmer.market_delete_product' if p.is_active else 'farmer.market_activate_product', id=p.id) }}"
+                                            method="post" class="d-inline">
+                                            <div class="btn-group btn-group-sm">
+                                                <a href="{{ url_for('farmer.market_edit_product', id=p.id) }}"
+                                                    class="btn btn-green" data-bs-toggle="tooltip" title="Edit produk">
+                                                    <i class="bi bi-pencil"></i>
+                                                </a>
+                                                {% if p.is_active %}
+                                                <button type="submit" class="btn btn-warning"
+                                                    onclick="return confirm('Nonaktifkan produk?')"
+                                                    data-bs-toggle="tooltip" title="Nonaktifkan produk">
+                                                    <i class="bi bi-eye-slash"></i>
+                                                </button>
+                                                {% else %}
+                                                <button type="submit" class="btn btn-success"
+                                                    onclick="return confirm('Aktifkan produk?')"
+                                                    data-bs-toggle="tooltip" title="Aktifkan produk">
+                                                    <i class="bi bi-eye"></i>
+                                                </button>
+                                                {% endif %}
+                                            </div>
+                                        </form>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+
+                                {% if not products_pagination.items %}
+                                <tr>
+                                    <td colspan="4" class="text-center py-4">
+                                        <div class="text-muted">
+                                            <i class="bi bi-inbox fs-1 d-block mb-2"></i>
+                                            <p>Belum ada produk. Tambahkan produk baru.</p>
+                                            <a href="{{ url_for('farmer.market_add_product') }}"
+                                                class="btn btn-green btn-sm">
+                                                <i class="bi bi-plus-circle me-2"></i> Tambah Produk
+                                            </a>
+                                        </div>
+                                    </td>
+                                </tr>
+                                {% endif %}
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <!-- Pagination -->
+                    {% if products_pagination.pages > 1 %}
+                    <nav aria-label="Product pagination" class="mt-3">
+                        <ul class="pagination justify-content-center">
+                            {% for page in range(1, products_pagination.pages + 1) %}
+                            <li class="page-item {% if page == products_pagination.page %}active{% endif %}">
+                                <a class="page-link" href="{{ url_for('farmer.market_manage', product_page=page,
+                                    product_search=product_search, order_page=request.args.get('order_page', 1)) }}">
+                                    {{ page }}
+                                </a>
+                            </li>
+                            {% endfor %}
+                        </ul>
+                    </nav>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        <div class="col-md-6">
+            <div class="card border-0 shadow-sm">
+                <div class="card-header  d-flex justify-content-between align-items-center">
+                    <h5 class="card-title mb-0">Pesanan Masuk</h5>
+                    <div class="dropdown">
+                        <button class="btn btn-sm btn-outline-secondary dropdown-toggle" type="button"
+                            id="orderFilterDropdown" data-bs-toggle="dropdown" aria-expanded="false">
+                            <i class="bi bi-funnel me-1"></i> Filter
+                        </button>
+                        <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="orderFilterDropdown">
+                            <li><a class="dropdown-item {% if not order_status_filter %}active{% endif %}"
+                                    href="{{ url_for('farmer.market_manage', order_status='', order_search=order_search) }}">Semua</a>
+                            </li>
+                            <li><a class="dropdown-item {% if order_status_filter == 'pending' %}active{% endif %}"
+                                    href="{{ url_for('farmer.market_manage', order_status='pending', order_search=order_search) }}">Menunggu</a>
+                            </li>
+                            <li><a class="dropdown-item {% if order_status_filter == 'paid' %}active{% endif %}"
+                                    href="{{ url_for('farmer.market_manage', order_status='paid', order_search=order_search) }}">Dibayar</a>
+                            </li>
+                            <li><a class="dropdown-item {% if order_status_filter == 'processed' %}active{% endif %}"
+                                    href="{{ url_for('farmer.market_manage', order_status='processed', order_search=order_search) }}">Diproses</a>
+                            </li>
+                            <li><a class="dropdown-item {% if order_status_filter == 'shipped' %}active{% endif %}"
+                                    href="{{ url_for('farmer.market_manage', order_status='shipped', order_search=order_search) }}">Dikirim</a>
+                            </li>
+                            <li><a class="dropdown-item {% if order_status_filter == 'completed' %}active{% endif %}"
+                                    href="{{ url_for('farmer.market_manage', order_status='completed', order_search=order_search) }}">Selesai</a>
+                            </li>
+                        </ul>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <!-- Search form -->
+                    <form id="order-search-form" class="mb-3">
+                        <div class="input-group">
+                            <input type="text" name="order_search" class="form-control" placeholder="Cari pesanan..."
+                                value="{{ order_search }}">
+                            <select name="order_status" class="form-select" style="max-width: 120px;">
+                                <option value="" {% if not order_status_filter %}selected{% endif %}>Semua</option>
+                                <option value="pending" {% if order_status_filter=='pending' %}selected{% endif %}>
+                                    Menunggu</option>
+                                <option value="paid" {% if order_status_filter=='paid' %}selected{% endif %}>Dibayar
+                                </option>
+                                <option value="processed" {% if order_status_filter=='processed' %}selected{% endif %}>
+                                    Diproses</option>
+                                <option value="shipped" {% if order_status_filter=='shipped' %}selected{% endif %}>
+                                    Dikirim</option>
+                                <option value="completed" {% if order_status_filter=='completed' %}selected{% endif %}>
+                                    Selesai</option>
+                            </select>
+                            <button class="btn btn-outline-green" type="submit">
+                                <i class="bi bi-search"></i>
+                            </button>
+                        </div>
+                    </form>
+
+                    <div class="table-responsive">
+                        <table class="table table-hover align-middle mb-0">
+                            <thead class="">
+                                <tr>
+                                    <th>Pesanan</th>
+                                    <th>Total</th>
+                                    <th>Status</th>
+                                    <th>Aksi</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for o in orders_pagination.items %}
+                                <tr id="order-row-{{ o.id }}" class="{% if o.status == 'paid' %}table-bordered border-success{% elif o.status == 'pending' %}table-bordered border-warning
+                                    {% elif o.status == 'processed' %}table-info{% elif o.status == 'shipped' %}table-primary
+                                    {% elif o.status == 'completed' %}table-bordered border-success{% elif o.status == 'cancelled' %}table-bordered border-danger
+                                    {% elif o.status == 'expired' %}table-secondary{% endif %}">
+                                    <td>
+                                        <div class="d-flex align-items-center">
+                                            <div class="me-3 text-center">
+                                                <div class="fw-bold">#{{ o.id }}</div>
+                                                <small class="text-muted">{{ o.created_at.strftime('%d/%m/%Y')
+                                                    }}</small>
+                                            </div>
+                                            <div>
+                                                <div class="fw-bold">{{ o.buyer.nama_lengkap or o.buyer.username }}
+                                                </div>
+                                                <small class="text-muted">{{ o.items|length }} item</small>
+                                            </div>
+                                        </div>
+                                    </td>
+                                    <td class="fw-bold text-success">Rp {{ o.total_amount|int }}</td>
+                                    <td>
+                                        <span id="order-status-{{ o.id }}" class="badge
+                                            {% if o.status == 'pending' %}bg-warning
+                                            {% elif o.status == 'paid' %}bg-success
+                                            {% elif o.status == 'processed' %}bg-info
+                                            {% elif o.status == 'shipped' %}bg-primary
+                                            {% elif o.status == 'completed' %}bg-success
+                                            {% elif o.status == 'cancelled' %}bg-danger
+                                            {% elif o.status == 'expired' %}bg-secondary
+                                            {% else %}bg-secondary{% endif %}">
+                                            {{ o.status.capitalize() }}
+                                        </span>
+                                    </td>
+                                    <td>
+                                        <div class="d-flex">
+                                            <button type="button" class="btn btn-sm btn-outline-green border-1 me-2"
+                                                data-bs-toggle="modal" data-bs-target="#orderModal{{ o.id }}">
+                                                <i class="bi bi-eye"></i>
+                                            </button>
+                                            <form action="{{ url_for('farmer.market_update_order', order_id=o.id) }}"
+                                                method="post" class="status-update-form d-flex"
+                                                data-order-id="{{ o.id }}">
+                                                <select name="status" class="form-select form-select-sm me-1"
+                                                    style="width: 110px;" data-current-status="{{ o.status }}">
+                                                    {% for s in
+                                                    ['pending','paid','processed','shipped','completed','cancelled'] %}
+                                                    <option value="{{ s }}" {% if o.status==s %}selected{% endif %}
+                                                        data-current="{{ o.status==s }}">
+                                                        {{ s.capitalize() }}
+                                                    </option>
+                                                    {% endfor %}
+                                                </select>
+                                                <button type="submit" class="btn btn-sm btn-success border-1">
+                                                    <i class="bi bi-check"></i>
+                                                </button>
+                                            </form>
+                                        </div>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+
+                                {% if not orders_pagination.items %}
+                                <tr>
+                                    <td colspan="4" class="text-center py-4">
+                                        <div class="text-muted">
+                                            <i class="bi bi-inbox fs-1 d-block mb-2"></i>
+                                            <p>Belum ada pesanan masuk.</p>
+                                        </div>
+                                    </td>
+                                </tr>
+                                {% endif %}
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <!-- Pagination -->
+                    {% if orders_pagination.pages > 1 %}
+                    <nav aria-label="Order pagination" class="mt-3">
+                        <ul class="pagination justify-content-center">
+                            {% for page in range(1, orders_pagination.pages + 1) %}
+                            <li class="page-item {% if page == orders_pagination.page %}active{% endif %}">
+                                <a class="page-link" href="{{ url_for('farmer.market_manage', order_page=page,
+                                    order_search=order_search, order_status=order_status_filter,
+                                    product_page=request.args.get('product_page', 1)) }}">
+                                    {{ page }}
+                                </a>
+                            </li>
+                            {% endfor %}
+                        </ul>
+                    </nav>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    {% for p in products_pagination.items %}
+    <!-- Stock Update Modal -->
+    <div class="modal fade" id="stockModal{{ p.id }}" tabindex="-1" aria-labelledby="stockModalLabel{{ p.id }}"
+        aria-hidden="true">
+        <div class="modal-dialog modal-sm">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="stockModalLabel{{ p.id }}">Update Stok</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <form class="stock-update-form" data-product-id="{{ p.id }}">
+                        <div class="mb-3">
+                            <label class="form-label">Stok Baru</label>
+                            <input type="number" name="stock" class="form-control" value="{{ p.stok }}" min="0"
+                                data-current-stock="{{ p.stok }}" required>
+                        </div>
+                        <div class="d-grid">
+                            <button type="submit" class="btn btn-green">
+                                <i class="bi bi-check-circle me-2"></i> Simpan
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+
+    <!-- Order Detail Modals -->
+    {% for o in orders_pagination.items %}
+    <div class="modal fade" id="orderModal{{ o.id }}" tabindex="-1" aria-labelledby="orderModalLabel{{ o.id }}"
+        aria-hidden="true">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="orderModalLabel{{ o.id }}">Detail Pesanan #{{ o.id }}</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <p><strong>Pembeli:</strong> {{ o.buyer.nama_lengkap or o.buyer.username }}</p>
+                            <p><strong>Tanggal Order:</strong> {{ o.created_at.strftime('%d %B %Y, %H:%M') }}</p>
+                            <p><strong>Status:</strong>
+                                <span class="badge
+                                    {% if o.status == 'pending' %}bg-warning
+                                    {% elif o.status == 'paid' %}bg-success
+                                    {% elif o.status == 'processed' %}bg-info
+                                    {% elif o.status == 'shipped' %}bg-primary
+                                    {% elif o.status == 'completed' %}bg-success
+                                    {% elif o.status == 'cancelled' %}bg-danger
+                                    {% elif o.status == 'expired' %}bg-secondary
+                                    {% else %}bg-secondary{% endif %}">
+                                    {{ o.status.capitalize() }}
+                                </span>
+                            </p>
+                        </div>
+                        <div class="col-md-6">
+                            <p><strong>Metode Pembayaran:</strong> {{ o.payment_method.upper() }}</p>
+                            {% if o.payment_id %}
+                            <p><strong>ID Pembayaran:</strong> {{ o.payment_id }}</p>
+                            {% endif %}
+                            <p><strong>Total:</strong> Rp {{ o.total_amount|int }}</p>
+                        </div>
+                    </div>
+
+                    <h6 class="mb-3">Item Pesanan</h6>
+                    <div class="table-responsive">
+                        <table class="table table-sm table-bordered">
+                            <thead>
+                                <tr>
+                                    <th>Produk</th>
+                                    <th>Harga</th>
+                                    <th>Jumlah</th>
+                                    <th class="text-end">Subtotal</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for item in o.items %}
+                                <tr>
+                                    <td>{{ item.product.nama }}</td>
+                                    <td>{{ item.unit_price|int }}</td>
+                                    <td>{{ item.quantity }}</td>
+                                    <td class="text-end">{{ (item.unit_price * item.quantity)|int }}</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                            <tfoot>
+                                <tr>
+                                    <th colspan="3">Total</th>
+                                    <th class="text-end">{{ o.total_amount|int }}</th>
+                                </tr>
+                            </tfoot>
+                        </table>
+                    </div>
+
+                    {% if o.transactions %}
+                    <h6 class="mt-4 mb-3">Riwayat Transaksi</h6>
+                    <ul class="list-group">
+                        {% for tx in o.transactions %}
+                        <li class="list-group-item">
+                            <div class="d-flex justify-content-between">
+                                <span>{{ tx.transaction_type.capitalize() }}</span>
+                                <span class="badge
+                                    {% if tx.status == 'completed' %}bg-success
+                                    {% elif tx.status == 'pending' %}bg-warning
+                                    {% elif tx.status == 'failed' %}bg-danger
+                                    {% else %}bg-secondary{% endif %}">
+                                    {{ tx.status.capitalize() }}
+                                </span>
+                            </div>
+                            <div class="small text-muted">{{ tx.created_at.strftime('%d %B %Y, %H:%M') }}</div>
+                            {% if tx.notes %}
+                            <div class="small">{{ tx.notes }}</div>
+                            {% endif %}
+                        </li>
+                        {% endfor %}
+                    </ul>
+                    {% endif %}
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Tutup</button>
+                    <form action="{{ url_for('farmer.market_update_order', order_id=o.id) }}" method="post"
+                        class="d-inline">
+                        {% if o.status == 'pending' %}
+                        <input type="hidden" name="status" value="processed">
+                        <div class="form-check mb-2">
+                            <input class="form-check-input" type="checkbox" value="yes" id="update_stock_{{ o.id }}"
+                                name="update_stock" checked>
+                            <label class="form-check-label" for="update_stock_{{ o.id }}">
+                                Update stok produk
+                            </label>
+                            <div class="form-text small">
+                                <i class="bi bi-info-circle me-1"></i>
+                                Jika dicentang, stok produk akan otomatis dikurangi saat pesanan diproses.
+                            </div>
+                        </div>
+                        <button type="submit" class="btn btn-primary">Proses Pesanan</button>
+                        {% elif o.status == 'processed' %}
+                        <input type="hidden" name="status" value="shipped">
+                        <button type="submit" class="btn btn-primary">Kirim Pesanan</button>
+                        {% elif o.status == 'shipped' %}
+                        <input type="hidden" name="status" value="completed">
+                        <button type="submit" class="btn btn-success">Selesaikan Pesanan</button>
+                        {% endif %}
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+
+    <!-- Toast container for notifications -->
+    <div class="toast-container position-fixed bottom-0 end-0 p-3"></div>
+
+    <!-- Loading overlay -->
+    <div id="loading-overlay" class="position-fixed top-0 start-0 w-100 h-100 d-none"
+        style="background-color: rgba(0,0,0,0.5); z-index: 9999;">
+        <div class="position-absolute top-50 start-50 translate-middle text-white text-center">
+            <div class="spinner-border" role="status" style="width: 3rem; height: 3rem;">
+                <span class="visually-hidden">Loading...</span>
+            </div>
+            <p class="mt-2" id="loading-message">Memproses...</p>
+        </div>
+    </div>
+
+    <!-- Include market.js -->
+    <script src="{{ url_for('static', filename='js/market.js') }}"></script>
+
+    <!-- Confirmation dialog -->
+    <div class="modal fade" id="confirmationModal" tabindex="-1" aria-labelledby="confirmationModalLabel"
+        aria-hidden="true">
+        <div class="modal-dialog modal-sm">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="confirmationModalLabel">Konfirmasi</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body" id="confirmationMessage">
+                    Apakah Anda yakin?
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Batal</button>
+                    <button type="button" class="btn btn-primary" id="confirmButton">Ya, Lanjutkan</button>
+                </div>
+            </div>
+        </div>
+    </div>
+</main>
+{% endblock %}

@@ -4,6 +4,11 @@
 <!-- Head Block -->
 {% block styles %}
 <style>
+    html,
+    body {
+        height: 100%;
+    }
+
     .profile-picture {
         width: 40px;
         height: 40px;
@@ -51,7 +56,7 @@
 <!-- Content Block -->
 {% block content %}
 <input type="hidden" name="userName" id="userName" value="{{ current_user.nama_lengkap }}" />
-<main class="container d-flex align-items-center flex-column flex-grow-1 flex-shrink-1 py-3">
+<main class="container d-flex align-items-center flex-column flex-grow-1 flex-shrink-1 py-3" style="min-height: 75dvh;">
     <div class="row flex-column align-items-center flex-grow-1 w-100">
         <div class="col-md-8 d-flex flex-column flex-grow-1">
             <div class="chatbox flex-grow-1 mb-3" style="overflow-y: auto; scroll-behavior: smooth" id="chatbox">
@@ -93,8 +98,8 @@
 
         messageDiv.innerHTML = `
             <div class="d-flex ${sender === 'Anda' ? 'flex-row-reverse' : ''} align-items-start gap-3" style="max-width: 80%;">
-                <img src="${profilePicture}" alt="${sender} profile picture" class="profile-picture rounded-4" style="width: 40px; height: 40px; object-fit: cover;">
-                <div class="d-inline-block p-2 rounded ${sender === 'Anda' ? 'bg-light text-end' : 'bg-success-subtle'}" style="max-width: calc(100% - 50px);">
+                <img src="${profilePicture}" alt="${sender} profile picture" class="profile-picture rounded-3" style="width: 40px; height: 40px; object-fit: cover;">
+                <div class="d-inline-block p-3 rounded ${sender === 'Anda' ? 'bg-light text-end' : 'bg-success-subtle'}" style="max-width: calc(100% - 50px);">
                     <strong>${sender}:</strong> ${message}
                 </div>
             </div>

@@ -1,0 +1,71 @@
+<tbody id="users-table-body">
+    {% for item in users %}
+    {% if not item.is_deleted %}
+    <tr class="align-middle user-row" data-username="{{ item.username }}" data-email="{{ item.email }}"
+        data-roles="{{ item.roles|map(attribute='name')|join(',') }}">
+        <td class="ps-3">{{ loop.index + ((pagination.page-1) * pagination.per_page) }}</td>
+        <td>
+            <div class="d-flex align-items-center">
+                <div class="avatar me-2">
+                    <img src="{{ item.profile_pic or '/static/default-profile.png' }}" class="rounded-circle" width="40"
+                        height="40" alt="{{ item.username }}" style="object-fit: cover;">
+                </div>
+                <div>
+                    <div class="fw-semibold">{{ item.username }}</div>
+                    {% if item.nama_lengkap %}
+                    <div class="text-muted small">{{ item.nama_lengkap }}</div>
+                    {% endif %}
+                </div>
+            </div>
+        </td>
+        <td>{{ item.email }}</td>
+        <td>
+            <div class="d-flex flex-wrap gap-1">
+                {% for role in item.roles %}
+                <span
+                    class="badge {% if role.name == 'admin' %}bg-danger{% elif role.name == 'petani' %}bg-success{% elif role.name == 'ahli' %}bg-primary{% else %}bg-secondary{% endif %} rounded-pill">
+                    {{ role.name }}
+                </span>
+                {% endfor %}
+            </div>
+        </td>
+        <td class="text-end pe-3">
+            <div class="btn-group">
+                <button type="button" class="btn btn-sm btn-outline-green" data-bs-toggle="modal"
+                    data-bs-target="#detailsModal{{ item.id }}">
+                    <i class="bi bi-eye"></i>
+                </button>
+                <a href="{{ url_for('admin.edit_user', user_id=item.id) }}" class="btn btn-sm btn-outline-green">
+                    <i class="bi bi-pencil"></i>
+                </a>
+                <button type="button" class="btn btn-sm btn-outline-danger" data-bs-toggle="modal"
+                    data-bs-target="#singleDeleteModal{{ item.id }}">
+                    <i class="bi bi-trash"></i>
+                </button>
+            </div>
+
+            {% for requests in user_req %}
+            {% if requests.status == 'pending' and requests.user_id == item.id %}
+            <div class="mt-2">
+                <a href="{{ url_for('admin.view_upgrade_requests') }}" class="badge bg-warning text-dark">
+                    <i class="bi bi-arrow-up-circle me-1"></i> Permintaan Upgrade
+                </a>
+            </div>
+            {% endif %}
+            {% endfor %}
+        </td>
+    </tr>
+    {% endif %}
+    {% endfor %}
+
+    {% if users|selectattr('is_deleted', 'eq', false)|list|length == 0 %}
+    <tr>
+        <td colspan="5" class="text-center py-4">
+            <div class="text-muted">
+                <i class="bi bi-search fs-3 d-block mb-2"></i>
+                Tidak ada pengguna yang ditemukan
+            </div>
+        </td>
+    </tr>
+    {% endif %}
+</tbody>

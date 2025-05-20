@@ -1,0 +1,285 @@
+{% extends 'layout/public_base.html' %}
+<!-- Title block -->
+{% block title %}Rindang Market{% endblock %}
+
+{% block content %}
+<main class="container py-4 flex-grow-1">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2 class="mb-0">Rindang Market</h2>
+        <a href="{{ url_for('public.cart_view' ) }}" class="btn btn-green position-relative">
+            <i class="fa fa-fw fa-cart-shopping"></i> Keranjang
+            {% if cart %}
+            <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger">
+                {{ cart|length }}
+                <span class="visually-hidden">item dalam keranjang</span>
+            </span>
+            {% endif %}
+        </a>
+    </div>
+
+    <!-- Filter dan Pencarian -->
+    <div class="card mb-4">
+        <div class="card-body">
+            <form action="{{ url_for('public.rindang_market') }}" method="get" id="filterForm">
+                <div class="row g-3">
+                    <div class="col-md-6">
+                        <div class="input-group">
+                            <input type="text" class="form-control" placeholder="Cari produk..." id="searchInput"
+                                name="search" value="{{ search_query }}">
+                            <button class="btn btn-outline-secondary" type="submit">
+                                <i class="fa fa-search"></i>
+                            </button>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <select class="form-select" id="sortSelect" name="sort">
+                            <option value="">Urutkan berdasarkan</option>
+                            <option value="price-asc" {% if sort_by=='price-asc' %}selected{% endif %}>Harga: Rendah ke
+                                Tinggi</option>
+                            <option value="price-desc" {% if sort_by=='price-desc' %}selected{% endif %}>Harga: Tinggi
+                                ke Rendah</option>
+                            <option value="name-asc" {% if sort_by=='name-asc' %}selected{% endif %}>Nama: A-Z</option>
+                            <option value="name-desc" {% if sort_by=='name-desc' %}selected{% endif %}>Nama: Z-A
+                            </option>
+                        </select>
+                    </div>
+                    <div class="col-md-3">
+                        <select class="form-select" id="categorySelect" name="category">
+                            <option value="">Semua Kategori</option>
+                            {% for cat in categories %}
+                            <option value="{{ cat.id }}" {% if category|int==cat.id %}selected{% endif %}>{{ cat.nama }}
+                            </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div class="row g-4" id="productContainer">
+        {% if products %}
+        {% for p in products %}
+        <div class="col-sm-6 col-md-4 col-lg-3 product-item">
+            <div class="card h-100 shadow-sm">
+                <div class="position-relative">
+                    <img src="{{ url_for('static', filename='uploads/products/' ) }}{{ p.gambar_urls.split(',')[0] }}"
+                        class="card-img-top" alt="{{ p.nama }}" style="height: 200px; object-fit: cover;">
+                    {% if p.stok <= 5 and p.stok> 0 %}
+                        <span class="position-absolute top-0 end-0 badge bg-warning m-2">Stok Terbatas</span>
+                        {% elif p.stok <= 0 %} <span class="position-absolute top-0 end-0 badge bg-danger m-2">
+                            Habis</span>
+                            {% endif %}
+                </div>
+                <div class="card-body d-flex flex-column">
+                    <h5 class="card-title text-truncate">{{ p.nama }}</h5>
+                    <p class="card-text text-green fw-bold">{{ fc(p.harga, "IDR", locale='id_ID',
+                        currency_digits=False) }}
+                        /
+                        {{ p.satuan }}
+                    </p>
+                    <p class="card-text small text-truncate">{{ p.deskripsi }}</p>
+                    <div class="mt-auto">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <span class="text-muted small">Stok: {{ p.stok }}</span>
+                            <span class="text-muted small">{{ p.seller.nama_lengkap }}</span>
+                        </div>
+                        <div class="d-grid gap-2 mt-2">
+                            <a href="{{ url_for('public.rindang_product_detail', id=p.id ) }}"
+                                class="btn btn-outline-primary btn-sm">
+                                <i class="fa fa-eye"></i> Lihat Detail
+                            </a>
+                            {% if p.stok > 0 %}
+                            <form action="{{ url_for('public.cart_add') }}" method="post" class="add-to-cart-form">
+                                <input type="hidden" name="product_id" value="{{ p.id }}">
+                                <input type="hidden" name="quantity" value="1">
+                                <button type="submit" class="btn btn-green btn-sm w-100">
+                                    <i class="fa fa-cart-plus"></i> Tambah ke Keranjang
+                                </button>
+                            </form>
+                            {% else %}
+                            <button class="btn btn-secondary btn-sm w-100" disabled>Stok Habis</button>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+
+        <!-- Pagination Controls -->
+        {% if pagination.pages > 1 %}
+        <div class="col-12 mt-4">
+            <nav aria-label="Page navigation">
+                <ul class="pagination justify-content-center">
+                    <!-- Previous page link -->
+                    {% if pagination.has_prev %}
+                    <li class="page-item">
+                        <a class="page-link"
+                            href="{{ url_for('public.rindang_market', page=pagination.prev_num, search=search_query, sort=sort_by, category=category) }}">
+                            <i class="fa fa-chevron-left"></i> Sebelumnya
+                        </a>
+                    </li>
+                    {% else %}
+                    <li class="page-item disabled">
+                        <span class="page-link"><i class="fa fa-chevron-left"></i> Sebelumnya</span>
+                    </li>
+                    {% endif %}
+
+                    <!-- Page number links -->
+                    {% for page_num in pagination.iter_pages(left_edge=1, right_edge=1, left_current=2, right_current=2)
+                    %}
+                    {% if page_num %}
+                    {% if page_num == pagination.page %}
+                    <li class="page-item active">
+                        <span class="page-link">{{ page_num }}</span>
+                    </li>
+                    {% else %}
+                    <li class="page-item">
+                        <a class="page-link"
+                            href="{{ url_for('public.rindang_market', page=page_num, search=search_query, sort=sort_by, category=category) }}">
+                            {{ page_num }}
+                        </a>
+                    </li>
+                    {% endif %}
+                    {% else %}
+                    <li class="page-item disabled">
+                        <span class="page-link">...</span>
+                    </li>
+                    {% endif %}
+                    {% endfor %}
+
+                    <!-- Next page link -->
+                    {% if pagination.has_next %}
+                    <li class="page-item">
+                        <a class="page-link"
+                            href="{{ url_for('public.rindang_market', page=pagination.next_num, search=search_query, sort=sort_by, category=category) }}">
+                            Selanjutnya <i class="fa fa-chevron-right"></i>
+                        </a>
+                    </li>
+                    {% else %}
+                    <li class="page-item disabled">
+                        <span class="page-link">Selanjutnya <i class="fa fa-chevron-right"></i></span>
+                    </li>
+                    {% endif %}
+                </ul>
+            </nav>
+        </div>
+        {% endif %}
+
+        {% else %}
+        <div class="col-12">
+            <div class="card">
+                <div class="card-body text-center py-5">
+                    <i class="fa fa-store fa-3x text-muted mb-3"></i>
+                    <h5 class="text-muted">Belum ada produk tersedia</h5>
+                    <p class="text-muted">Silakan kunjungi kembali nanti untuk melihat produk terbaru.</p>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+</main>
+
+<script>
+    // Script untuk filter dan form handling
+    document.addEventListener('DOMContentLoaded', function () {
+        const filterForm = document.getElementById('filterForm');
+        const searchInput = document.getElementById('searchInput');
+        const sortSelect = document.getElementById('sortSelect');
+        const categorySelect = document.getElementById('categorySelect');
+
+        // Auto-submit form when select elements change
+        sortSelect.addEventListener('change', function () {
+            filterForm.submit();
+        });
+
+        categorySelect.addEventListener('change', function () {
+            filterForm.submit();
+        });
+
+        // Handle "Enter" key in search input
+        searchInput.addEventListener('keyup', function (e) {
+            if (e.key === 'Enter') {
+                filterForm.submit();
+            }
+        });
+
+        // Add to cart with AJAX
+        const addToCartForms = document.querySelectorAll('.add-to-cart-form');
+        addToCartForms.forEach(form => {
+            form.addEventListener('submit', function (e) {
+                e.preventDefault();
+
+                const productId = form.querySelector('input[name="product_id"]').value;
+                const quantity = form.querySelector('input[name="quantity"]').value;
+                const submitBtn = form.querySelector('button[type="submit"]');
+
+                // Save original button text
+                const originalText = submitBtn.innerHTML;
+
+                // Change button text to loading state
+                submitBtn.innerHTML = '<i class="fa fa-spinner fa-spin"></i> Menambahkan...';
+                submitBtn.disabled = true;
+
+                // Create form data
+                const formData = new FormData();
+                formData.append('product_id', productId);
+                formData.append('quantity', quantity);
+
+                // Send AJAX request
+                fetch('{{ url_for("public.cart_add") }}', {
+                    method: 'POST',
+                    body: formData,
+                    headers: {
+                        'X-Requested-With': 'XMLHttpRequest'
+                    }
+                })
+                    .then(response => response.json())
+                    .then(data => {
+                        // Show success message
+                        if (data.success) {
+                            // Update cart count in navbar
+                            const cartBadge = document.querySelector('.fa-cart-shopping').nextElementSibling;
+                            if (cartBadge) {
+                                cartBadge.textContent = data.cart_count;
+                            }
+
+                            // Change button text to success state
+                            submitBtn.innerHTML = '<i class="fa fa-check"></i> Ditambahkan';
+                            submitBtn.classList.remove('btn-green');
+                            submitBtn.classList.add('btn-success');
+
+                            // Reset button after 2 seconds
+                            setTimeout(() => {
+                                submitBtn.innerHTML = originalText;
+                                submitBtn.classList.remove('btn-success');
+                                submitBtn.classList.add('btn-green');
+                                submitBtn.disabled = false;
+                            }, 2000);
+                        } else {
+                            // Show error message
+                            submitBtn.innerHTML = '<i class="fa fa-times"></i> Gagal';
+                            submitBtn.classList.remove('btn-green');
+                            submitBtn.classList.add('btn-danger');
+
+                            // Reset button after 2 seconds
+                            setTimeout(() => {
+                                submitBtn.innerHTML = originalText;
+                                submitBtn.classList.remove('btn-danger');
+                                submitBtn.classList.add('btn-green');
+                                submitBtn.disabled = false;
+                            }, 2000);
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Error:', error);
+                        // Reset button
+                        submitBtn.innerHTML = originalText;
+                        submitBtn.disabled = false;
+                    });
+            });
+        });
+    });
+</script>
+{% endblock %}

@@ -3,44 +3,213 @@
 {% block title %}Dashboard Admin{% endblock %}
 <!-- Page Title Block -->
 {% block page_title %}Overview{% endblock %}
+
+{% block head_scripts %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+{% endblock %}
+
 <!-- Content Block -->
 {% block content %}
-<h2 class="fw-bold mb-0">Selamat Datang di Dashboard Admin</h2>
-<p class="text-muted mb-3">Gunakan menu di sidebar untuk mengelola berbagai fitur sistem.</p>
+<div class="container-fluid px-0">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h2 class="fw-bold mb-0">Selamat Datang di Dashboard Admin</h2>
+            <p class="text-muted">Ringkasan statistik dan aktivitas terbaru sistem</p>
+        </div>
+        <div class="text-end">
+            <span class="badge bg-green">{{ pending_upgrade_requests }} Permintaan Upgrade Menunggu</span>
+        </div>
+    </div>
 
-<!-- Contoh Statistik atau Informasi Dasbor -->
-<div class="row">
-    <div class="col-md-3 mb-3 mb-lg-0">
-        <div class="card bg-green-secondary text-center">
-            <div class="card-body">
-                <p class="card-title">Pengguna</p>
-                <h2 class="card-text">{{ users | length }}</h2>
+    <!-- Statistik Utama -->
+    <div class="row mb-4">
+        <div class="col-md-3 mb-3">
+            <div class="card h-100 border-0 shadow-sm">
+                <div class="card-body text-center">
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <h5 class="card-title mb-0">Pengguna</h5>
+                        <i class="bi bi-people-fill text-green fs-4"></i>
+                    </div>
+                    <h2 class="display-5 fw-bold text-green mb-0">{{ total_users }}</h2>
+                    <div class="d-flex justify-content-around mt-3">
+                        <div class="text-center">
+                            <span class="d-block text-muted small">Petani</span>
+                            <span class="fw-bold">{{ total_petani }}</span>
+                        </div>
+                        <div class="text-center">
+                            <span class="d-block text-muted small">Ahli</span>
+                            <span class="fw-bold">{{ total_ahli }}</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="card-footer  border-0 text-center">
+                    <a href="{{ url_for('admin.users_management') }}" class="btn btn-sm btn-outline-green">Kelola
+                        Pengguna</a>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-3 mb-3">
+            <div class="card h-100 border-0 shadow-sm">
+                <div class="card-body text-center">
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <h5 class="card-title mb-0">Artikel</h5>
+                        <i class="bi bi-newspaper text-green fs-4"></i>
+                    </div>
+                    <h2 class="display-5 fw-bold text-green mb-0">{{ total_articles }}</h2>
+                    <div class="d-flex justify-content-around mt-3">
+                        <div class="text-center">
+                            <span class="d-block text-muted small">Dipublikasi</span>
+                            <span class="fw-bold">{{ published_articles }}</span>
+                        </div>
+                        <div class="text-center">
+                            <span class="d-block text-muted small">Draft</span>
+                            <span class="fw-bold">{{ draft_articles }}</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="card-footer  border-0 text-center">
+                    <a href="{{ url_for('admin.articles_management') }}" class="btn btn-sm btn-outline-green">Kelola
+                        Artikel</a>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-3 mb-3">
+            <div class="card h-100 border-0 shadow-sm">
+                <div class="card-body text-center">
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <h5 class="card-title mb-0">Produksi</h5>
+                        <i class="bi bi-graph-up text-green fs-4"></i>
+                    </div>
+                    <h2 class="display-5 fw-bold text-green mb-0">{{ total_production }}kg</h2>
+                    <div class="mt-3">
+                        <span class="d-block text-muted small">Total Kebun</span>
+                        <span class="fw-bold">{{ total_gardens }}</span>
+                    </div>
+                </div>
+                <div class="card-footer  border-0 text-center">
+                    <a href="{{ url_for('admin.productions_management') }}" class="btn btn-sm btn-outline-green">Lihat
+                        Produksi</a>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-3 mb-3">
+            <div class="card h-100 border-0 shadow-sm">
+                <div class="card-body text-center">
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <h5 class="card-title mb-0">Komoditas</h5>
+                        <i class="bi bi-basket text-green fs-4"></i>
+                    </div>
+                    <div class="mt-3">
+                        <a href="{{ url_for('admin.manage_commodity') }}" class="btn btn-green">Kelola Komoditas</a>
+                    </div>
+                    <div class="mt-3">
+                        <a href="{{ url_for('admin.manage_roles') }}" class="btn btn-outline-green">Kelola Role</a>
+                    </div>
+                </div>
+                <div class="card-footer  border-0 text-center">
+                    <a href="{{ url_for('admin.settings') }}" class="btn btn-sm btn-outline-green">Pengaturan</a>
+                </div>
             </div>
         </div>
     </div>
-    <div class="col-md-3 mb-3 mb-lg-0">
-        <div class="card bg-green-secondary text-center">
-            <div class="card-body">
-                <p class="card-title">Artikel</p>
-                <h2 class="card-text">{{ articles | length }}</h2>
+
+    <!-- Aktivitas Terbaru -->
+    <div class="row">
+        <div class="col-md-6 mb-4">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-header ">
+                    <h5 class="mb-0"><i class="bi bi-people me-2 text-green"></i>Pengguna Terbaru</h5>
+                </div>
+                <div class="card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table table-hover mb-0">
+                            <thead>
+                                <tr>
+                                    <th>Username</th>
+                                    <th>Email</th>
+                                    <th>Tanggal Daftar</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for user in recent_users %}
+                                <tr>
+                                    <td>{{ user.username }}</td>
+                                    <td>{{ user.email }}</td>
+                                    <td>{{ user.created_at.strftime('%d/%m/%Y') }}</td>
+                                </tr>
+                                {% else %}
+                                <tr>
+                                    <td colspan="3" class="text-center">Tidak ada pengguna terbaru</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+                <div class="card-footer  text-end">
+                    <a href="{{ url_for('admin.users_management') }}" class="btn btn-sm btn-outline-green">Lihat
+                        Semua</a>
+                </div>
             </div>
         </div>
-    </div>
-    <div class="col-md-3 mb-3 mb-lg-0">
-        <div class="card bg-green-secondary text-center">
-            <div class="card-body">
-                <p class="card-title">Produksi</p>
-                <h2 class="card-text">{{ total_production }}kg</h2>
-            </div>
-        </div>
-    </div>
-    <div class="col-md-3 mb-3 mb-lg-0">
-        <div class="card bg-green-secondary text-center">
-            <div class="card-body">
-                <p class="card-title">Pengaturan</p>
-                <h2 class="card-text">Aktif</h2>
+
+        <div class="col-md-6 mb-4">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-header ">
+                    <h5 class="mb-0"><i class="bi bi-newspaper me-2 text-green"></i>Artikel Terbaru</h5>
+                </div>
+                <div class="card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table table-hover mb-0">
+                            <thead>
+                                <tr>
+                                    <th>Judul</th>
+                                    <th>Status</th>
+                                    <th>Tanggal</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for article in recent_articles %}
+                                <tr>
+                                    <td>{{ article.judul }}</td>
+                                    <td>
+                                        {% if article.is_approved %}
+                                        <span class="badge bg-success">Dipublikasi</span>
+                                        {% elif article.is_drafted %}
+                                        <span class="badge bg-warning">Draft</span>
+                                        {% else %}
+                                        <span class="badge bg-secondary">Pending</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>{{ article.created_at.strftime('%d/%m/%Y') }}</td>
+                                </tr>
+                                {% else %}
+                                <tr>
+                                    <td colspan="3" class="text-center">Tidak ada artikel terbaru</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+                <div class="card-footer  text-end">
+                    <a href="{{ url_for('admin.articles_management') }}" class="btn btn-sm btn-outline-green">Lihat
+                        Semua</a>
+                </div>
             </div>
         </div>
     </div>
 </div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    // Add any JavaScript for charts or interactive elements here
+    document.addEventListener('DOMContentLoaded', function () {
+        // Initialize any interactive elements
+    });
+</script>
 {% endblock %}
