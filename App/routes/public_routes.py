@@ -57,25 +57,27 @@ def fetch_commodity_data(target_date, commodity_id=None, format_response=True):
         "_": int(datetime.now().timestamp() * 1000)
     }
 
+    response = requests.get(API_URL, params=params)
+    response.raise_for_status()
+    data = response.json()
+
+    # If raw data requested, return it directly
+    if not format_response:
+        return data
+    
+    # Format the response
+    data_list = data.get("data")
+    # Pastikan data_list adalah list dan punya paling tidak satu elemen
+    if not isinstance(data_list, list) or len(data_list) == 0:
+        return {"error": "Data tidak ditemukan", "price": "-"}
+
     try:
-        response = requests.get(API_URL, params=params)
-        response.raise_for_status()
-        data = response.json()
-
-        # If raw data requested, return it directly
-        if not format_response:
-            return data
-
-        # Format the response
-        data_list = data.get("data", [])
-        if not data_list:
-            return {"error": "Data tidak ditemukan", "price": "-"}
-
-        item = data_list[0]  # Get first item
-
-        # Parse date
-        raw = item["Tanggal"]            # e.g. "06 Mei 25"
-        day, mon_id, yy = raw.split()    # ["06", "Mei", "25"]
+        item = data_list[0]
+        raw = item.get("Tanggal", "")
+        parts = raw.split()
+        if len(parts) != 3:
+            raise ValueError(f"Format tanggal tak terduga: {raw}")
+        day, mon_id, yy = parts
 
         # Map Indonesian month abbreviation to numeric month
         MONTHS = {
@@ -91,20 +93,19 @@ def fetch_commodity_data(target_date, commodity_id=None, format_response=True):
 
         # Format price
         formatted_price = format_currency(
-            item["Nilai"], "IDR", locale="id_ID", decimal_quantization=False
+            item.get("Nilai", 0), "IDR",
+            locale="id_ID", decimal_quantization=False
         )[:-3]
 
         return {
             "date": formatted_date,
-            "name": item["Komoditas"],
+            "name": item.get("Komoditas", "-"),
             "price": formatted_price
         }
 
-    except requests.exceptions.RequestException as e:
-        current_app.logger.error(f"Error fetching commodity data: {str(e)}")
-        if format_response:
-            return {"error": f"Error fetching data: {str(e)}", "price": "-"}
-        return None
+    except (IndexError, TypeError, ValueError) as e:
+        current_app.logger.warning(f"Error parsing API data: {e}")
+        return {"error": "Gagal memproses data", "price": "-"}
 
 @public.route('/')
 def index():
