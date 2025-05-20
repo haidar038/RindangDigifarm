@@ -1,4 +1,5 @@
 import requests, random, string, os, secrets, traceback
+import pandas as pd
 
 from flask import Blueprint, flash, render_template, json, redirect, url_for, current_app, request, jsonify, send_file
 from flask_login import login_required, current_user
@@ -1701,110 +1702,153 @@ def delete_single_produksi(id):
 @login_required
 @role_required('petani')
 def import_produksi():
-    """Import production data from Excel file"""
+    """Import production data from Excel file or CSV file"""
     if 'excel_file' not in request.files:
         flash('Tidak ada file yang dipilih!', 'error')
         return redirect(request.url)
 
-    excel_file = request.files['excel_file']
+    file = request.files['excel_file']
     import_type = request.form.get('import_type', 'penanaman')
 
-    if excel_file.filename == '':
+    if file.filename == '':
         flash('Tidak ada file yang dipilih!', 'error')
         return redirect(request.url)
 
     # Validate file size
-    if len(excel_file.read()) > MAX_CONTENT_LENGTH:
+    if len(file.read()) > MAX_CONTENT_LENGTH:
         flash('Ukuran file terlalu besar! Maksimal 5MB', 'error')
         return redirect(request.url)
-    excel_file.seek(0)  # Reset file pointer
+    file.seek(0)  # Reset file pointer
 
-    if not report_allowed_file(excel_file.filename):
-        flash('File tidak valid. Unggah file Excel (.xlsx)!', 'error')
+    # Check file extension
+    file_extension = os.path.splitext(file.filename)[1].lower()
+    is_csv = file_extension == '.csv'
+    is_excel = file_extension in ['.xlsx', '.xls']
+    
+    if not (is_csv or is_excel):
+        flash('File tidak valid. Unggah file Excel (.xlsx, .xls) atau CSV (.csv)!', 'error')
         return redirect(request.url)
 
-    # Validate filename matches import type
-    file_name_without_extension = os.path.splitext(excel_file.filename)[0].lower()
+    # Validate filename matches import type - make this optional
+    file_name_without_extension = os.path.splitext(file.filename)[0].lower()
     if import_type not in file_name_without_extension:
-        flash(f'Nama file harus mengandung kata "{import_type}"!', 'warning')
-        return redirect(request.url)
+        flash(f'Peringatan: Sebaiknya nama file mengandung kata "{import_type}" untuk pemahaman lebih jelas.', 'warning')
+        # Continue anyway, don't redirect
 
     try:
-        wb = load_workbook(excel_file)
-        sheet = wb.active
-
+        # Process file based on type
+        if is_csv:
+            # Handle CSV file
+            df = pd.read_csv(file, encoding='utf-8')
+        else:
+            # Handle Excel file
+            df = pd.read_excel(file)
+        
+        # Lowercase and standardize column names
+        df.columns = [col.lower().strip() for col in df.columns]
+        
         # Begin transaction
         added_records = 0
         skipped_records = 0
 
-        for row in sheet.iter_rows(min_row=2):  # Skip header row
+        for index, row in df.iterrows():
             try:
                 # Basic validation for required fields
-                kebun_id = row[0].value
-                komoditas_id = row[1].value
-                jml_bibit = row[2].value
-                tanggal_bibit = row[3].value
+                if 'kebun' not in df.columns or 'komoditas' not in df.columns or 'jml_bibit' not in df.columns:
+                    flash('Format file tidak sesuai dengan template. Pastikan memiliki kolom kebun, komoditas, dan jml_bibit.', 'error')
+                    return redirect(request.url)
+                
+                kebun_id = row.get('kebun')
+                komoditas_name = row.get('komoditas')
+                jml_bibit = row.get('jml_bibit')
+                
+                # Parse planting date with multiple formats
+                tanggal_bibit = None
+                tanggal_bibit_value = row.get('tanggal_penanaman')
+                
+                # Try multiple date formats
+                if tanggal_bibit_value:
+                    for date_format in ['%d/%m/%Y', '%m/%d/%Y', '%Y-%m-%d', '%d-%m-%Y', '%m-%d-%Y']:
+                        try:
+                            if isinstance(tanggal_bibit_value, str):
+                                tanggal_bibit = datetime.strptime(tanggal_bibit_value, date_format)
+                                break
+                            elif isinstance(tanggal_bibit_value, datetime):
+                                tanggal_bibit = tanggal_bibit_value
+                                break
+                        except ValueError:
+                            continue
 
-                if not all([kebun_id, komoditas_id, jml_bibit, tanggal_bibit]):
+                if not all([kebun_id, komoditas_name, jml_bibit, tanggal_bibit]):
+                    current_app.logger.warning(f"Skipping row due to missing required fields: {row}")
                     skipped_records += 1
                     continue
 
-                # Convert date if it's a string
-                if isinstance(tanggal_bibit, str):
-                    try:
-                        tanggal_bibit = datetime.strptime(tanggal_bibit, '%Y-%m-%d')
-                    except ValueError:
-                        skipped_records += 1
-                        continue
-
-                # Check if kebun belongs to user
+                # Find kebun
                 kebun = Kebun.query.filter_by(
-                    id=kebun_id,
+                    id=int(kebun_id) if not isinstance(kebun_id, int) else kebun_id,
                     user_id=current_user.id,
                     is_deleted=False
                 ).first()
 
                 if not kebun:
+                    current_app.logger.warning(f"Kebun tidak ditemukan: {kebun_id}")
                     skipped_records += 1
                     continue
 
-                # Check if komoditas exists
-                komoditas = Komoditas.query.filter_by(
-                    id=komoditas_id,
-                    is_deleted=False
-                ).first()
+                # Find komoditas (try by name/string instead of just ID)
+                komoditas = None
+                if isinstance(komoditas_name, int) or komoditas_name.isdigit():
+                    komoditas = Komoditas.query.filter_by(
+                        id=int(komoditas_name),
+                        is_deleted=False
+                    ).first()
+                else:
+                    komoditas = Komoditas.query.filter(
+                        Komoditas.nama.ilike(f"%{komoditas_name}%"),
+                        Komoditas.is_deleted==False
+                    ).first()
 
                 if not komoditas:
+                    current_app.logger.warning(f"Komoditas tidak ditemukan: {komoditas_name}")
                     skipped_records += 1
                     continue
 
                 # Create base production record
                 produksi = DataPangan(
-                    kebun_id=kebun_id,
-                    komoditas_id=komoditas_id,
+                    kebun_id=kebun.id,
+                    komoditas_id=komoditas.id,
                     user_id=current_user.id,
-                    jml_bibit=jml_bibit,
+                    jml_bibit=int(jml_bibit) if not isinstance(jml_bibit, int) else jml_bibit,
                     tanggal_bibit=tanggal_bibit,
                     estimasi_panen=tanggal_bibit + timedelta(days=60)
                 )
 
                 # Handle panen data if applicable
                 if import_type == 'panen':
-                    jml_panen = row[4].value
-                    tanggal_panen = row[5].value
+                    jml_panen = row.get('jml_panen')
+                    tanggal_panen_value = row.get('tanggal_panen')
+                    
+                    # Try multiple date formats for harvest date
+                    tanggal_panen = None
+                    if tanggal_panen_value:
+                        for date_format in ['%d/%m/%Y', '%m/%d/%Y', '%Y-%m-%d', '%d-%m-%Y', '%m-%d-%Y']:
+                            try:
+                                if isinstance(tanggal_panen_value, str):
+                                    tanggal_panen = datetime.strptime(tanggal_panen_value, date_format)
+                                    break
+                                elif isinstance(tanggal_panen_value, datetime):
+                                    tanggal_panen = tanggal_panen_value
+                                    break
+                            except ValueError:
+                                continue
 
                     if not jml_panen or not tanggal_panen:
+                        current_app.logger.warning(f"Missing harvest data for panen record: {row}")
                         skipped_records += 1
                         continue
 
-                    if isinstance(tanggal_panen, str):
-                        try:
-                            tanggal_panen = datetime.strptime(tanggal_panen, '%Y-%m-%d')
-                        except ValueError:
-                            skipped_records += 1
-                            continue
-
-                    produksi.jml_panen = jml_panen
+                    produksi.jml_panen = int(jml_panen) if not isinstance(jml_panen, int) else jml_panen
                     produksi.tanggal_panen = tanggal_panen
                     produksi.status = 'Panen'
                 else:
