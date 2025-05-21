@@ -191,7 +191,7 @@
                             </tr>
                         </thead>
                         <tbody>
-                            {% for item in produksi %}
+                            {% for item in produksi.items %}
                             <tr class="align-middle">
                                 <td>
                                     <input class="form-check-input" type="checkbox" name="check"
@@ -447,8 +447,8 @@
 
 {% endfor %}
 <!-- Modal Konfirmasi Delete -->
-{% for item in produksi %}
 
+{% for item in produksi %}
 <!-- Bulk Delete -->
 <div class="modal fade" id="deleteModal{{ item.id }}" tabindex="-1" aria-labelledby="deleteModal{{ item.id }}Label"
     aria-hidden="true">

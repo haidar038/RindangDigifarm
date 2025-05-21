@@ -1830,15 +1830,14 @@ def import_produksi():
                     tanggal_panen_value = row.get('tanggal_panen')
                     
                     # Try multiple date formats for harvest date
+                    # setelah parsing tanggal_bibit…
                     tanggal_panen = None
-                    if tanggal_panen_value:
-                        for date_format in ['%d/%m/%Y', '%m/%d/%Y', '%Y-%m-%d', '%d-%m-%Y', '%m-%d-%Y']:
+                    panen_value = row.get('tanggal_panen')
+                    if panen_value:
+                        for fmt in ['%d/%m/%Y','%m/%d/%Y','%Y-%m-%d']:
                             try:
-                                if isinstance(tanggal_panen_value, str):
-                                    tanggal_panen = datetime.strptime(tanggal_panen_value, date_format)
-                                    break
-                                elif isinstance(tanggal_panen_value, datetime):
-                                    tanggal_panen = tanggal_panen_value
+                                if isinstance(panen_value, str):
+                                    tanggal_panen = datetime.strptime(panen_value.strip(), fmt).date()
                                     break
                             except ValueError:
                                 continue
