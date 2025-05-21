@@ -1698,7 +1698,7 @@ def delete_single_produksi(id):
         flash('Gagal menghapus data produksi', 'danger')
     return redirect(url_for('farmer.manajemen_produksi'))
 
-@farmer.route('/petani/produksi/import-data', methods=['POST'])
+@farmer.route('/petani/produksi/import-data', methods=['POST', 'GET'])
 @login_required
 @role_required('petani')
 def import_produksi():
