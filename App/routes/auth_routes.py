@@ -167,9 +167,8 @@ def confirm_email(token):
             flash('Akun sudah dikonfirmasi. Silakan login.', 'success')
         else:
             user.is_confirmed = True
-            # Check if confirmed_on field exists in the model
-            if hasattr(user, 'confirmed_on'):
-                user.confirmed_on = datetime.now()
+            # Don't try to set confirmed_on since the column doesn't exist in the database yet
+            # We'll just set is_confirmed to True which is what we need for now
             db.session.add(user)
             db.session.commit()
             logger.info(f"User {email} successfully confirmed")
