@@ -25,7 +25,7 @@
             <div class="row g-3">
                 <div class="col-md-4">
                     <div class="input-group">
-                        <span class="input-group-text bg-light border-end-0">
+                        <span class="input-group-text  border-end-0">
                             <i class="bi bi-search text-muted"></i>
                         </span>
                         <input type="text" class="form-control border-start-0" id="searchInput"
@@ -59,7 +59,7 @@
 
     <!-- Users table -->
     <div class="card border-0 shadow-sm">
-        <div class="card-header bg-white py-3">
+        <div class="card-header py-3">
             <div class="d-flex justify-content-between align-items-center">
                 <h5 class="mb-0">Daftar Pengguna</h5>
                 <span class="badge bg-green">{{ pagination.total }} Total</span>
@@ -68,7 +68,7 @@
         <div class="card-body p-0">
             <div class="table-responsive">
                 <table class="table table-hover align-middle mb-0">
-                    <thead class="table-light">
+                    <thead>
                         <tr>
                             <th class="ps-3">ID</th>
                             <th>Username</th>
@@ -82,11 +82,11 @@
                 </table>
             </div>
         </div>
-        <div class="card-footer bg-white py-3">
+        <div class="card-footer py-3">
             <nav class="d-flex justify-content-between align-items-center">
                 <div class="text-muted small">
                     Menampilkan {{ (pagination.page - 1) * pagination.per_page + 1 }} -
-                    {{ min(pagination.page * pagination.per_page, pagination.total) }}
+                    {{ min(max(pagination.page * pagination.per_page, pagination.total), pagination.total) }}
                     dari {{ pagination.total }} pengguna
                 </div>
                 <ul class="pagination mb-0" id="users-pagination">
@@ -129,7 +129,7 @@
     aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered modal-lg">
         <div class="modal-content border-0 shadow">
-            <div class="modal-header bg-light">
+            <div class="modal-header ">
                 <h5 class="modal-title" id="detailsModal{{ item.id }}Label">
                     <i class="bi bi-person-circle me-2 text-green"></i>Detail Pengguna
                 </h5>
@@ -138,7 +138,7 @@
             <div class="modal-body p-0">
                 <!-- User header with profile image -->
                 <div class="bg-green-secondary p-4 text-center">
-                    <img src="{{ item.profile_pic or '/static/default-profile.png' }}"
+                    <img src="{{ item.profile_pic or '/static/img/default_avatar.png' }}"
                         class="rounded-circle border border-3 border-white shadow mb-3"
                         alt="Foto Profil {{ item.username }}" style="width: 120px; height: 120px; object-fit: cover;">
                     <h4 class="fw-bold mb-1">{{ item.nama_lengkap or item.username }}</h4>
@@ -275,7 +275,7 @@
 
                                 <!-- Payment Information -->
                                 <div class="col-12">
-                                    <div class="card border-0 bg-light">
+                                    <div class="card border-0 ">
                                         <div class="card-body">
                                             <h6 class="card-title">
                                                 <i class="bi bi-credit-card me-1"></i>Informasi Pembayaran
@@ -398,7 +398,7 @@
             <div class="modal-body p-4">
                 <div class="text-center mb-4">
                     <div class="avatar mb-3">
-                        <img src="{{ item.profile_pic or '/static/default-profile.png' }}"
+                        <img src="{{ item.profile_pic or '/static/img/default_avatar.png' }}"
                             class="rounded-circle border border-3 border-light shadow" alt="{{ item.username }}"
                             width="80" height="80" style="object-fit: cover;">
                     </div>
@@ -427,7 +427,7 @@
                     </label>
                 </div>
             </div>
-            <div class="modal-footer bg-light">
+            <div class="modal-footer ">
                 <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">
                     <i class="bi bi-x-lg me-1"></i>Batal
                 </button>

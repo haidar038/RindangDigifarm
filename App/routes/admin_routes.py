@@ -19,7 +19,7 @@ from reportlab.lib.styles import getSampleStyleSheet
 from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
 
 from App import db, mail
-from App.models import UpgradeRequest, User, PetaniProfile, AhliProfile, Artikel, Role, Komoditas, DataPangan, Kebun
+from App.models import UpgradeRequest, User, PetaniProfile, AhliProfile, Artikel, Role, Komoditas, DataPangan, Kebun, Notification, Transaction, Order, OrderItem, Product
 
 admin = Blueprint('admin', __name__)
 
@@ -103,6 +103,20 @@ def view_only_access(f):
         return f(*args, **kwargs)
     return decorated_function
 
+def create_admin_notification(title, message, notification_type,
+                            user_id=None, action_url=None, action_text=None):
+    notif = Notification(
+        title=title,
+        message=message,
+        type=notification_type,
+        user_id=user_id or current_user.id,
+        action_url=action_url,
+        action_text=action_text
+    )
+    db.session.add(notif)
+    db.session.commit()
+    return notif
+
 @admin.route('/admin')
 @login_required
 @roles_required('admin', 'view_only')
@@ -162,7 +176,9 @@ def users_management():
         'admin/users_management.html',
         users=users,
         user_req=user_req,
-        pagination=pagination
+        pagination=pagination,
+        min=min,
+        max=max
     )
 
 @admin.route('/admin/users-management/_table')
@@ -305,19 +321,19 @@ def generate_username():
 
     return jsonify({'username': username})
 
-
-
 @admin.route('/admin/settings')
 @login_required
 @roles_required('admin')
 def settings():
-    return render_template('admin/settings.html')
+    return render_template('personal/settings.html')
 
 @admin.route('/admin/reports')
 @login_required
 @roles_required('admin', 'view_only')
 @view_only_access
 def reports_dashboard():
+    from babel.numbers import format_compact_currency
+
     # Get user statistics
     total_users = User.query.filter(User.username != 'admin').count()
     user_growth = random.randint(5, 15)  # Simulated growth percentage
@@ -329,14 +345,47 @@ def reports_dashboard():
     ).scalar() or 0
     production_growth = random.randint(3, 20)  # Simulated growth percentage
 
-    # Get sales statistics (simulated for now)
-    total_sales = random.randint(5000000, 15000000)
-    sales_growth = random.randint(5, 25)
+    # Get real sales statistics from completed transactions
+    # Calculate total sales from completed transactions
+    total_sales = db.session.query(func.sum(Transaction.amount)).filter(
+        Transaction.status == 'completed',
+        Transaction.transaction_type == 'payment'
+    ).scalar() or 0
 
-    # Get transaction statistics (simulated for now)
-    successful_transactions = random.randint(80, 150)
-    total_transactions = random.randint(successful_transactions, successful_transactions + 50)
-    transaction_success_rate = int((successful_transactions / total_transactions) * 100)
+    # Calculate sales growth (comparing current month to previous month)
+    current_month = datetime.now().replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+    previous_month = (current_month - timedelta(days=1)).replace(day=1)
+
+    current_month_sales = db.session.query(func.sum(Transaction.amount)).filter(
+        Transaction.status == 'completed',
+        Transaction.transaction_type == 'payment',
+        Transaction.created_at >= current_month
+    ).scalar() or 0
+
+    previous_month_sales = db.session.query(func.sum(Transaction.amount)).filter(
+        Transaction.status == 'completed',
+        Transaction.transaction_type == 'payment',
+        Transaction.created_at >= previous_month,
+        Transaction.created_at < current_month
+    ).scalar() or 0
+
+    # Calculate growth percentage, handle division by zero
+    if previous_month_sales > 0:
+        sales_growth = int(((current_month_sales - previous_month_sales) / previous_month_sales) * 100)
+    else:
+        sales_growth = 0 if current_month_sales == 0 else 100
+
+    # Get real transaction statistics
+    successful_transactions = db.session.query(func.count(Transaction.id)).filter(
+        Transaction.status == 'completed',
+        Transaction.transaction_type == 'payment'
+    ).scalar() or 0
+
+    total_transactions = db.session.query(func.count(Transaction.id)).filter(
+        Transaction.transaction_type == 'payment'
+    ).scalar() or 0
+
+    transaction_success_rate = int((successful_transactions / total_transactions) * 100) if total_transactions > 0 else 0
 
     # Get recent users
     recent_users = User.query.filter(User.username != 'admin').order_by(User.created_at.desc()).limit(10).all()
@@ -357,14 +406,55 @@ def reports_dashboard():
         data_pangan.komoditas = komoditas
         processed_productions.append(data_pangan)
 
-    # Generate sample data for charts
+    # Generate real data for charts
     # For line chart - last 7 days
     today = datetime.now()
     chart_labels = [(today - timedelta(days=i)).strftime('%d/%m') for i in range(7, 0, -1)]
+    chart_dates = [(today - timedelta(days=i)) for i in range(7, 0, -1)]
 
-    user_data = [random.randint(1, 10) for _ in range(7)]
-    production_data = [random.randint(10, 100) for _ in range(7)]
-    sales_data = [random.randint(100000, 1000000) for _ in range(7)]
+    # Get real user registration data for the last 7 days
+    user_data = []
+    for i in range(7):
+        start_date = chart_dates[i].replace(hour=0, minute=0, second=0, microsecond=0)
+        end_date = start_date + timedelta(days=1)
+
+        count = User.query.filter(
+            User.created_at >= start_date,
+            User.created_at < end_date,
+            User.username != 'admin'
+        ).count()
+
+        user_data.append(count)
+
+    # Get real production data for the last 7 days
+    production_data = []
+    for i in range(7):
+        start_date = chart_dates[i].replace(hour=0, minute=0, second=0, microsecond=0)
+        end_date = start_date + timedelta(days=1)
+
+        total = db.session.query(func.sum(DataPangan.jml_panen)).filter(
+            DataPangan.tanggal_panen >= start_date,
+            DataPangan.tanggal_panen < end_date,
+            DataPangan.is_deleted == False,
+            DataPangan.jml_panen.isnot(None)
+        ).scalar() or 0
+
+        production_data.append(float(total))
+
+    # Get real sales data for the last 7 days
+    sales_data = []
+    for i in range(7):
+        start_date = chart_dates[i].replace(hour=0, minute=0, second=0, microsecond=0)
+        end_date = start_date + timedelta(days=1)
+
+        total = db.session.query(func.sum(Transaction.amount)).filter(
+            Transaction.created_at >= start_date,
+            Transaction.created_at < end_date,
+            Transaction.status == 'completed',
+            Transaction.transaction_type == 'payment'
+        ).scalar() or 0
+
+        sales_data.append(float(total))
 
     # For pie chart - commodity distribution
     commodity_query = db.session.query(
@@ -379,22 +469,60 @@ def reports_dashboard():
     commodity_labels = [item[0] for item in commodity_query] or ['Padi', 'Jagung', 'Kedelai', 'Cabai', 'Bawang']
     commodity_data = [item[1] or random.randint(50, 200) for item in commodity_query] or [random.randint(50, 200) for _ in range(5)]
 
-    # Simulated transaction data
+    # Get real transaction data
+    recent_transactions_query = db.session.query(
+        Transaction,
+        User.username.label('buyer_username'),
+        User.id.label('buyer_id')
+    ).join(
+        User,
+        Transaction.from_user_id == User.id
+    ).filter(
+        Transaction.transaction_type == 'payment'
+    ).order_by(
+        Transaction.created_at.desc()
+    ).limit(10).all()
+
+    # Process transaction data for the template
     recent_transactions = []
-    for i in range(10):
-        transaction = {
-            'id': f'TRX-{random.randint(1000, 9999)}',
-            'buyer': random.choice(recent_users),
-            'seller': random.choice(recent_users),
+    for transaction, _, buyer_id in recent_transactions_query:
+        # Get order details if available
+        order_items = []
+        komoditas_name = "N/A"
+        quantity = 0
+
+        if transaction.order_id:
+            order_items = db.session.query(OrderItem, Product, Komoditas).join(
+                Product, OrderItem.product_id == Product.id
+            ).outerjoin(
+                Komoditas, Product.komoditas_id == Komoditas.id
+            ).filter(
+                OrderItem.order_id == transaction.order_id
+            ).all()
+
+            if order_items:
+                # Get first item's komoditas for simplicity
+                _, _, komoditas = order_items[0]
+                komoditas_name = komoditas.nama if komoditas else "Lainnya"
+                quantity = sum(item.quantity for item, _, _ in order_items)
+
+        # Get seller info
+        seller = User.query.get(transaction.to_user_id) if transaction.to_user_id else None
+
+        # Create transaction object for template
+        transaction_data = {
+            'id': f'TRX-{transaction.id}',
+            'buyer': User.query.get(buyer_id),
+            'seller': seller,
             'komoditas': {
-                'nama': random.choice(commodity_labels)
+                'nama': komoditas_name
             },
-            'quantity': random.randint(5, 50),
-            'total_price': random.randint(50000, 500000),
-            'created_at': datetime.now() - timedelta(days=random.randint(0, 30)),
-            'status': random.choice(['completed', 'pending', 'failed'])
+            'quantity': quantity,
+            'total_price': float(transaction.amount),
+            'created_at': transaction.created_at,
+            'status': transaction.status
         }
-        recent_transactions.append(transaction)
+        recent_transactions.append(transaction_data)
 
     return render_template(
         'admin/reports_dashboard.html',
@@ -415,7 +543,8 @@ def reports_dashboard():
         production_data=production_data,
         sales_data=sales_data,
         commodity_labels=commodity_labels,
-        commodity_data=commodity_data
+        commodity_data=commodity_data,
+        format_currency=format_compact_currency
     )
 
 @admin.route('/admin/export-report')
@@ -438,75 +567,6 @@ def export_report():
     )
 
     return redirect(url_for('admin.reports_dashboard'))
-
-@admin.route('/admin/notifications')
-@login_required
-@roles_required('admin')
-def notifications():
-    # In a real implementation, you would fetch notifications from the database
-    # For now, we'll create some sample notifications
-    notifications = [
-        {
-            'id': 1,
-            'title': 'Pengguna Baru Terdaftar',
-            'message': 'Pengguna baru dengan username "johndoe" telah mendaftar.',
-            'type': 'user',
-            'is_read': False,
-            'created_at': '1 jam yang lalu',
-            'action_url': url_for('admin.users_management'),
-            'action_text': 'Lihat Pengguna'
-        },
-        {
-            'id': 2,
-            'title': 'Permintaan Upgrade Role',
-            'message': 'Pengguna "janedoe" meminta upgrade ke role "petani".',
-            'type': 'user',
-            'is_read': False,
-            'created_at': '3 jam yang lalu',
-            'action_url': url_for('admin.view_upgrade_requests'),
-            'action_text': 'Tinjau Permintaan'
-        },
-        {
-            'id': 3,
-            'title': 'Artikel Baru Ditambahkan',
-            'message': 'Artikel baru "Cara Menanam Padi yang Efektif" telah ditambahkan.',
-            'type': 'article',
-            'is_read': True,
-            'created_at': '1 hari yang lalu',
-            'action_url': url_for('admin.articles_management'),
-            'action_text': 'Lihat Artikel'
-        },
-        {
-            'id': 4,
-            'title': 'Data Produksi Diperbarui',
-            'message': 'Data produksi untuk petani "farmer1" telah diperbarui.',
-            'type': 'production',
-            'is_read': True,
-            'created_at': '2 hari yang lalu',
-            'action_url': url_for('admin.productions_management'),
-            'action_text': 'Lihat Produksi'
-        },
-        {
-            'id': 5,
-            'title': 'Transaksi Penjualan Baru',
-            'message': 'Transaksi penjualan baru senilai Rp 500.000 telah dilakukan.',
-            'type': 'sales',
-            'is_read': False,
-            'created_at': '3 hari yang lalu',
-            'action_url': '#',
-            'action_text': 'Lihat Transaksi'
-        }
-    ]
-
-    return render_template('admin/notifications.html', notifications=notifications)
-
-@admin.route('/admin/mark-notification-read', methods=['POST'])
-@login_required
-@roles_required('admin')
-def mark_notification_read():
-    # In a real implementation, you would update the notification in the database
-    # For now, we'll just return a success response
-    return jsonify({'success': True})
 
 @admin.route('/admin/mark-all-notifications-read', methods=['POST'])
 @login_required
@@ -1448,3 +1508,285 @@ def generate_detailed_report(user_id):
         as_attachment=True,
         download_name=f'detailed_production_report_{user.username}_{datetime.now().strftime("%Y%m%d")}.pdf'
     )
+
+@admin.route('/admin/notifications')
+@login_required
+@roles_required('admin')
+def notifications():
+    # Ambil semua notifikasi user, urutkan yang terbaru
+    notifications = Notification.query \
+        .filter_by(user_id=current_user.id) \
+        .order_by(Notification.created_at.desc()) \
+        .all()
+
+    # Hitung badge unread
+    unread_count = sum(1 for n in notifications if not n.is_read)
+
+    return render_template(
+        'admin/notifications.html',
+        notifications=notifications,
+        unread_count=unread_count
+    )
+
+@admin.route('/admin/mark-notification-read', methods=['POST'])
+@login_required
+@roles_required('admin')
+def mark_notification_read():
+    notif_id = request.json.get('id')
+    notif = Notification.query.get_or_404(notif_id)
+    if notif.user_id != current_user.id:
+        return jsonify({'error': 'Unauthorized'}), 403
+    notif.mark_as_read()
+    db.session.commit()
+    return jsonify({'success': True})
+
+# @admin.route('/admin/notifications')
+# @login_required
+# @roles_required('admin')
+# def notifications():
+#     # In a real implementation, you would fetch notifications from the database
+#     # For now, we'll create some sample notifications
+#     notifications = [
+#         {
+#             'id': 1,
+#             'title': 'Pengguna Baru Terdaftar',
+#             'message': 'Pengguna baru dengan username "johndoe" telah mendaftar.',
+#             'type': 'user',
+#             'is_read': False,
+#             'created_at': '1 jam yang lalu',
+#             'action_url': url_for('admin.users_management'),
+#             'action_text': 'Lihat Pengguna'
+#         },
+#         {
+#             'id': 2,
+#             'title': 'Permintaan Upgrade Role',
+#             'message': 'Pengguna "janedoe" meminta upgrade ke role "petani".',
+#             'type': 'user',
+#             'is_read': False,
+#             'created_at': '3 jam yang lalu',
+#             'action_url': url_for('admin.view_upgrade_requests'),
+#             'action_text': 'Tinjau Permintaan'
+#         },
+#         {
+#             'id': 3,
+#             'title': 'Artikel Baru Ditambahkan',
+#             'message': 'Artikel baru "Cara Menanam Padi yang Efektif" telah ditambahkan.',
+#             'type': 'article',
+#             'is_read': True,
+#             'created_at': '1 hari yang lalu',
+#             'action_url': url_for('admin.articles_management'),
+#             'action_text': 'Lihat Artikel'
+#         },
+#         {
+#             'id': 4,
+#             'title': 'Data Produksi Diperbarui',
+#             'message': 'Data produksi untuk petani "farmer1" telah diperbarui.',
+#             'type': 'production',
+#             'is_read': True,
+#             'created_at': '2 hari yang lalu',
+#             'action_url': url_for('admin.productions_management'),
+#             'action_text': 'Lihat Produksi'
+#         },
+#         {
+#             'id': 5,
+#             'title': 'Transaksi Penjualan Baru',
+#             'message': 'Transaksi penjualan baru senilai Rp 500.000 telah dilakukan.',
+#             'type': 'sales',
+#             'is_read': False,
+#             'created_at': '3 hari yang lalu',
+#             'action_url': '#',
+#             'action_text': 'Lihat Transaksi'
+#         }
+#     ]
+
+#     return render_template('admin/notifications.html', notifications=notifications)
+
+# @admin.route('/admin/mark-notification-read', methods=['POST'])
+# @login_required
+# @roles_required('admin')
+# def mark_notification_read():
+#     # In a real implementation, you would update the notification in the database
+#     # For now, we'll just return a success response
+#     return jsonify({'success': True})
+
+@admin.route('/api/chart-data')
+@login_required
+@roles_required('admin', 'view_only')
+def get_chart_data():
+    """API endpoint to get chart data for different time periods"""
+    period = request.args.get('period', 'week')
+
+    # Define date ranges based on period
+    today = datetime.now()
+    if period == 'week':
+        # Last 7 days
+        start_date = today - timedelta(days=6)
+        date_format = '%d/%m'
+        delta = timedelta(days=1)
+        num_points = 7
+    elif period == 'month':
+        # Last 30 days
+        start_date = today - timedelta(days=29)
+        date_format = '%d/%m'
+        delta = timedelta(days=1)
+        num_points = 30
+    elif period == 'year':
+        # Last 12 months
+        start_date = (today.replace(day=1) - timedelta(days=1)).replace(day=1)
+        start_date = start_date.replace(month=start_date.month-11) if start_date.month > 11 else start_date.replace(year=start_date.year-1, month=start_date.month+1)
+        date_format = '%b %Y'
+        delta = timedelta(days=32)  # Approximately one month
+        num_points = 12
+    else:
+        return jsonify({'error': 'Invalid period'}), 400
+
+    # Generate date labels
+    labels = []
+    date_points = []
+
+    if period == 'year':
+        # For yearly data, we need to handle months differently
+        current_date = start_date
+        for i in range(num_points):
+            labels.append(current_date.strftime(date_format))
+            date_points.append(current_date)
+            # Move to next month
+            month = current_date.month + 1
+            year = current_date.year + month // 12
+            month = month % 12
+            if month == 0:
+                month = 12
+                year -= 1
+            current_date = current_date.replace(year=year, month=month)
+    else:
+        # For weekly and monthly data
+        for i in range(num_points):
+            current_date = start_date + delta * i
+            labels.append(current_date.strftime(date_format))
+            date_points.append(current_date)
+
+    # Get user registration data
+    user_data = []
+    for i in range(num_points):
+        if i < num_points - 1:
+            start = date_points[i]
+            end = date_points[i+1]
+        else:
+            start = date_points[i]
+            if period == 'year':
+                # For the last month, go to the end of the month
+                month = start.month + 1
+                year = start.year + month // 12
+                month = month % 12
+                if month == 0:
+                    month = 12
+                    year -= 1
+                end = start.replace(year=year, month=month)
+            else:
+                end = start + delta
+
+        # Adjust time for proper querying
+        start = start.replace(hour=0, minute=0, second=0, microsecond=0)
+        end = end.replace(hour=0, minute=0, second=0, microsecond=0)
+
+        count = User.query.filter(
+            User.created_at >= start,
+            User.created_at < end,
+            User.username != 'admin'
+        ).count()
+
+        user_data.append(count)
+
+    # Get production data
+    production_data = []
+    for i in range(num_points):
+        if i < num_points - 1:
+            start = date_points[i]
+            end = date_points[i+1]
+        else:
+            start = date_points[i]
+            if period == 'year':
+                month = start.month + 1
+                year = start.year + month // 12
+                month = month % 12
+                if month == 0:
+                    month = 12
+                    year -= 1
+                end = start.replace(year=year, month=month)
+            else:
+                end = start + delta
+
+        # Adjust time for proper querying
+        start = start.replace(hour=0, minute=0, second=0, microsecond=0)
+        end = end.replace(hour=0, minute=0, second=0, microsecond=0)
+
+        total = db.session.query(func.sum(DataPangan.jml_panen)).filter(
+            DataPangan.tanggal_panen >= start,
+            DataPangan.tanggal_panen < end,
+            DataPangan.is_deleted == False,
+            DataPangan.jml_panen.isnot(None)
+        ).scalar() or 0
+
+        production_data.append(float(total))
+
+    # Get sales data
+    sales_data = []
+    for i in range(num_points):
+        if i < num_points - 1:
+            start = date_points[i]
+            end = date_points[i+1]
+        else:
+            start = date_points[i]
+            if period == 'year':
+                month = start.month + 1
+                year = start.year + month // 12
+                month = month % 12
+                if month == 0:
+                    month = 12
+                    year -= 1
+                end = start.replace(year=year, month=month)
+            else:
+                end = start + delta
+
+        # Adjust time for proper querying
+        start = start.replace(hour=0, minute=0, second=0, microsecond=0)
+        end = end.replace(hour=0, minute=0, second=0, microsecond=0)
+
+        total = db.session.query(func.sum(Transaction.amount)).filter(
+            Transaction.created_at >= start,
+            Transaction.created_at < end,
+            Transaction.status == 'completed',
+            Transaction.transaction_type == 'payment'
+        ).scalar() or 0
+
+        sales_data.append(float(total))
+
+    return jsonify({
+        'labels': labels,
+        'datasets': [
+            {
+                'label': 'Pengguna',
+                'data': user_data,
+                'borderColor': '#28a745',
+                'backgroundColor': 'rgba(40, 167, 69, 0.1)',
+                'tension': 0.4,
+                'fill': True
+            },
+            {
+                'label': 'Produksi (kg)',
+                'data': production_data,
+                'borderColor': '#17a2b8',
+                'backgroundColor': 'rgba(23, 162, 184, 0.1)',
+                'tension': 0.4,
+                'fill': True
+            },
+            {
+                'label': 'Penjualan (Rp)',
+                'data': sales_data,
+                'borderColor': '#ffc107',
+                'backgroundColor': 'rgba(255, 193, 7, 0.1)',
+                'tension': 0.4,
+                'fill': True
+            }
+        ]
+    })

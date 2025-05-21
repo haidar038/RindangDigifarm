@@ -28,7 +28,7 @@
                 <div class="card bg-green-secondary">
                     <div class="card-body text-center">
                         <h6 class="card-title mb-2">Total Hasil Panen</h6>
-                        <h2 class="mb-0">{{ total_harvest }}kg</h2>
+                        <h2 class="mb-0">{{ total_harvest / 1000 }}kg</h2>
                     </div>
                 </div>
             </div>
@@ -89,7 +89,7 @@
                         <tr>
                             <td>{{ user.nama_lengkap }}</td>
                             <td>{{ user.kebun|length }}</td>
-                            <td>{{ user.total_harvest }}kg</td>
+                            <td>{{ user.total_harvest / 1000 }}kg</td>
                             {% if not current_user.has_role('view_only') %}
                             <td>
                                 <a role="button" class="btn btn-sm btn-green" href="#"
@@ -218,7 +218,7 @@
                     <h6>Informasi Petani</h6>
                     <p>Nama: ${data.user.nama_lengkap}</p>
                     <p>Total Kebun: ${data.user.total_gardens}</p>
-                    <p>Total Panen: ${data.user.total_harvest}kg</p>
+                    <p>Total Panen: ${data.user.total_harvest / 1000}kg</p>
                 </div>
                 <div class="col-md-6">
                     <canvas id="userProductionChart"></canvas>
@@ -239,7 +239,7 @@
                             <tr>
                                 <td>${h.garden_name}</td>
                                 <td>${h.commodity_name}</td>
-                                <td>${h.amount}kg</td>
+                                <td>${h.amount / 1000}kg</td>
                                 <td>${new Date(h.harvest_date).toLocaleDateString()}</td>
                             </tr>
                         `).join('')}

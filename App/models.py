@@ -30,6 +30,7 @@ class User(db.Model, UserMixin):
     password = db.Column(db.String(255), nullable=False)
     created_at = db.Column(db.DateTime, nullable=False, default=datetime.now())
     is_confirmed = db.Column(db.Boolean, nullable=False, default=False)
+    confirmed_on = db.Column(db.DateTime, nullable=True)
     is_deleted = db.Column(db.Boolean, nullable=False, default=False)
     deleted_at = db.Column(db.DateTime, nullable=True)
     otp = db.Column(db.String(6))
@@ -522,3 +523,20 @@ class ProductBatch(db.Model, TimestampMixin, SoftDeleteMixin):
         )
 
         return batch
+
+class Notification(db.Model):
+    __tablename__ = 'notifications'
+    id = db.Column(db.Integer, primary_key=True)
+    title = db.Column(db.String(255), nullable=False)
+    message = db.Column(db.Text, nullable=False)
+    type = db.Column(db.String(50), nullable=False)        # misal 'user', 'report', dst.
+    is_read = db.Column(db.Boolean, default=False, nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.now, nullable=False)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id', ondelete='CASCADE'), nullable=False)
+    action_url = db.Column(db.String(255), nullable=True)
+    action_text = db.Column(db.String(100), nullable=True)
+
+    user = db.relationship('User', backref='notifications')
+
+    def mark_as_read(self):
+        self.is_read = True

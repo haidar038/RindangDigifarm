@@ -39,8 +39,10 @@
                         <div class="d-flex gap-3 align-items-center">
                             <i class="fa fa-tag fa-fw display-4 bg-yellow p-3 rounded-3" loading="lazy"></i>
                             <div class="d-flex flex-column justify-content-center">
-                                <p class="text-yellow fw-bold">Harga Pangan</p>
-                                <h3 class="cabai-price fw-bold">Loading</h3>
+                                <p class="text-yellow fw-bold">Harga Pangan ({{ table_data.name }})</p>
+                                <h3 class="cabai-price fw-bold">
+                                    {{ table_data.price or '-' }}
+                                </h3>
                                 <p class="mb-0 align-middle text-muted small">
                                     Informasi lebih lanjut
                                     <i class="ti ti-arrow-right align-middle"></i>
@@ -57,7 +59,7 @@
                             <i class="fa fa-seedling bg-red fa-fw display-4 p-3 rounded-3" loading="lazy"></i>
                             <div class="d-flex flex-column justify-content-center">
                                 <p class="text-red fw-bold">Jumlah Panen</p>
-                                <h3 class="fw-bold">{{ total_panen }} kg</h3>
+                                <h3 class="fw-bold">{{ total_panen/1000 }} kg</h3>
                                 <p class="mb-0 text-muted small">
                                     Informasi lebih lanjut
                                     <i class="ti ti-arrow-right align-middle"></i>
@@ -67,18 +69,27 @@
                     </div>
                 </a>
             </div>
-            <!-- Card produktivitas yang sudah ada -->
+            <!-- Card produktivitas yang sudah diperbarui -->
             <div class="col-12 col-lg-4">
                 <a href="{{ url_for('farmer.manajemen_produksi') }}" class="nav-link">
                     <div class="card card-body personal-feature-card border shadow-sm rounded-4 mb-3">
                         <div class="d-flex gap-3 align-items-center">
                             <i class="fa fa-chart-line bg-green fa-fw display-4 p-3 rounded-3" loading="lazy"></i>
-                            <div class="d-flex flex-column justify-content-center">
+                            <div class="d-flex flex-column justify-content-center w-100">
                                 <p class="text-green fw-bold">Produktivitas</p>
                                 <div class="productivity-value">
-                                    <h3 class="fw-bold">
-                                        <i class="fa fa-spinner fa-spin"></i>
+                                    {% if productivity_change != 0 %}
+                                    <h3
+                                        class="fw-bold {{ 'text-success' if productivity_change > 0 else 'text-danger' }}">
+                                        {{ productivity_change }}%
+                                        <i
+                                            class="fa fa-arrow-trend-{{ 'up' if productivity_change > 0 else 'down' }}"></i>
                                     </h3>
+                                    {% else %}
+                                    <h3 class="fw-bold text-muted">
+                                        <i class="fa fa-minus"></i> Belum ada data
+                                    </h3>
+                                    {% endif %}
                                 </div>
                                 <p class="mb-0 text-muted small">
                                     Dibandingkan panen sebelumnya
@@ -97,6 +108,35 @@
     <div class="col-lg-12 mb-4">
         <div class="row align-items-start">
             <div class="col-12 col-lg-6">
+                <!-- Card Produktivitas per Komoditas -->
+                <div class="card card-body border shadow-sm rounded-4 mb-3">
+                    <div class="d-flex flex-column">
+                        <p class="text-green-accent fw-bold mb-3">Produktivitas per Komoditas</p>
+                        <div class="row">
+                            {% if productivity_changes %}
+                            {% for kom_id, data in productivity_changes.items() %}
+                            <div class="col-6 mb-3">
+                                <div class="d-flex flex-column">
+                                    <span class="badge bg-success rounded-pill mb-1">{{ data.nama }}</span>
+                                    <p class="small mb-0">
+                                        <span class="badge text-{{ 'success' if data.trend == 'up' else 'danger' }}">
+                                            <i class="fa fa-arrow-trend-{{ data.trend }}"></i>
+                                        </span>
+                                        {{ data.persentase }}% dibandingkan panen sebelumnya
+                                    </p>
+                                </div>
+                            </div>
+                            {% endfor %}
+                            {% else %}
+                            <div class="col-12">
+                                <p class="text-muted">Belum ada data perbandingan produktivitas</p>
+                            </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Card Pengingat -->
                 <div class="card card-body border shadow-sm rounded-4 mb-3">
                     <div class="d-flex gap-3 align-items-center">
                         <i class="fa fa-bell display-4 bg-body-tertiary p-3 rounded-3" loading="lazy"></i>
@@ -130,7 +170,24 @@
             <div class="col-12 col-lg-6">
                 <div class="card card-body border shadow-sm rounded-4 mb-3" id="current-weather-data"></div>
                 <div class="card card-body border shadow-sm rounded-4 mb-3">
-                    <div id="chart"></div>
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <h5 class="text-green-accent fw-bold mb-0">Tren Produktivitas Panen per Komoditas</h5>
+                        <button type="button" class="btn btn-sm btn-outline-success" id="refreshChartBtn">
+                            <i class="fa fa-sync-alt"></i> Refresh
+                        </button>
+                    </div>
+                    <div id="chart" class="position-relative" style="min-height: 350px;">
+                        <div class="d-flex justify-content-center align-items-center h-100">
+                            <div class="spinner-border text-success" role="status">
+                                <span class="visually-hidden">Loading...</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="text-muted small mt-2">
+                        <i class="fa fa-info-circle me-1"></i>
+                        Grafik menampilkan persentase perubahan produktivitas antar panen untuk setiap komoditas.
+                        Nilai positif menunjukkan peningkatan hasil panen dibandingkan panen sebelumnya.
+                    </div>
                 </div>
             </div>
         </div>
@@ -355,7 +412,7 @@
                 })
                 .then((data) => {
                     const priceElement = document.querySelector('.cabai-price');
-                    const filteredData = data.filter((item) => item.name === 'Cabai Rawit Merah');
+                    const filteredData = data.filter((item) => item.name === 'Cabai Merah Keriting');
                     if (filteredData.length > 0) {
                         priceElement.textContent = filteredData[filteredData.length - 1].price + '/kg';
                     }
@@ -398,12 +455,9 @@
                 }
             }
         },
-        series: [{
-            name: 'Produktivitas Cabai Rawit',
-            data: []
-        }],
+        series: [],
         title: {
-            text: 'Tren Produktivitas Panen Cabai Rawit',
+            text: 'Tren Produktivitas Panen per Komoditas',
             align: 'left'
         },
         xaxis: {
@@ -455,7 +509,19 @@
             fixed: {
                 enabled: false
             }
-        }
+        },
+        legend: {
+            position: 'top',
+            horizontalAlign: 'right',
+            floating: true,
+            offsetY: -25,
+            offsetX: -5
+        },
+        stroke: {
+            width: 2,
+            curve: 'smooth'
+        },
+        colors: ['#5faa4e', '#e74c3c', '#f39c12', '#3498db', '#9b59b6', '#1abc9c']
     };
 
     const chart = new ApexCharts(document.querySelector('#chart'), chartOptions);
@@ -470,58 +536,27 @@
         });
     });
 
-    // Add this at the beginning of your DOMContentLoaded event listener
+    // Inisialisasi DOM dan data
     document.addEventListener('DOMContentLoaded', function () {
-        // Fetch productivity data
-        fetch('/api/productivity/cabai-rawit')
-            .then(response => response.json())
-            .then(data => {
-                updateProductivityCard(data);
-            })
-            .catch(error => console.error('Error:', error));
-
-        // Load productivity chart
+        // Load chart untuk visualisasi
         loadProductivityChart();
-    });
 
-    // Fungsi untuk memuat dan menghitung data produktivitas
-    function loadProductivityData() {
-        fetch('/api/produksi')
-            .then(response => response.json())
-            .then(data => {
-                // Urutkan data berdasarkan tanggal panen
-                data.sort((a, b) => new Date(a.tanggal_panen) - new Date(b.tanggal_panen));
+        // Tambahkan event listener untuk tombol refresh
+        document.getElementById('refreshChartBtn').addEventListener('click', function () {
+            // Tampilkan loading spinner
+            document.querySelector('#chart').innerHTML = `
+                <div class="d-flex justify-content-center align-items-center h-100">
+                    <div class="spinner-border text-success" role="status">
+                        <span class="visually-hidden">Loading...</span>
+                    </div>
+                </div>
+            `;
 
-                // Hitung produktivitas
-                const productivityData = data.map((item, index, arr) => {
-                    // Untuk data pertama, set perubahan 0%
-                    if (index === 0) {
-                        return [new Date(item.tanggal_panen).getTime(), 0];
-                    }
+            // Reload chart data
+            loadProductivityChart();
+        });
 
-                    const currentPanen = item.hasil_panen;
-                    const prevPanen = arr[index - 1].hasil_panen;
-
-                    // Rumus: ((hasil_panen_sekarang - hasil_panen_sebelumnya) / hasil_panen_sebelumnya) * 100
-                    const productivity = prevPanen > 0 ?
-                        ((currentPanen - prevPanen) / prevPanen * 100) : 0;
-
-                    return [
-                        new Date(item.tanggal_panen).getTime(),
-                        parseFloat(productivity.toFixed(1))
-                    ];
-                });
-
-                // Update chart
-                chartOptions.series[0].data = productivityData;
-                chart.updateOptions(chartOptions);
-            })
-            .catch(error => console.error('Error:', error));
-    }
-
-    // Panggil fungsi saat halaman dimuat
-    // Calendar functionality
-    document.addEventListener('DOMContentLoaded', function () {
+        // Inisialisasi kalender
         fetch('/api/calendar-data')
             .then(response => {
                 if (!response.ok) throw new Error('Network response was not ok');
@@ -535,6 +570,8 @@
                 initializeCalendar([]);
             });
     });
+
+    // Fungsi loadProductivityData sudah digantikan dengan loadProductivityChart
 
     function initializeCalendar(harvestData) {
         let myCal = new Calendar({
@@ -572,49 +609,52 @@
         return myCal;
     }
 
-    function updateProductivityCard(data) {
-        const productivityElement = document.querySelector('.productivity-value');
-        if (productivityElement) {
-            const value = data.productivity;
-            const trend = data.trend;
-
-            let trendIcon = '';
-            let trendClass = '';
-
-            if (trend === 'up') {
-                trendIcon = '<i class="fa fa-arrow-trend-up text-success"></i>';
-                trendClass = 'text-success';
-            } else if (trend === 'down') {
-                trendIcon = '<i class="fa fa-arrow-trend-down text-danger"></i>';
-                trendClass = 'text-danger';
-            } else {
-                trendIcon = '<i class="fa fa-minus text-muted"></i>';
-                trendClass = 'text-muted';
-            }
-
-            productivityElement.innerHTML = `
-                <h3 class="fw-bold ${trendClass}">
-                    ${value > 0 ? '+' : ''}${value}% ${trendIcon}
-                </h3>
-            `;
-        }
-    }
+    // Fungsi updateProductivityCard tidak lagi diperlukan karena data sudah dirender dari server
 
     function loadProductivityChart() {
-        fetch('/api/daily-productivity/cabai-rawit')
+        fetch('/api/daily-productivity/all')
             .then(response => response.json())
             .then(data => {
-                const chartData = data.map(item => ({
-                    x: new Date(item.date).getTime(),
-                    y: item.value
-                }));
+                if (!data || data.length === 0) {
+                    // Tampilkan pesan jika tidak ada data
+                    document.querySelector('#chart').innerHTML = `
+                        <div class="alert alert-info text-center mt-3">
+                            <i class="fa fa-info-circle me-2"></i>
+                            Belum ada data produktivitas yang cukup untuk ditampilkan.
+                            Minimal diperlukan 2 data panen untuk setiap komoditas.
+                        </div>
+                    `;
+                    return;
+                }
 
-                chart.updateSeries([{
-                    name: 'Produktivitas Cabai Rawit',
-                    data: chartData
-                }]);
+                // Siapkan series untuk chart
+                const series = data.map(komoditas => {
+                    return {
+                        name: komoditas.name,
+                        data: komoditas.data.map(item => ({
+                            x: new Date(item.date).getTime(),
+                            y: item.value
+                        }))
+                    };
+                });
+
+                // Update chart dengan data baru
+                chart.updateSeries(series);
+
+                // Tampilkan kembali chart jika sebelumnya diganti dengan pesan
+                document.querySelector('#chart').innerHTML = '';
+                chart.render();
             })
-            .catch(error => console.error('Error loading productivity chart:', error));
+            .catch(error => {
+                console.error('Error loading productivity chart:', error);
+                // Tampilkan pesan error
+                document.querySelector('#chart').innerHTML = `
+                    <div class="alert alert-danger text-center mt-3">
+                        <i class="fa fa-exclamation-triangle me-2"></i>
+                        Terjadi kesalahan saat memuat data produktivitas.
+                    </div>
+                `;
+            });
     }
 </script>
 {% endblock %}

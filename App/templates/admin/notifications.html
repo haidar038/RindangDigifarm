@@ -17,14 +17,17 @@
                 <i class="bi bi-check-all me-1"></i> Tandai Semua Dibaca
             </button>
             <div class="dropdown">
-                <button class="btn btn-green dropdown-toggle" type="button" id="filterDropdown" data-bs-toggle="dropdown" aria-expanded="false">
+                <button class="btn btn-green dropdown-toggle" type="button" id="filterDropdown"
+                    data-bs-toggle="dropdown" aria-expanded="false">
                     <i class="bi bi-funnel me-1"></i> Filter
                 </button>
                 <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="filterDropdown">
                     <li><a class="dropdown-item active" href="#" data-filter="all">Semua Notifikasi</a></li>
                     <li><a class="dropdown-item" href="#" data-filter="unread">Belum Dibaca</a></li>
                     <li><a class="dropdown-item" href="#" data-filter="read">Sudah Dibaca</a></li>
-                    <li><hr class="dropdown-divider"></li>
+                    <li>
+                        <hr class="dropdown-divider">
+                    </li>
                     <li><a class="dropdown-item" href="#" data-filter="user">Pengguna</a></li>
                     <li><a class="dropdown-item" href="#" data-filter="article">Artikel</a></li>
                     <li><a class="dropdown-item" href="#" data-filter="production">Produksi</a></li>
@@ -36,7 +39,7 @@
 
     <!-- Notifications List -->
     <div class="card border-0 shadow-sm">
-        <div class="card-header bg-white py-3">
+        <div class="card-header py-3">
             <div class="d-flex justify-content-between align-items-center">
                 <h5 class="mb-0">Daftar Notifikasi</h5>
                 <span class="badge bg-green">{{ notifications|length }} Total</span>
@@ -45,9 +48,8 @@
         <div class="card-body p-0">
             <div class="list-group list-group-flush" id="notificationsList">
                 {% for notification in notifications %}
-                <div class="list-group-item notification-item {% if not notification.is_read %}unread{% endif %}" 
-                     data-id="{{ notification.id }}" 
-                     data-type="{{ notification.type }}">
+                <div class="list-group-item notification-item {% if not notification.is_read %}unread{% endif %}"
+                    data-id="{{ notification.id }}" data-type="{{ notification.type }}">
                     <div class="d-flex">
                         <div class="flex-shrink-0 me-3">
                             {% if notification.type == 'user' %}
@@ -88,7 +90,8 @@
                             {% if not notification.is_read %}
                             <span class="badge bg-danger mb-2">Baru</span>
                             {% endif %}
-                            <button type="button" class="btn btn-sm btn-outline-secondary mark-read-btn" data-id="{{ notification.id }}">
+                            <button type="button" class="btn btn-sm btn-outline-secondary mark-read-btn"
+                                data-id="{{ notification.id }}">
                                 <i class="bi bi-check"></i>
                             </button>
                         </div>
@@ -142,17 +145,17 @@
         color: white;
         font-size: 1.25rem;
     }
-    
+
     .notification-item {
         transition: background-color 0.2s;
         border-left: 3px solid transparent;
     }
-    
+
     .notification-item.unread {
         background-color: rgba(40, 167, 69, 0.05);
         border-left: 3px solid #28a745;
     }
-    
+
     .notification-item:hover {
         background-color: rgba(0, 0, 0, 0.02);
     }
@@ -161,13 +164,13 @@
 
 {% block scripts %}
 <script>
-    document.addEventListener('DOMContentLoaded', function() {
+    document.addEventListener('DOMContentLoaded', function () {
         // Mark as read button handler
         document.querySelectorAll('.mark-read-btn').forEach(button => {
-            button.addEventListener('click', function() {
+            button.addEventListener('click', function () {
                 const notificationId = this.dataset.id;
                 const notificationItem = document.querySelector(`.notification-item[data-id="${notificationId}"]`);
-                
+
                 // Send AJAX request to mark as read
                 fetch(`{{ url_for('admin.mark_notification_read') }}`, {
                     method: 'POST',
@@ -177,24 +180,24 @@
                     },
                     body: JSON.stringify({ notification_id: notificationId })
                 })
-                .then(response => response.json())
-                .then(data => {
-                    if (data.success) {
-                        // Update UI
-                        notificationItem.classList.remove('unread');
-                        const badge = notificationItem.querySelector('.badge.bg-danger');
-                        if (badge) badge.remove();
-                        
-                        // Update notification count in navbar
-                        updateNotificationCount();
-                    }
-                })
-                .catch(error => console.error('Error marking notification as read:', error));
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.success) {
+                            // Update UI
+                            notificationItem.classList.remove('unread');
+                            const badge = notificationItem.querySelector('.badge.bg-danger');
+                            if (badge) badge.remove();
+
+                            // Update notification count in navbar
+                            updateNotificationCount();
+                        }
+                    })
+                    .catch(error => console.error('Error marking notification as read:', error));
             });
         });
-        
+
         // Mark all as read button handler
-        document.getElementById('markAllReadBtn').addEventListener('click', function() {
+        document.getElementById('markAllReadBtn').addEventListener('click', function () {
             // Send AJAX request to mark all as read
             fetch(`{{ url_for('admin.mark_all_notifications_read') }}`, {
                 method: 'POST',
@@ -203,37 +206,37 @@
                     'X-Requested-With': 'XMLHttpRequest'
                 }
             })
-            .then(response => response.json())
-            .then(data => {
-                if (data.success) {
-                    // Update UI
-                    document.querySelectorAll('.notification-item.unread').forEach(item => {
-                        item.classList.remove('unread');
-                        const badge = item.querySelector('.badge.bg-danger');
-                        if (badge) badge.remove();
-                    });
-                    
-                    // Update notification count in navbar
-                    updateNotificationCount();
-                }
-            })
-            .catch(error => console.error('Error marking all notifications as read:', error));
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        // Update UI
+                        document.querySelectorAll('.notification-item.unread').forEach(item => {
+                            item.classList.remove('unread');
+                            const badge = item.querySelector('.badge.bg-danger');
+                            if (badge) badge.remove();
+                        });
+
+                        // Update notification count in navbar
+                        updateNotificationCount();
+                    }
+                })
+                .catch(error => console.error('Error marking all notifications as read:', error));
         });
-        
+
         // Filter dropdown handler
         document.querySelectorAll('[data-filter]').forEach(link => {
-            link.addEventListener('click', function(e) {
+            link.addEventListener('click', function (e) {
                 e.preventDefault();
-                
+
                 // Update active state
                 document.querySelectorAll('[data-filter]').forEach(item => {
                     item.classList.remove('active');
                 });
                 this.classList.add('active');
-                
+
                 // Get filter value
                 const filter = this.dataset.filter;
-                
+
                 // Filter notifications
                 document.querySelectorAll('.notification-item').forEach(item => {
                     if (filter === 'all') {
@@ -247,19 +250,19 @@
                         item.style.display = item.dataset.type === filter ? '' : 'none';
                     }
                 });
-                
+
                 // Update dropdown button text
                 document.getElementById('filterDropdown').innerHTML = `
                     <i class="bi bi-funnel me-1"></i> ${this.textContent}
                 `;
             });
         });
-        
+
         // Function to update notification count in navbar
         function updateNotificationCount() {
             const unreadCount = document.querySelectorAll('.notification-item.unread').length;
             const navbarBadge = document.querySelector('#navbarNotificationBadge');
-            
+
             if (navbarBadge) {
                 if (unreadCount > 0) {
                     navbarBadge.textContent = unreadCount;

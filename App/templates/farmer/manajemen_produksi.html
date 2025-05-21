@@ -94,7 +94,7 @@
                 <div class="row">
                     <div class="col-12 col-lg-6 mb-3 mb-lg-0">
                         <p class="small text-muted mb-0">Informasi Bulan Ini</p>
-                        <p class="fw-bold h1 display-1 mb-3">{{ total_produksi }}kg</p>
+                        <p class="fw-bold h1 display-1 mb-3">{{ total_produksi/1000 }}kg</p>
                         <div class="row">
                             {% for item in komoditas %}
                             <div class="col-6">
@@ -206,7 +206,7 @@
                                         class="badge {{ 'text-bg-warning' if item.status == 'Penanaman' else 'text-bg-success' }}">{{
                                         item.status }}</span>
                                 </td>
-                                <td>{% if item.jml_panen and item.tanggal_panen %} {{ item.jml_panen }}kg, {{
+                                <td>{% if item.jml_panen and item.tanggal_panen %} {{ item.jml_panen/1000 }}kg, {{
                                     format_date(item.tanggal_panen, format='d MMM Y', locale='id') }} {% else %} Belum
                                     panen {% endif %}</td>
                                 <td>
@@ -218,6 +218,82 @@
                             {% endfor %}
                         </tbody>
                     </table>
+                </div>
+
+                <!-- Server-side pagination controls -->
+                <div class="d-flex justify-content-between align-items-center mt-3">
+                    <div id="pageInfo" class="text-muted">
+                        Menampilkan {{ produksi.items|length }} dari {{ produksi.total }} data
+                    </div>
+                    <nav aria-label="Page navigation">
+                        <ul class="pagination">
+                            {% if produksi.has_prev %}
+                            <li class="page-item">
+                                <a class="page-link"
+                                    href="{{ url_for('farmer.manajemen_produksi', page=1, per_page=produksi.per_page, field=request.args.get('field'), commodity=request.args.get('commodity'), start_date=request.args.get('start_date'), end_date=request.args.get('end_date')) }}">
+                                    &laquo; Pertama
+                                </a>
+                            </li>
+                            <li class="page-item">
+                                <a class="page-link"
+                                    href="{{ url_for('farmer.manajemen_produksi', page=produksi.prev_num, per_page=produksi.per_page, field=request.args.get('field'), commodity=request.args.get('commodity'), start_date=request.args.get('start_date'), end_date=request.args.get('end_date')) }}">
+                                    &lsaquo; Sebelumnya
+                                </a>
+                            </li>
+                            {% else %}
+                            <li class="page-item disabled">
+                                <a class="page-link" href="#">&laquo; Pertama</a>
+                            </li>
+                            <li class="page-item disabled">
+                                <a class="page-link" href="#">&lsaquo; Sebelumnya</a>
+                            </li>
+                            {% endif %}
+
+                            {% for page_num in produksi.iter_pages(left_edge=1, right_edge=1, left_current=2,
+                            right_current=2) %}
+                            {% if page_num %}
+                            {% if page_num == produksi.page %}
+                            <li class="page-item active">
+                                <a class="page-link" href="#">{{ page_num }}</a>
+                            </li>
+                            {% else %}
+                            <li class="page-item">
+                                <a class="page-link"
+                                    href="{{ url_for('farmer.manajemen_produksi', page=page_num, per_page=produksi.per_page, field=request.args.get('field'), commodity=request.args.get('commodity'), start_date=request.args.get('start_date'), end_date=request.args.get('end_date')) }}">
+                                    {{ page_num }}
+                                </a>
+                            </li>
+                            {% endif %}
+                            {% else %}
+                            <li class="page-item disabled">
+                                <a class="page-link" href="#">...</a>
+                            </li>
+                            {% endif %}
+                            {% endfor %}
+
+                            {% if produksi.has_next %}
+                            <li class="page-item">
+                                <a class="page-link"
+                                    href="{{ url_for('farmer.manajemen_produksi', page=produksi.next_num, per_page=produksi.per_page, field=request.args.get('field'), commodity=request.args.get('commodity'), start_date=request.args.get('start_date'), end_date=request.args.get('end_date')) }}">
+                                    Selanjutnya &rsaquo;
+                                </a>
+                            </li>
+                            <li class="page-item">
+                                <a class="page-link"
+                                    href="{{ url_for('farmer.manajemen_produksi', page=produksi.pages, per_page=produksi.per_page, field=request.args.get('field'), commodity=request.args.get('commodity'), start_date=request.args.get('start_date'), end_date=request.args.get('end_date')) }}">
+                                    Terakhir &raquo;
+                                </a>
+                            </li>
+                            {% else %}
+                            <li class="page-item disabled">
+                                <a class="page-link" href="#">Selanjutnya &rsaquo;</a>
+                            </li>
+                            <li class="page-item disabled">
+                                <a class="page-link" href="#">Terakhir &raquo;</a>
+                            </li>
+                            {% endif %}
+                        </ul>
+                    </nav>
                 </div>
             </div>
         </div>
@@ -345,7 +421,7 @@
 </div>
 
 <!-- Modal Update Panen -->
-{% for item in produksi %}
+{% for item in produksi.items %}
 <div class="modal fade" id="updatePanenModal{{ item.id }}" tabindex="-1" aria-labelledby="updatePanenModalLabel"
     aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered">
@@ -448,7 +524,7 @@
 {% endfor %}
 <!-- Modal Konfirmasi Delete -->
 
-{% for item in produksi %}
+{% for item in produksi.items %}
 <!-- Bulk Delete -->
 <div class="modal fade" id="deleteModal{{ item.id }}" tabindex="-1" aria-labelledby="deleteModal{{ item.id }}Label"
     aria-hidden="true">
@@ -488,7 +564,7 @@
 {% endfor %}
 
 <!-- Modal Detail -->
-{% for item in produksi %}
+{% for item in produksi.items %}
 <div class="modal fade" id="detailModal{{ item.id }}" tabindex="-1" aria-labelledby="detailModal{{ item.id }}Label"
     aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered">
@@ -507,7 +583,7 @@
                     <span class="badge {{ 'text-bg-warning' if item.status == 'Penanaman' else 'text-bg-success' }}">{{
                         item.status }}</span>
                 </p>
-                <p><strong>Hasil Panen:</strong> {{ item.jml_panen}}kg{% if item.tanggal_panen %}, {{
+                <p><strong>Hasil Panen:</strong> {{ item.jml_panen/1000}}kg{% if item.tanggal_panen %}, {{
                     format_date(item.tanggal_panen, format='d MMM Y', locale='id') }}{% endif %}</p>
             </div>
             <div class="modal-footer">
@@ -950,17 +1026,12 @@
         };
     }
 
-    // Table Manager Class
+    // Table Manager Class for client-side search only
     class TableManager {
         constructor(tableId, searchId, pageSizeId) {
-            // Add pagination container creation first
-            const paginationDiv = document.createElement('div');
-            paginationDiv.id = 'tablePagination';
-
             this.table = document.getElementById(tableId);
             if (!this.table) return;
 
-            this.table.parentNode.appendChild(paginationDiv);
             this.searchInput = document.getElementById(searchId);
             this.pageSizeSelect = document.getElementById(pageSizeId);
 
@@ -969,17 +1040,7 @@
                 return;
             }
 
-            this.currentPage = 1;
-            this.pageSize = parseInt(this.pageSizeSelect.value);
             this.initializeListeners();
-            this.updateTable();
-
-            // Create pagination container if not exists
-            if (!document.getElementById('tablePagination')) {
-                const paginationDiv = document.createElement('div');
-                paginationDiv.id = 'tablePagination';
-                this.table.parentNode.appendChild(paginationDiv);
-            }
         }
 
         initializeListeners() {
@@ -987,16 +1048,17 @@
             this.searchInput.addEventListener(
                 'input',
                 debounce(() => {
-                    this.currentPage = 1;
                     this.filterTable();
                 }, 300)
             );
 
-            // Page size change
+            // Page size change - redirect with new per_page parameter
             this.pageSizeSelect.addEventListener('change', () => {
-                this.pageSize = parseInt(this.pageSizeSelect.value);
-                this.currentPage = 1;
-                this.updateTable();
+                const perPage = parseInt(this.pageSizeSelect.value);
+                const currentUrl = new URL(window.location.href);
+                currentUrl.searchParams.set('per_page', perPage);
+                currentUrl.searchParams.set('page', 1); // Reset to page 1 when changing items per page
+                window.location.href = currentUrl.toString();
             });
         }
 
@@ -1009,83 +1071,15 @@
                     .map((cell) => cell.textContent.toLowerCase())
                     .join(' ');
                 const match = text.includes(searchText);
-                row.dataset.searchMatch = match;
                 row.classList.toggle('d-none', !match);
             });
 
-            this.updateTable();
-        }
-
-        updateTable() {
-            const rows = Array.from(this.table.querySelectorAll('tbody tr:not([data-search-match="false"])'));
-            const totalPages = Math.ceil(rows.length / this.pageSize);
-
-            rows.forEach((row, index) => {
-                const shouldShow = index >= (this.currentPage - 1) * this.pageSize && index < this.currentPage * this.pageSize;
-                row.classList.toggle('d-none', !shouldShow);
-            });
-
-            this.updatePagination(totalPages);
-            this.updatePageInfo(rows.length);
-        }
-
-        updatePageInfo(totalRows) {
-            const startIndex = (this.currentPage - 1) * this.pageSize + 1;
-            const endIndex = Math.min(startIndex + this.pageSize - 1, totalRows);
-
+            // Update the page info when filtering
+            const visibleRows = rows.filter(row => !row.classList.contains('d-none')).length;
             const pageInfo = document.getElementById('pageInfo');
-            if (pageInfo) {
-                pageInfo.textContent = `Menampilkan ${startIndex}-${endIndex} dari ${totalRows} data`;
+            if (pageInfo && searchText) {
+                pageInfo.textContent = `Menampilkan ${visibleRows} hasil pencarian`;
             }
-        }
-
-        updatePagination(totalPages) {
-            const paginationContainer = document.getElementById('tablePagination');
-            if (!paginationContainer) return;
-            paginationContainer.innerHTML = '';
-
-            if (totalPages <= 1) return;
-
-            const container = document.createElement('div');
-            container.className = 'btn-group';
-
-            // First page button
-            if (this.currentPage > 1) {
-                container.appendChild(this.createPageButton(1, '<<'));
-            }
-
-            // Previous page button
-            if (this.currentPage > 1) {
-                container.appendChild(this.createPageButton(this.currentPage - 1, '<'));
-            }
-
-            // Page numbers
-            for (let i = Math.max(1, this.currentPage - 2); i <= Math.min(totalPages, this.currentPage + 2); i++) {
-                container.appendChild(this.createPageButton(i));
-            }
-
-            // Next page button
-            if (this.currentPage < totalPages) {
-                container.appendChild(this.createPageButton(this.currentPage + 1, '>'));
-            }
-
-            // Last page button
-            if (this.currentPage < totalPages) {
-                container.appendChild(this.createPageButton(totalPages, '>>'));
-            }
-
-            paginationContainer.appendChild(container);
-        }
-
-        createPageButton(pageNum, text = pageNum) {
-            const button = document.createElement('button');
-            button.className = `btn btn-sm ${pageNum === this.currentPage ? 'btn-green' : 'btn-outline-primary'}`;
-            button.textContent = text;
-            button.onclick = () => {
-                this.currentPage = pageNum;
-                this.updateTable();
-            };
-            return button;
         }
     }
 
@@ -1094,9 +1088,87 @@
         const table = document.getElementById('dataTable');
         const search = document.getElementById('searchTable');
         const pageSize = document.getElementById('pageSize');
+        const filterBtn = document.getElementById('filterBtn');
+        const resetBtn = document.getElementById('resetBtn');
+        const fieldFilter = document.getElementById('fieldFilter');
+        const commodityFilter = document.getElementById('commodityFilter');
+        const startDate = document.getElementById('startDate');
+        const endDate = document.getElementById('endDate');
 
+        // Initialize table manager for search
         if (table && search && pageSize) {
             const tableManager = new TableManager('dataTable', 'searchTable', 'pageSize');
+
+            // Set the page size select to match the current per_page parameter
+            const urlParams = new URLSearchParams(window.location.search);
+            const perPage = urlParams.get('per_page');
+            if (perPage) {
+                pageSize.value = perPage;
+            }
+
+            // Set filter values from URL parameters
+            if (urlParams.has('field') && fieldFilter) {
+                fieldFilter.value = urlParams.get('field');
+            }
+            if (urlParams.has('commodity') && commodityFilter) {
+                commodityFilter.value = urlParams.get('commodity');
+            }
+            if (urlParams.has('start_date') && startDate) {
+                startDate.value = urlParams.get('start_date');
+            }
+            if (urlParams.has('end_date') && endDate) {
+                endDate.value = urlParams.get('end_date');
+            }
+        }
+
+        // Handle filter button click
+        if (filterBtn) {
+            filterBtn.addEventListener('click', function () {
+                const field = fieldFilter ? fieldFilter.value : '';
+                const commodity = commodityFilter ? commodityFilter.value : '';
+                const start = startDate ? startDate.value : '';
+                const end = endDate ? endDate.value : '';
+
+                // Build URL with filter parameters
+                const url = new URL(window.location.href);
+                url.searchParams.set('page', 1); // Reset to page 1 when filtering
+
+                if (field) url.searchParams.set('field', field);
+                else url.searchParams.delete('field');
+
+                if (commodity) url.searchParams.set('commodity', commodity);
+                else url.searchParams.delete('commodity');
+
+                if (start) url.searchParams.set('start_date', start);
+                else url.searchParams.delete('start_date');
+
+                if (end) url.searchParams.set('end_date', end);
+                else url.searchParams.delete('end_date');
+
+                // Navigate to filtered URL
+                window.location.href = url.toString();
+            });
+        }
+
+        // Handle reset button click
+        if (resetBtn) {
+            resetBtn.addEventListener('click', function () {
+                // Clear all filters and redirect to base URL
+                const url = new URL(window.location.href);
+                url.searchParams.delete('field');
+                url.searchParams.delete('commodity');
+                url.searchParams.delete('start_date');
+                url.searchParams.delete('end_date');
+                url.searchParams.set('page', 1);
+
+                // Keep per_page parameter if it exists
+                const perPage = url.searchParams.get('per_page');
+                if (perPage) {
+                    url.searchParams.set('per_page', perPage);
+                }
+
+                window.location.href = url.toString();
+            });
         }
     });
 </script>

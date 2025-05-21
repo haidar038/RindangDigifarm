@@ -191,76 +191,50 @@
                 <div class="d-flex align-items-center gap-3">
                     <!-- Notifications -->
                     <div class="dropdown">
-                        <button class="btn position-relative" type="button" data-bs-toggle="dropdown"
-                            aria-expanded="false">
+                        <!-- admin_base.html -->
+                        <button class="btn position-relative" type="button" data-bs-toggle="dropdown">
                             <i class="bi bi-bell fs-5"></i>
+                            {% if unread_count %}
                             <span
-                                class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger"
-                                id="navbarNotificationBadge">
-                                3
+                                class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger">
+                                {{ unread_count }}
                                 <span class="visually-hidden">unread notifications</span>
                             </span>
+                            {% endif %}
                         </button>
                         <div class="dropdown-menu dropdown-menu-end p-0"
-                            style="width: 320px; max-height: 400px; overflow-y: auto;">
+                            style="width:320px; max-height:400px; overflow-y:auto;">
                             <div class="p-2 border-bottom d-flex justify-content-between align-items-center">
                                 <h6 class="mb-0">Notifikasi</h6>
-                                <a href="{{ url_for('admin.notifications') }}" class="text-decoration-none small">Lihat
+                                <a href="{{ url_for('admin.notifications') }}" class="small text-decoration-none">Lihat
                                     Semua</a>
                             </div>
                             <div class="notification-list">
-                                <a href="{{ url_for('admin.users_management') }}"
-                                    class="dropdown-item p-2 border-bottom">
+                                {% for notif in notifications %}
+                                <a href="{{ notif.action_url or '#' }}"
+                                    class="dropdown-item p-2 border-bottom {% if not notif.is_read %}fw-bold{% endif %}">
                                     <div class="d-flex">
                                         <div class="flex-shrink-0 me-2">
-                                            <div class="notification-icon bg-primary text-white rounded-circle"
-                                                style="width: 40px; height: 40px; display: flex; align-items: center; justify-content: center;">
-                                                <i class="bi bi-person"></i>
+                                            <div class="notification-icon bg-{{ 'info' if notif.type=='article' else 'primary' }} text-white rounded-circle"
+                                                style="width:40px;height:40px;display:flex;align-items:center;justify-content:center;">
+                                                <i
+                                                    class="bi bi-{{ 'newspaper' if notif.type=='article' else 'bell' }}"></i>
                                             </div>
                                         </div>
                                         <div>
-                                            <p class="mb-0 fw-semibold">Pengguna Baru Terdaftar</p>
-                                            <p class="mb-0 small text-muted">Pengguna baru dengan username "johndoe"
-                                                telah mendaftar.</p>
-                                            <small class="text-muted">1 jam yang lalu</small>
+                                            <p class="mb-0">{{ notif.title }}</p>
+                                            <p class="mb-0 small text-muted">{{ notif.message }}</p>
+                                            <small class="text-muted">{{ notif.created_at.strftime('%d %b %Y, %H:%M')
+                                                }}</small>
                                         </div>
                                     </div>
                                 </a>
-                                <a href="{{ url_for('admin.view_upgrade_requests') }}"
-                                    class="dropdown-item p-2 border-bottom">
-                                    <div class="d-flex">
-                                        <div class="flex-shrink-0 me-2">
-                                            <div class="notification-icon bg-warning text-white rounded-circle"
-                                                style="width: 40px; height: 40px; display: flex; align-items: center; justify-content: center;">
-                                                <i class="bi bi-arrow-up-circle"></i>
-                                            </div>
-                                        </div>
-                                        <div>
-                                            <p class="mb-0 fw-semibold">Permintaan Upgrade Role</p>
-                                            <p class="mb-0 small text-muted">Pengguna "janedoe" meminta upgrade ke role
-                                                "petani".</p>
-                                            <small class="text-muted">3 jam yang lalu</small>
-                                        </div>
-                                    </div>
-                                </a>
-                                <a href="{{ url_for('admin.articles_management') }}" class="dropdown-item p-2">
-                                    <div class="d-flex">
-                                        <div class="flex-shrink-0 me-2">
-                                            <div class="notification-icon bg-info text-white rounded-circle"
-                                                style="width: 40px; height: 40px; display: flex; align-items: center; justify-content: center;">
-                                                <i class="bi bi-newspaper"></i>
-                                            </div>
-                                        </div>
-                                        <div>
-                                            <p class="mb-0 fw-semibold">Artikel Baru Ditambahkan</p>
-                                            <p class="mb-0 small text-muted">Artikel baru "Cara Menanam Padi yang
-                                                Efektif" telah ditambahkan.</p>
-                                            <small class="text-muted">1 hari yang lalu</small>
-                                        </div>
-                                    </div>
-                                </a>
+                                {% else %}
+                                <div class="p-3 text-center text-muted">Tidak ada notifikasi</div>
+                                {% endfor %}
                             </div>
                         </div>
+
                     </div>
 
                     <!-- User dropdown -->

@@ -23,6 +23,7 @@ from decimal import Decimal
 from App import db, cache
 from App.models import Kebun, DataPangan, KebunKomoditas, Komoditas, Order, OrderItem, Product, PetaniProfile, Transaction, User, ProductBatch
 from App.services.xendit_client import XenditClient, XenditError
+from App.utils import fetch_commodity_data
 
 farmer = Blueprint('farmer', __name__)
 
@@ -85,27 +86,6 @@ def generate_unique_id(prefix="KR_", string_length=2, number_length=4):
     random_number = ''.join(random.choices(string.digits, k=number_length))
     unique_id = f"{prefix}{random_string}{random_number}"
     return unique_id
-
-# Helper function to fetch commodity data from API
-def fetch_commodity_data(target_date, commodity_id):
-    params = {
-        "tanggal": target_date,
-        "commodity": commodity_id,
-        "priceType": PRICE_TYPE_ID,
-        "isPasokan": 1,
-        "jenis": JENIS_ID,
-        "periode": PERIOD_ID,
-        "provId": PROVINCE_ID,
-        "_": int(datetime.now().timestamp() * 1000)
-    }
-
-    try:
-        response = requests.get(API_URL, params=params)
-        response.raise_for_status()
-        return response.json()
-    except requests.exceptions.RequestException as e:
-        print(f"Error fetching data: {e}")
-        return None
 
 # Helper function to fetch and format price data from API
 def fetch_price_data(start_date, end_date):
@@ -250,14 +230,65 @@ def get_daily_productivity():
         current_app.logger.error(f"Error getting productivity data: {str(e)}")
         return jsonify({'error': 'Internal server error'}), 500
 
+@farmer.route('/api/daily-productivity/all', methods=['GET'])
+def get_all_daily_productivity():
+    try:
+        # Get all komoditas
+        komoditas_list = Komoditas.query.filter_by(is_deleted=False).all()
+
+        result = []
+
+        # For each komoditas, get productivity data
+        for komoditas in komoditas_list:
+            # Get all harvests for this komoditas
+            harvests = (db.session.query(DataPangan)
+                .filter(
+                    DataPangan.user_id == current_user.id,
+                    DataPangan.komoditas_id == komoditas.id,
+                    DataPangan.tanggal_panen.isnot(None),
+                    DataPangan.jml_panen.isnot(None),
+                    DataPangan.is_deleted == False
+                )
+                .order_by(DataPangan.tanggal_panen)
+                .all())
+
+            # Calculate productivity changes
+            productivity_data = []
+            for i in range(1, len(harvests)):
+                current = harvests[i].jml_panen
+                previous = harvests[i-1].jml_panen
+
+                if previous > 0:
+                    change = ((current - previous) / previous * 100)
+                    productivity_data.append({
+                        'date': harvests[i].tanggal_panen.isoformat(),
+                        'value': round(change, 1)
+                    })
+
+            # Only add to result if there's data
+            if productivity_data:
+                result.append({
+                    'name': komoditas.nama,
+                    'id': komoditas.id,
+                    'data': productivity_data
+                })
+
+        return jsonify(result)
+    except Exception as e:
+        current_app.logger.error(f"Error getting all productivity data: {str(e)}")
+        return jsonify({'error': 'Internal server error'}), 500
+
 @farmer.route('/api/get-price-data', methods=['GET'])
 def getpricedata():
 
     target_date = datetime.today().strftime("%d/%m/%Y")
     all_data = []
+    print(COMMODITY_IDS.items())
 
     for commodity_name, commodity_id in COMMODITY_IDS.items():
         data = fetch_commodity_data(target_date, commodity_id)
+        print(commodity_name, commodity_id)
+        print(data.get('data'))
         if data and data.get('data'):
             item = data['data'][0]
 
@@ -281,6 +312,8 @@ def getpricedata():
                 "name": commodity_name,
                 "price": format_currency(item["Nilai"], "IDR", locale="id_ID", decimal_quantization=False)[:-3]
             })
+
+    print(all_data)
 
     return jsonify(all_data)
 
@@ -312,29 +345,58 @@ def index():
         is_deleted=False
     ).all()
 
-    # Query untuk menghitung produktivitas
-    harvested_data = DataPangan.query.filter(
-        DataPangan.user_id == current_user.id,
-        DataPangan.status == 'Panen',
-        DataPangan.is_deleted == False,
-        DataPangan.jml_panen.isnot(None),
-        DataPangan.tanggal_panen.isnot(None)
-    ).order_by(DataPangan.tanggal_panen.desc()).limit(2).all()
+    # Query untuk menghitung produktivitas - menggunakan pendekatan yang sama dengan API
+    # Ambil data komoditas untuk menghitung produktivitas per komoditas
+    komoditas = Komoditas.query.filter_by(is_deleted=False).all()
 
-    # Hitung perubahan produktivitas
+    # Dictionary untuk menyimpan perubahan produktivitas per komoditas
+    productivity_changes = {}
+
+    # Hitung produktivitas untuk semua komoditas
+    for kom in komoditas:
+        # Ambil 2 data panen terbaru untuk komoditas ini
+        panen_data = DataPangan.query.filter(
+            DataPangan.user_id == current_user.id,
+            DataPangan.komoditas_id == kom.id,
+            DataPangan.is_deleted == False,
+            DataPangan.status == 'Panen',
+            DataPangan.jml_panen.isnot(None),
+            DataPangan.tanggal_panen.isnot(None)
+        ).order_by(DataPangan.tanggal_panen.desc()).limit(2).all()
+
+        # Hitung perubahan produktivitas jika ada minimal 2 data panen
+        if len(panen_data) >= 2:
+            current = panen_data[0].jml_panen
+            previous = panen_data[1].jml_panen
+
+            if previous > 0:  # Hindari pembagian dengan nol
+                change = ((current - previous) / previous * 100)
+                productivity_changes[kom.id] = {
+                    'persentase': round(change, 2),
+                    'trend': 'up' if change >= 0 else 'down',
+                    'nama': kom.nama
+                }
+
+    # Untuk kompatibilitas dengan kode yang ada, tetap hitung productivity_change
+    # Gunakan data Cabai Rawit jika ada, atau rata-rata dari semua komoditas
     productivity_change = 0
-    if len(harvested_data) >= 2:
-        current_harvest = harvested_data[0].jml_panen
-        previous_harvest = harvested_data[1].jml_panen
-        if previous_harvest > 0:  # Hindari pembagian dengan nol
-            productivity_change = ((current_harvest - previous_harvest) / previous_harvest) * 100
 
-    # Total panen (dari kode yang sudah ada)
-    all_data = DataPangan.query.filter_by(
-        user_id=current_user.id,
-        is_deleted=False
-    ).all()
-    total_panen = sum(prod.jml_panen for prod in all_data if prod.jml_panen)
+    # Coba ambil data Cabai Rawit
+    cabai_data = next((data for kom_id, data in productivity_changes.items()
+                        if 'nama' in data and 'cabai' in data['nama'].lower()), None)
+
+    if cabai_data:
+        productivity_change = cabai_data['persentase']
+    elif productivity_changes:
+        # Jika tidak ada Cabai Rawit, gunakan rata-rata dari semua komoditas
+        productivity_change = sum(data['persentase'] for data in productivity_changes.values()) / len(productivity_changes)
+
+    # Total panen (menggunakan query SQL langsung untuk efisiensi)
+    total_panen = db.session.query(db.func.sum(DataPangan.jml_panen)).filter(
+        DataPangan.user_id == current_user.id,
+        DataPangan.is_deleted == False,
+        DataPangan.jml_panen.isnot(None)
+    ).scalar() or 0
 
     # Kode untuk harvest_data tetap sama
     today = date.today()
@@ -355,11 +417,20 @@ def index():
                 if next_harvest_days is None or days_remaining < next_harvest_days:
                     next_harvest_days = days_remaining
 
+    from datetime import datetime
+    # Format date sama seperti di public_routes: "Apr 30, 2025"
+    target_date = datetime.today().strftime("%b %d, %Y")
+    # Panggil fetch_commodity_data tanpa argumen kedua untuk default komoditas
+    table_data = fetch_commodity_data(target_date, commodity_id=7)
+
     return render_template('farmer/index.html',
                             total_panen=total_panen,
                             harvest_data=json.dumps(harvest_data),
                             next_harvest_days=next_harvest_days,
                             productivity_change=round(productivity_change, 1),
+                            productivity_changes=productivity_changes,
+                            komoditas=komoditas,
+                            table_data=table_data,
                             page='farmer_index')
 
 @farmer.route('/petani/manajemen-produksi', methods=['GET', 'POST'])
@@ -377,14 +448,13 @@ def manajemen_produksi():
 
     # Pagination parameters
     page = request.args.get('page', 1, type=int)  # Default to page 1
-    per_page = request.args.get('per_page', 10, type=int)  # Default to 10 items per page
+    per_page = request.args.get('per_page', 6, type=int)  # Default to 10 items per page
 
     # Ambil data produksi 3 bulan terakhir, termasuk yang masih dalam status "Penanaman"
     three_months_ago = datetime.now() - timedelta(days=90)
     query = DataPangan.query.filter(
         DataPangan.user_id == current_user.id,
-        DataPangan.is_deleted == False,
-        DataPangan.tanggal_bibit >= three_months_ago
+        DataPangan.is_deleted == False
     )
 
     # Terapkan filter jika ada
@@ -397,11 +467,37 @@ def manajemen_produksi():
     if end_date:
         query = query.filter(DataPangan.tanggal_bibit <= datetime.strptime(end_date, '%Y-%m-%d'))
 
-    # Pagination
-    produksi = query.paginate(page=page, per_page=per_page)
+    # Pagination with error handling
+    try:
+        produksi = query.paginate(page=page, per_page=per_page)
+    except:
+        # If pagination fails (e.g., page out of range), default to page 1
+        produksi = query.paginate(page=1, per_page=per_page)
 
-    # Hitung total akumulasi produksi
-    total_produksi = sum(prod.jml_panen for prod in produksi.items if prod.jml_panen is not None)
+    # Hitung total akumulasi produksi dari seluruh data (bukan hanya dari halaman pagination saat ini)
+    total_produksi = db.session.query(db.func.sum(DataPangan.jml_panen)).filter(
+        DataPangan.user_id == current_user.id,
+        DataPangan.is_deleted == False,
+        DataPangan.jml_panen.isnot(None)
+    ).scalar() or 0
+
+    # Terapkan filter yang sama seperti query utama untuk konsistensi
+    total_query = db.session.query(db.func.sum(DataPangan.jml_panen)).filter(
+        DataPangan.user_id == current_user.id,
+        DataPangan.is_deleted == False,
+        DataPangan.jml_panen.isnot(None)
+    )
+
+    if field_id:
+        total_query = total_query.filter(DataPangan.kebun_id == field_id)
+    if commodity_id:
+        total_query = total_query.filter(DataPangan.komoditas_id == commodity_id)
+    if start_date:
+        total_query = total_query.filter(DataPangan.tanggal_bibit >= datetime.strptime(start_date, '%Y-%m-%d'))
+    if end_date:
+        total_query = total_query.filter(DataPangan.tanggal_bibit <= datetime.strptime(end_date, '%Y-%m-%d'))
+
+    total_produksi = total_query.scalar() or 0
 
     # Format data untuk chart
     chart_data = []
@@ -1698,10 +1794,13 @@ def delete_single_produksi(id):
         flash('Gagal menghapus data produksi', 'danger')
     return redirect(url_for('farmer.manajemen_produksi'))
 
-@farmer.route('/petani/produksi/import-data', methods=['POST', 'GET'])
+@farmer.route('/petani/produksi/import-data/', methods=['GET', 'POST'])
 @login_required
 @role_required('petani')
 def import_produksi():
+    if request.method == 'GET':
+        return render_template('farmer/manajemen_produksi.html')
+
     """Import production data from Excel file or CSV file"""
     if 'excel_file' not in request.files:
         flash('Tidak ada file yang dipilih!', 'error')
@@ -1724,7 +1823,7 @@ def import_produksi():
     file_extension = os.path.splitext(file.filename)[1].lower()
     is_csv = file_extension == '.csv'
     is_excel = file_extension in ['.xlsx', '.xls']
-    
+
     if not (is_csv or is_excel):
         flash('File tidak valid. Unggah file Excel (.xlsx, .xls) atau CSV (.csv)!', 'error')
         return redirect(request.url)
@@ -1741,42 +1840,76 @@ def import_produksi():
             # Handle CSV file
             df = pd.read_csv(file, encoding='utf-8')
         else:
-            # Handle Excel file
-            df = pd.read_excel(file)
-        
+            try:
+                # Try to parse with date columns
+                df = pd.read_excel(file, parse_dates=['tanggal_penanaman', 'tanggal_panen'], date_format='mixed')
+            except ValueError:
+                # If date columns not found, load without parsing
+                current_app.logger.warning("Date columns not found in Excel file, loading without date parsing")
+                df = pd.read_excel(file)
+
+                # Check if date columns exist and convert them manually
+                if 'tanggal_penanaman' in df.columns:
+                    try:
+                        df['tanggal_penanaman'] = pd.to_datetime(df['tanggal_penanaman'], errors='coerce')
+                    except Exception as e:
+                        current_app.logger.error(f"Error converting tanggal_penanaman: {str(e)}")
+
+                if 'tanggal_panen' in df.columns:
+                    try:
+                        df['tanggal_panen'] = pd.to_datetime(df['tanggal_panen'], errors='coerce')
+                    except Exception as e:
+                        current_app.logger.error(f"Error converting tanggal_panen: {str(e)}")
+
         # Lowercase and standardize column names
         df.columns = [col.lower().strip() for col in df.columns]
-        
+
+        # Log the DataFrame structure for debugging
+        current_app.logger.info(f"DataFrame columns: {df.columns.tolist()}")
+        current_app.logger.info(f"DataFrame dtypes: {df.dtypes.to_dict()}")
+
         # Begin transaction
         added_records = 0
         skipped_records = 0
 
-        for index, row in df.iterrows():
+        for _, row in df.iterrows():  # Using _ for unused index
             try:
                 # Basic validation for required fields
                 if 'kebun' not in df.columns or 'komoditas' not in df.columns or 'jml_bibit' not in df.columns:
                     flash('Format file tidak sesuai dengan template. Pastikan memiliki kolom kebun, komoditas, dan jml_bibit.', 'error')
                     return redirect(request.url)
-                
+
                 kebun_id = row.get('kebun')
                 komoditas_name = row.get('komoditas')
                 jml_bibit = row.get('jml_bibit')
-                
+
                 # Parse planting date with multiple formats
                 tanggal_bibit = None
                 tanggal_bibit_value = row.get('tanggal_penanaman')
-                
+
                 # Try multiple date formats
                 if tanggal_bibit_value:
-                    for date_format in ['%d/%m/%Y', '%m/%d/%Y', '%Y-%m-%d', '%d-%m-%Y', '%m-%d-%Y']:
+                    # Handle Excel date (float/int) or datetime object
+                    if isinstance(tanggal_bibit_value, (datetime, date)):
+                        tanggal_bibit = tanggal_bibit_value.date() if isinstance(tanggal_bibit_value, datetime) else tanggal_bibit_value
+                    # Handle string date in various formats
+                    elif isinstance(tanggal_bibit_value, str):
+                        for date_format in ['%d/%m/%Y', '%m/%d/%Y', '%Y-%m-%d', '%d-%m-%Y', '%m-%d-%Y']:
+                            try:
+                                tanggal_bibit = datetime.strptime(tanggal_bibit_value.strip(), date_format)
+                                break
+                            except ValueError:
+                                continue
+                    # Handle numeric date (Excel serial date)
+                    elif isinstance(tanggal_bibit_value, (int, float)):
                         try:
-                            if isinstance(tanggal_bibit_value, str):
-                                tanggal_bibit = datetime.strptime(tanggal_bibit_value, date_format)
-                                break
-                            elif isinstance(tanggal_bibit_value, datetime):
-                                tanggal_bibit = tanggal_bibit_value
-                                break
-                        except ValueError:
+                            # Convert Excel serial date to Python datetime
+                            # Excel dates start from 1900-01-01, with 1 = 1900-01-01
+                            # But there's a leap year bug in Excel, so we need to adjust
+                            excel_epoch = datetime(1899, 12, 30)  # Excel's day 0
+                            tanggal_bibit = excel_epoch + timedelta(days=tanggal_bibit_value)
+                        except Exception as e:
+                            current_app.logger.error(f"Error converting Excel date: {str(e)}")
                             continue
 
                 if not all([kebun_id, komoditas_name, jml_bibit, tanggal_bibit]):
@@ -1827,19 +1960,32 @@ def import_produksi():
                 # Handle panen data if applicable
                 if import_type == 'panen':
                     jml_panen = row.get('jml_panen')
-                    tanggal_panen_value = row.get('tanggal_panen')
-                    
+
                     # Try multiple date formats for harvest date
-                    # setelah parsing tanggal_bibit…
                     tanggal_panen = None
                     panen_value = row.get('tanggal_panen')
                     if panen_value:
-                        for fmt in ['%d/%m/%Y','%m/%d/%Y','%Y-%m-%d']:
-                            try:
-                                if isinstance(panen_value, str):
+                        # Handle Excel date (float/int) or datetime object
+                        if isinstance(panen_value, (datetime, date)):
+                            tanggal_panen = panen_value.date() if isinstance(panen_value, datetime) else panen_value
+                        # Handle string date in various formats
+                        elif isinstance(panen_value, str):
+                            for fmt in ['%d/%m/%Y', '%m/%d/%Y', '%Y-%m-%d', '%d-%m-%Y', '%m-%d-%Y']:
+                                try:
                                     tanggal_panen = datetime.strptime(panen_value.strip(), fmt).date()
                                     break
-                            except ValueError:
+                                except ValueError:
+                                    continue
+                        # Handle numeric date (Excel serial date)
+                        elif isinstance(panen_value, (int, float)):
+                            try:
+                                # Convert Excel serial date to Python datetime
+                                # Excel dates start from 1900-01-01, with 1 = 1900-01-01
+                                # But there's a leap year bug in Excel, so we need to adjust
+                                excel_epoch = datetime(1899, 12, 30)  # Excel's day 0
+                                tanggal_panen = (excel_epoch + timedelta(days=panen_value)).date()
+                            except Exception as e:
+                                current_app.logger.error(f"Error converting Excel date: {str(e)}")
                                 continue
 
                     if not jml_panen or not tanggal_panen:
@@ -1978,8 +2124,7 @@ def api_produksi():
     three_months_ago = datetime.now() - timedelta(days=90)
     query = DataPangan.query.filter(
         DataPangan.user_id == current_user.id,
-        DataPangan.is_deleted == False,
-        DataPangan.tanggal_bibit >= three_months_ago
+        DataPangan.is_deleted == False
     )
 
     # Apply filters
@@ -2068,8 +2213,7 @@ def cetak_laporan_produksi():
         three_months_ago = datetime.now() - timedelta(days=90)
         produksi = DataPangan.query.filter(
             DataPangan.user_id == current_user.id,
-            DataPangan.is_deleted == False,
-            DataPangan.tanggal_bibit >= three_months_ago
+            DataPangan.is_deleted == False
         ).order_by(DataPangan.tanggal_bibit.desc()).all()
 
         # Buat buffer untuk PDF
