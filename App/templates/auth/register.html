@@ -49,8 +49,8 @@
                         <div class="input-group">
                             {{ form.confirm_password(class="form-control", id="confirm_password",
                             placeholder="••••••••") }}
-                            {% if form.password.errors %}
-                            {% for error in form.password.errors %}
+                            {% if form.confirm_password.errors %}
+                            {% for error in form.confirm_password.errors %}
                             <span class="text-danger">{{ error }}</span>
                             {% endfor %}
                             {% endif %}

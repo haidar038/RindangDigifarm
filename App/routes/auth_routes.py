@@ -36,14 +36,6 @@ def personal_unique_id(prefix="PRSNL_", string_length=2, number_length=4):
     unique_id = f"{prefix}{random_string}{random_number}"
     return unique_id
 
-# def validate_registration(username, email):
-#     suspicious_patterns = [
-#         r'[0-9]{5,}',         # Changed from 4+ to 5+ consecutive digits
-#         r'[a-zA-Z0-9]{20,}',  # Very long alphanumeric sequence
-#         r'[^a-zA-Z0-9_\-\.]'  # Characters other than alphanumeric, underscore, hyphen, dot
-#     ]
-#     return not any(re.search(pattern, username) for pattern in suspicious_patterns)
-
 def log_suspicious_activity(ip, username, email):
     logger = logging.getLogger('suspicious_activity')
     logger.warning(
@@ -59,55 +51,54 @@ def register():
 
     form = RegistrationForm()
 
-    if request.method == 'POST':
-        email = request.form['email']
-        password = request.form['password']
-        confirm_password = request.form.get('confirm_password')
-        username = generate_username(email)
-
-        # if not validate_registration(username, email):
-        #     log_suspicious_activity(request.remote_addr, username, email)
-        #     flash('Invalid registration attempt', 'danger')
-        #     return redirect(url_for('auth.register'))
-
-        # if not recaptcha.verify():
-        #     flash('Please complete the CAPTCHA', 'danger')
-        #     return redirect(url_for('auth.register'))
-
-        if len(password) < 8:
-            flash('Kata sandi harus berisi 8 karakter atau lebih', category='danger')
-            return redirect(url_for('auth.register'))
-        elif confirm_password != password:
-            flash('Kata sandi tidak cocok.', category='danger')
-            return redirect(url_for('auth.register'))
-        elif User.query.filter_by(email=email).first():
-            flash('Email sudah digunakan, silakan buat yang lain.', category='danger')
-            return redirect(url_for('auth.register'))
-
+    if form.validate_on_submit():
+        email = form.email.data
+        password = form.password.data
+        # Username bisa di-generate setelah validasi email berhasil
+        username = generate_username(email) 
+        
         try:
-            user = User(email=email, username=username, password=generate_password_hash(password))
+            # Buat user baru dengan is_confirmed = False (default)
+            user = User(
+                email=email, 
+                username=username, 
+                password=generate_password_hash(password),
+                is_confirmed=False
+            )
+            
+            # Assign role personal
             personal_role = Role.query.filter_by(name='personal').first()
             if personal_role:
                 user.roles.append(personal_role)
             else:
-                # Handle the case where the role doesn't exist
-                # You can create it or raise an error
-                pass
+                # Buat role 'personal' jika belum ada
+                current_app.logger.warning("Role 'personal' tidak ditemukan, membuat role baru")
+                personal_role = Role(name='personal', description='Personal User')
+                db.session.add(personal_role)
+                # db.session.flush() # Opsional: flush jika ID role dibutuhkan segera sebelum commit
+                user.roles.append(personal_role)
 
+            # Simpan user ke database
             db.session.add(user)
             db.session.commit()
+            
+            current_app.logger.info(f"User {user.email} berhasil dibuat dengan ID: {user.id}")
 
+            # Kirim email konfirmasi
             try:
-                send_confirmation_email(email)
+                send_confirmation_email(user.email)
                 flash('Akun berhasil dibuat! Silahkan cek email Anda untuk verifikasi.', category='success')
+                current_app.logger.info(f"Email konfirmasi berhasil dikirim ke {user.email}")
                 return redirect(url_for('auth.login'))
             except Exception as email_error:
-                current_app.logger.error(f"Gagal mengirim email konfirmasi: {str(email_error)}")
-                flash('Akun berhasil dibuat, tetapi gagal mengirim email konfirmasi. Silakan hubungi admin.', 'warning')
-                return redirect(request.referrer)
+                current_app.logger.error(f"Gagal mengirim email konfirmasi ke {user.email}: {str(email_error)}")
+                # Jangan rollback user yang sudah dibuat, hanya beri peringatan
+                flash('Akun berhasil dibuat, tetapi gagal mengirim email konfirmasi. Silakan hubungi admin untuk aktivasi manual.', 'warning')
+                return redirect(url_for('auth.login'))
+                
         except Exception as e:
             db.session.rollback()
-            current_app.logger.error(f"Error during registration: {str(e)}")
+            current_app.logger.error(f"Error during registration for {form.email.data}: {str(e)}")
             flash('Terjadi kesalahan saat membuat akun. Silakan coba lagi.', category='danger')
             return redirect(url_for('auth.register'))
 
@@ -120,73 +111,173 @@ def generate_username(email):
     return f"{username_base}{random_digits}"
 
 def send_confirmation_email(user_email):
+    """
+    Mengirim email konfirmasi dengan penanganan error yang lebih baik
+    """
     try:
-        token = generate_confirmation_token(user_email)
+        # Generate token dengan waktu expire yang lebih lama (24 jam)
+        token = generate_confirmation_token(user_email, expiration=86400)  # 24 jam
 
+        # Dapatkan base URL
         if request:
             base_url = request.host_url.rstrip('/')
         else:
-            # Fallback to a config value if outside request context
             base_url = current_app.config.get('BASE_URL', 'http://localhost:8082')
 
         confirm_url = f"{base_url}{url_for('auth.confirm_email', token=token)}"
+        
+        current_app.logger.debug(f"Generating confirmation email for {user_email}")
+        current_app.logger.debug(f"Confirmation URL: {confirm_url}")
+        current_app.logger.debug(f"Token (first 20 chars): {token[:20]}...")
 
+        # Render template email
         html = render_template('auth/activate_email.html', confirm_url=confirm_url)
         subject = "Silakan konfirmasi email anda"
-        msg = Message(subject, recipients=[user_email], html=html)
+        
+        # Buat message
+        msg = Message(
+            subject=subject, 
+            recipients=[user_email], 
+            html=html,
+            sender=current_app.config.get('MAIL_DEFAULT_SENDER')
+        )
 
-        current_app.logger.debug(f"Attempting to send email to {user_email}")
-        current_app.logger.debug(f"Confirmation URL: {confirm_url}")
+        current_app.logger.info(f"Attempting to send email to {user_email}")
+        current_app.logger.debug(f"MAIL_SERVER: {current_app.config.get('MAIL_SERVER')}")
+        current_app.logger.debug(f"MAIL_PORT: {current_app.config.get('MAIL_PORT')}")
+        current_app.logger.debug(f"MAIL_USE_TLS: {current_app.config.get('MAIL_USE_TLS')}")
+        current_app.logger.debug(f"MAIL_USERNAME: {current_app.config.get('MAIL_USERNAME')}")
 
+        # Kirim email
         with mail.connect() as conn:
             conn.send(msg)
-        current_app.logger.info(f"Email sent successfully to {user_email}")
-    except smtplib.SMTPAuthenticationError:
-        current_app.logger.error("SMTP Authentication Error. Please check your username and password.")
-        raise
+            
+        current_app.logger.info(f"Email berhasil dikirim ke {user_email}")
+        
+    except smtplib.SMTPAuthenticationError as e:
+        current_app.logger.error(f"SMTP Authentication Error: {str(e)}")
+        current_app.logger.error("Periksa MAIL_USERNAME dan MAIL_PASSWORD di konfigurasi")
+        raise Exception("Gagal autentikasi email server. Periksa konfigurasi email.")
+        
+    except smtplib.SMTPRecipientsRefused as e:
+        current_app.logger.error(f"SMTP Recipients Refused: {str(e)}")
+        raise Exception(f"Email {user_email} ditolak oleh server.")
+        
+    except smtplib.SMTPConnectError as e:
+        current_app.logger.error(f"SMTP Connect Error: {str(e)}")
+        raise Exception("Tidak dapat terhubung ke server email.")
+        
     except smtplib.SMTPException as e:
         current_app.logger.error(f"SMTP error occurred: {str(e)}")
-        raise
+        raise Exception(f"Error SMTP: {str(e)}")
+        
     except Exception as e:
-        current_app.logger.error(f"Failed to send email: {str(e)}")
+        current_app.logger.error(f"Failed to send email to {user_email}: {str(e)}")
         current_app.logger.exception("Email sending error")
-        raise
+        raise Exception(f"Gagal mengirim email: {str(e)}")
 
 @auth.route('/auth/confirm/<token>')
 def confirm_email(token):
-    logger.info(f"Email confirmation attempt with token: {token[:10]}...")
+    """
+    Konfirmasi email dengan logging yang lebih detail
+    """
+    current_app.logger.info(f"Email confirmation attempt with token: {token[:20]}...")
+    
     try:
+        # Decode token untuk mendapatkan email
         email = confirm_jwt_token(token)
         if not email:
-            logger.error("Email not found in token")
+            current_app.logger.error("Email not found in token")
             flash('Link konfirmasi tidak valid atau telah kedaluwarsa.', 'danger')
             return redirect(url_for('auth.login'))
 
-        user = User.query.filter_by(email=email).first_or_404()
+        current_app.logger.info(f"Token decoded successfully for email: {email}")
+
+        # Cari user berdasarkan email
+        user = User.query.filter_by(email=email).first()
+        if not user:
+            current_app.logger.error(f"User not found for email: {email}")
+            flash('User tidak ditemukan.', 'danger')
+            return redirect(url_for('auth.login'))
+
+        current_app.logger.info(f"User found: {user.id}, current is_confirmed status: {user.is_confirmed}")
+
+        # Cek apakah sudah dikonfirmasi
         if user.is_confirmed:
+            current_app.logger.info(f"User {email} already confirmed")
             flash('Akun sudah dikonfirmasi. Silakan login.', 'success')
         else:
+            # Update status konfirmasi
             user.is_confirmed = True
-            # Don't try to set confirmed_on since the column doesn't exist in the database yet
-            # We'll just set is_confirmed to True which is what we need for now
-            db.session.add(user)
-            db.session.commit()
-            logger.info(f"User {email} successfully confirmed")
-            flash('Akun berhasil dikonfirmasi. Silakan login.', 'success')
+            
+            try:
+                db.session.add(user)
+                db.session.commit()
+                current_app.logger.info(f"User {email} successfully confirmed and saved to database")
+                flash('Akun berhasil dikonfirmasi. Silakan login.', 'success')
+                
+                # Verifikasi bahwa perubahan tersimpan
+                updated_user = User.query.filter_by(email=email).first()
+                current_app.logger.info(f"Verification - User {email} is_confirmed status after update: {updated_user.is_confirmed}")
+                
+            except Exception as db_error:
+                db.session.rollback()
+                current_app.logger.error(f"Database error while confirming user {email}: {str(db_error)}")
+                flash('Terjadi kesalahan saat mengkonfirmasi akun. Silakan coba lagi.', 'danger')
+                return redirect(url_for('auth.login'))
 
         return redirect(url_for('auth.login'))
+        
     except jwt.ExpiredSignatureError:
-        logger.error("Token expired")
+        current_app.logger.error("Token expired")
         flash('Link konfirmasi telah kedaluwarsa. Silakan minta link baru.', 'danger')
         return redirect(url_for('auth.login'))
+        
     except jwt.InvalidTokenError as e:
-        logger.error(f"Invalid token: {str(e)}")
+        current_app.logger.error(f"Invalid token: {str(e)}")
         flash('Link konfirmasi tidak valid. Silakan minta link baru.', 'danger')
         return redirect(url_for('auth.login'))
+        
     except Exception as e:
-        logger.error(f"Unexpected error during confirmation: {str(e)}")
+        current_app.logger.error(f"Unexpected error during confirmation: {str(e)}")
+        current_app.logger.exception("Confirmation error details")
         flash('Terjadi kesalahan saat mengkonfirmasi akun. Silakan coba lagi.', 'danger')
         return redirect(url_for('auth.login'))
+
+# Route untuk resend confirmation email
+@auth.route('/auth/resend-confirmation', methods=['GET', 'POST'])
+def resend_confirmation():
+    """
+    Route untuk mengirim ulang email konfirmasi
+    """
+    if request.method == 'POST':
+        email = request.form.get('email')
+        
+        if not email:
+            flash('Email harus diisi.', 'danger')
+            return redirect(url_for('auth.resend_confirmation'))
+        
+        user = User.query.filter_by(email=email).first()
+        
+        if not user:
+            flash('Email tidak ditemukan.', 'danger')
+            return redirect(url_for('auth.resend_confirmation'))
+        
+        if user.is_confirmed:
+            flash('Akun sudah dikonfirmasi. Silakan login.', 'info')
+            return redirect(url_for('auth.login'))
+        
+        try:
+            send_confirmation_email(email)
+            flash('Email konfirmasi berhasil dikirim ulang. Silakan cek email Anda.', 'success')
+            current_app.logger.info(f"Confirmation email resent to {email}")
+        except Exception as e:
+            current_app.logger.error(f"Failed to resend confirmation email to {email}: {str(e)}")
+            flash('Gagal mengirim email konfirmasi. Silakan coba lagi nanti.', 'danger')
+        
+        return redirect(url_for('auth.login'))
+    
+    return render_template('auth/resend_confirmation.html')
 
 @auth.route('/auth/reset-password', methods=['GET', 'POST'])
 def reset_password_request():
@@ -311,39 +402,6 @@ def verify_otp():
 
     return render_template('auth/verify_otp.html', form=form)
 
-def send_forgot_password_token(user_email):
-    try:
-        token = generate_confirmation_token(user_email)
-
-        if request:
-            base_url = request.host_url.rstrip('/')
-        else:
-            # Fallback to a config value if outside request context
-            base_url = current_app.config.get('BASE_URL', 'http://localhost:8082')
-
-        confirm_url = f"{base_url}{url_for('auth.confirm_email', token=token)}"
-
-        html = render_template('auth/activate_email.html', confirm_url=confirm_url)
-        subject = "Kode OTP Lupa Kata Sandi"
-        msg = Message(subject, recipients=[user_email], html=html)
-
-        current_app.logger.debug(f"Attempting to send email to {user_email}")
-        current_app.logger.debug(f"Confirmation URL: {confirm_url}")
-
-        with mail.connect() as conn:
-            conn.send(msg)
-        current_app.logger.info(f"Email sent successfully to {user_email}")
-    except smtplib.SMTPAuthenticationError:
-        current_app.logger.error("SMTP Authentication Error. Please check your username and password.")
-        raise
-    except smtplib.SMTPException as e:
-        current_app.logger.error(f"SMTP error occurred: {str(e)}")
-        raise
-    except Exception as e:
-        current_app.logger.error(f"Failed to send email: {str(e)}")
-        current_app.logger.exception("Email sending error")
-        raise
-
 @auth.route('/auth/login', methods=['GET', 'POST'])
 def login():
     if current_user.is_authenticated:
@@ -364,7 +422,7 @@ def login():
             return redirect(url_for('auth.login'))
 
         if not user.is_confirmed:
-            flash('Silakan konfirmasi email Anda terlebih dahulu.', category='warning')
+            flash('Silakan konfirmasi email Anda terlebih dahulu. <a href="{}">Kirim ulang email konfirmasi</a>'.format(url_for('auth.resend_confirmation')), category='warning')
             return redirect(url_for('auth.login'))
 
         # Set session duration based on remember me
@@ -377,6 +435,7 @@ def login():
             session.permanent = True
             login_user(user, remember=False, duration=timedelta(days=1))
 
+        current_app.logger.info(f"User {user.email} logged in successfully")
         return redirect_based_on_role(user)
 
     return render_template('auth/login.html', form=form)
@@ -424,6 +483,19 @@ def logout():
     logout_user()
     flash('Berhasil logout.', category='warning')
     return redirect(url_for('auth.login'))
+
+@auth.route('/test-email')
+def test_email():
+    from App.utils import test_email_sending, validate_email_config
+    
+    # Validasi konfigurasi
+    is_valid, message = validate_email_config()
+    if not is_valid:
+        return f"Email config error: {message}"
+    
+    # Test kirim email
+    success, result = test_email_sending('haidar038@gmail.com')
+    return f"Email test result: {result}"
 
 @login_manager.user_loader
 def load_user(user_id):

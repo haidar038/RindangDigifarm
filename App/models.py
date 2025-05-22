@@ -28,13 +28,13 @@ class User(db.Model, UserMixin):
     username = db.Column(db.String(255), nullable=False, unique=True)
     email = db.Column(db.String(255), nullable=False, unique=True, index=True)
     password = db.Column(db.String(255), nullable=False)
-    created_at = db.Column(db.DateTime, nullable=False, default=datetime.now())
+    created_at = db.Column(db.DateTime, nullable=False, default=datetime.now)
     is_confirmed = db.Column(db.Boolean, nullable=False, default=False)
     # confirmed_on field removed to avoid database schema mismatch
     is_deleted = db.Column(db.Boolean, nullable=False, default=False)
     deleted_at = db.Column(db.DateTime, nullable=True)
     otp = db.Column(db.String(6))
-    otp_created_at = db.Column(db.DateTime)
+    otp_created_at = db.Column(db.DateTime, nullable=True) # Assuming OTP can be null initially
 
     # Payments
     balance = Column(Numeric(12,2), default=0)
@@ -183,7 +183,7 @@ class Komoditas(db.Model):
     nama = db.Column(db.String(255), nullable=False)
     kategori = db.Column(db.String(255), nullable=False)
     is_deleted = db.Column(db.Boolean, nullable=False, default=False)
-    created_at = db.Column(db.DateTime, default=datetime.now())
+    created_at = db.Column(db.DateTime, default=datetime.now)
     created_by = db.Column(db.Integer, db.ForeignKey('users.id', ondelete='SET NULL'), nullable=True)
 
     # Relationships
@@ -205,7 +205,7 @@ class KebunKomoditas(db.Model):
     komoditas_id = db.Column(db.Integer, db.ForeignKey('komoditas.id', ondelete='CASCADE'), nullable=False)
     is_active = db.Column(db.Boolean, default=True)
     luas_tanam = db.Column(db.Float, nullable=True)  # Tambahan: luas area untuk komoditas ini
-    added_at = db.Column(db.DateTime, default=datetime.now())
+    added_at = db.Column(db.DateTime, default=datetime.now)
     deactivated_at = db.Column(db.DateTime, nullable=True)
 
     # Relationships
@@ -228,7 +228,7 @@ class Kebun(db.Model):
     luas_kebun = db.Column(db.Float, nullable=True)
     koordinat = db.Column(db.String(100), nullable=True)
     is_deleted = db.Column(db.Boolean, nullable=False, default=False)
-    created_at = db.Column(db.DateTime, default=datetime.now())
+    created_at = db.Column(db.DateTime, default=datetime.now)
     user_id = db.Column(db.Integer, db.ForeignKey('users.id', ondelete='CASCADE'), nullable=False)
 
     # Relationships
@@ -291,7 +291,7 @@ class DataPangan(db.Model):
     estimasi_panen = db.Column(db.Date, nullable=False)
     status = db.Column(db.String(50), nullable=False, default='Penanaman')
     is_deleted = db.Column(db.Boolean, default=False)
-    created_at = db.Column(db.DateTime, default=datetime.now())
+    created_at = db.Column(db.DateTime, default=datetime.now)
 
     # Relationships
     kebun = db.relationship('Kebun', back_populates='data_pangan')
@@ -322,8 +322,8 @@ class Product(db.Model):
     gambar_urls     = db.Column(db.Text, nullable=True)                    # comma-separated URL atau JSON
     qris_static     = db.Column(db.String(255), nullable=True)             # URL gambar/QR code Xendit
     is_active       = db.Column(db.Boolean, default=True)                  # untuk hide produk yang habis/tidak dijual
-    created_at      = db.Column(db.DateTime, default=datetime.now())
-    updated_at      = db.Column(db.DateTime, default=datetime.now(), onupdate=datetime.now())
+    created_at      = db.Column(db.DateTime, default=datetime.now)
+    updated_at      = db.Column(db.DateTime, default=datetime.now, onupdate=datetime.now)
 
     # relasi
     seller          = db.relationship('User', backref='products')
@@ -342,7 +342,7 @@ class Order(db.Model):
 
     id             = db.Column(db.Integer, primary_key=True)
     buyer_id       = db.Column(db.Integer, db.ForeignKey('users.id', ondelete='SET NULL'))
-    created_at     = db.Column(db.DateTime, default=datetime.now())
+    created_at     = db.Column(db.DateTime, default=datetime.now)
     total_amount   = db.Column(db.Numeric(12,2), nullable=False)
     status         = db.Column(db.String(50), default='pending')  # pending, paid, processed, shipped, completed, cancelled, expired
     payment_qris   = db.Column(db.String(255), nullable=True)     # bisa reuse produk.qris_static atau invoice Xendit
@@ -383,8 +383,8 @@ class Transaction(db.Model):
     status         = db.Column(db.String(50), default='pending')  # pending, completed, failed, cancelled
     payment_method = db.Column(db.String(50), nullable=True)      # qris, va, transfer, cash
     payment_id     = db.Column(db.String(255), nullable=True)     # ID from payment provider
-    created_at     = db.Column(db.DateTime, default=datetime.now())
-    updated_at     = db.Column(db.DateTime, default=datetime.now(), onupdate=datetime.now())
+    created_at     = db.Column(db.DateTime, default=datetime.now)
+    updated_at     = db.Column(db.DateTime, default=datetime.now, onupdate=datetime.now)
     notes          = db.Column(db.Text, nullable=True)
 
     # Relationships
@@ -426,7 +426,7 @@ class Artikel(db.Model):
     judul = db.Column(db.String(255), nullable=False)
     content = db.Column(db.Text, nullable=False)
     created_by = db.Column(db.Integer, db.ForeignKey('users.id'))
-    created_at = db.Column(db.DateTime, default=datetime.now())
+    created_at = db.Column(db.DateTime, default=datetime.now)
     is_approved = db.Column(db.Boolean, default=False)
     is_drafted = db.Column(db.Boolean, default=False)
     is_deleted = db.Column(db.Boolean, default=False)
@@ -438,7 +438,7 @@ class Forum(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     question = db.Column(db.Text, nullable=False)
     answer = db.Column(db.Text, nullable=True)
-    created_at = db.Column(db.DateTime, nullable=False, default=datetime.now())
+    created_at = db.Column(db.DateTime, nullable=False, default=datetime.now)
     created_by = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
     replied_at = db.Column(db.DateTime, nullable=True)
     replied_by = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=True)
@@ -464,8 +464,8 @@ class UpgradeRequest(db.Model):
     reason = db.Column(db.Text, nullable=False)
     attachment = db.Column(db.String(255), nullable=True)
     status = db.Column(db.String(20), nullable=False, default='pending')
-    created_at = db.Column(db.DateTime, default=datetime.now())
-    updated_at = db.Column(db.DateTime, default=datetime.now(), onupdate=datetime.now())
+    created_at = db.Column(db.DateTime, default=datetime.now)
+    updated_at = db.Column(db.DateTime, default=datetime.now, onupdate=datetime.now)
 
     user = db.relationship('User', backref='upgrade_requests')
 
@@ -473,8 +473,8 @@ class UpgradeRequest(db.Model):
         return f"UpgradeRequest(User: {self.user.username}, Role: {self.requested_role}, Status: {self.status})"
 
 class TimestampMixin:
-    created_at = db.Column(db.DateTime, default=datetime.now())
-    updated_at = db.Column(db.DateTime, default=datetime.now(), onupdate=datetime.now())
+    created_at = db.Column(db.DateTime, default=datetime.now)
+    updated_at = db.Column(db.DateTime, default=datetime.now, onupdate=datetime.now)
 
 class SoftDeleteMixin:
     is_deleted = db.Column(db.Boolean, default=False)
