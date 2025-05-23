@@ -1,4 +1,4 @@
-import logging, jwt, requests
+import logging, jwt, requests, uuid
 
 from flask_socketio import emit
 from flask_mail import Message
@@ -10,6 +10,8 @@ from datetime import timedelta, datetime
 
 from App import mail
 
+ALLOWED_IMAGE_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif'}
+
 # Constants for default commodity and API configuration
 PROVINCE_ID = 32  # Maluku Utara
 REGENCY_ID = 1    # Ternate
@@ -20,6 +22,14 @@ JENIS_ID = 1
 PERIOD_ID = 1
 API_URL = "https://www.bi.go.id/hargapangan/WebSite/Home/GetGridData1"
 
+def generate_unique_id():
+    """Generates a unique ID."""
+    return uuid.uuid4().hex
+
+def is_allowed_file(filename, allowed_extensions_set):
+    """Checks if the file extension is in the allowed set."""
+    return '.' in filename and \
+           filename.rsplit('.', 1)[1].lower() in allowed_extensions_set
 
 def fetch_commodity_data(target_date: str, commodity_id: int = None) -> dict:
     """

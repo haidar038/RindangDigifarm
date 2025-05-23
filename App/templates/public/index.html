@@ -19,6 +19,25 @@
             margin-bottom: 1rem;
         }
     }
+
+    #map {
+        height: 512px;
+        min-height: 300px;
+        width: 100%;
+    }
+
+    #bibit-img-container {
+        /* Changed ID to avoid conflict if #bibit-img is an img tag */
+        min-height: 300px;
+        background-image: url("{{ url_for('static', filename='img/bibit.jpg') }}");
+        /* Example, adjust if needed */
+        background-size: cover;
+        background-position: center;
+    }
+
+    .partner-logo-img {
+        max-height: 40px;
+    }
 </style>
 {% endblock %}
 
@@ -90,7 +109,7 @@
                             </div>
                         </div>
                         <p class="mb-1">Total Produksi</p>
-                        <p class="h4 fw-bolder text-red">{{ total_prod }} kg/bulan</p>
+                        <p class="h4 fw-bolder text-red">{{ total_prod/1000 }} kg/bulan</p>
                     </div>
                 </div>
             </div>
@@ -167,7 +186,7 @@
             </div>
 
             <!-- Map Container -->
-            <div id="map" class="rounded-top-4" style="height: 512px; min-height: 300px; width: 100%;"></div>
+            <div id="map" class="rounded-top-4"></div>
 
             <script>
                 // Mapbox configuration
@@ -259,7 +278,7 @@
 <section id="why-question" class="mb-5">
     <div class="container-fluid px-0">
         <div class="row g-0">
-            <div class="col-12 col-lg-6 min-vh-50" id="bibit-img" style="min-height: 300px;"></div>
+            <div class="col-12 col-lg-6 min-vh-50" id="bibit-img-container"></div>
             <div class="col-12 col-lg-6 bg-green-dark p-4 p-lg-5">
                 <div class="py-4">
                     <p class="text-light mb-0">Manfaat</p>
@@ -607,8 +626,8 @@
                 ] %}
                 {% for logo in partners %}
                 <div class="col text-center">
-                    <img src="{{ url_for('static', filename='logo/' + logo) | safe }}" class="img-fluid"
-                        style="max-height: 40px;" alt="">
+                    <img src="{{ url_for('static', filename='logo/' + logo) | safe }}"
+                        class="img-fluid partner-logo-img" alt="{{ logo.split('.'[0]) }} logo">
                 </div>
                 {% endfor %}
             </div>
@@ -643,42 +662,50 @@
     }
 </script>
 <script>
-    const popoverTriggerList = document.querySelectorAll('[data-bs-toggle="popover"]')
-    const popoverList = [...popoverTriggerList].map(popoverTriggerEl => new bootstrap.Popover(popoverTriggerEl))
+    document.addEventListener('DOMContentLoaded', function () {
+        // Initialize general popovers (if any others exist with just data-bs-toggle)
+        const popoverTriggerList = document.querySelectorAll('[data-bs-toggle="popover"]:not(#cmdtPrice):not(#totalProd):not(#totalField)');
+        [...popoverTriggerList].map(popoverTriggerEl => new bootstrap.Popover(popoverTriggerEl));
 
-    // Initialize popovers with custom content
-    const cmdtPrice = new bootstrap.Popover(document.getElementById('cmdtPrice'), {
-        html: true,
-        content: `<div class="card border-0">
-        <div class="card-body">
-            <p class="mb-1">Harga Komoditas</p>
-            <p class="h5 fw-bolder text-yellow">${document.getElementById('desktopPrice').textContent}</p>
-        </div>
-    </div>`
-    });
+        // Helper function to create popover content
+        function createPopoverContent(title, value, unit, valueColorClass) {
+            return `
+                <div class="card border-0">
+                    <div class="card-body px-2 py-2">
+                        <p class="mb-1 small">${title}</p>
+                        <p class="h5 fw-bolder ${valueColorClass}">${value} <small>${unit}</small></p>
+                    </div>
+                </div>`;
+        }
 
-    const totalProd = new bootstrap.Popover(document.getElementById('totalProd'), {
-        html: true,
-        content: `<div class="card border-0">
-        <div class="card-body">
-            <p class="mb-1">Total Produksi</p>
-            <p class="h5 fw-bolder text-red">{{ total_prod }} kg/bulan</p>
-        </div>
-    </div>`
-    });
+        // Initialize specific popovers with custom content
+        const cmdtPriceEl = document.getElementById('cmdtPrice');
+        if (cmdtPriceEl) {
+            new bootstrap.Popover(cmdtPriceEl, {
+                html: true,
+                content: createPopoverContent('Harga Komoditas', '{{ table_data.price if table_data else "N/A" }}', '/kg', 'text-yellow')
+            });
+        }
 
-    const totalField = new bootstrap.Popover(document.getElementById('totalField'), {
-        html: true,
-        content: `<div class="card border-0">
-        <div class="card-body">
-            <p class="mb-1">Jumlah Kebun</p>
-            <p class="h5 fw-bolder text-green">{{ kebun | length }} Kebun</p>
-        </div>
-    </div>`
+        const totalProdEl = document.getElementById('totalProd');
+        if (totalProdEl) {
+            new bootstrap.Popover(totalProdEl, {
+                html: true,
+                content: createPopoverContent('Total Produksi', '{{ "%.1f" | format(total_prod / 1000) if total_prod is defined else "0.0" }}', 'kg/bln', 'text-red')
+            });
+        }
+
+        const totalFieldEl = document.getElementById('totalField');
+        if (totalFieldEl) {
+            new bootstrap.Popover(totalFieldEl, {
+                html: true,
+                content: createPopoverContent('Jumlah Kebun', '{{ kebun|length if kebun else 0 }}', 'Kebun', 'text-green')
+            });
+        }
     });
 </script>
 <script>
     const tooltipTriggerList = document.querySelectorAll('[data-bs-toggle="tooltip"]')
-    const tooltipList = [...tooltipTriggerList].map(tooltipTriggerEl => new bootstrap.Tooltip(tooltipTriggerEl))
+
 </script>
 {% endblock %}

@@ -10,6 +10,7 @@ from functools import wraps
 
 from App import login_manager, db, mail, limiter
 from App.utils import confirm_jwt_token, generate_confirmation_token, send_password_reset_email, send_otp_email
+
 from App.models import User, Role
 from App.forms.auth_forms import LoginForm, RegistrationForm, ForgotPasswordForm, OTPVerificationForm, ResetPasswordForm
 

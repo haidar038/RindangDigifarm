@@ -23,7 +23,7 @@
 
     <!-- Statistik Utama -->
     <div class="row mb-4">
-        <div class="col-md-3 mb-3">
+        <div class="{% if current_user.has_role('admin') %} col-md-3 {% else %} col-md-4 {% endif %} mb-3">
             <div class="card h-100 border-0 shadow-sm">
                 <div class="card-body text-center">
                     <div class="d-flex justify-content-between align-items-center mb-2">
@@ -49,7 +49,7 @@
             </div>
         </div>
 
-        <div class="col-md-3 mb-3">
+        <div class="{% if current_user.has_role('admin') %} col-md-3 {% else %} col-md-4 {% endif %} mb-3">
             <div class="card h-100 border-0 shadow-sm">
                 <div class="card-body text-center">
                     <div class="d-flex justify-content-between align-items-center mb-2">
@@ -75,7 +75,7 @@
             </div>
         </div>
 
-        <div class="col-md-3 mb-3">
+        <div class="{% if current_user.has_role('admin') %} col-md-3 {% else %} col-md-4 {% endif %} mb-3">
             <div class="card h-100 border-0 shadow-sm">
                 <div class="card-body text-center">
                     <div class="d-flex justify-content-between align-items-center mb-2">
@@ -95,6 +95,7 @@
             </div>
         </div>
 
+        {% if current_user.has_role('admin') %}
         <div class="col-md-3 mb-3">
             <div class="card h-100 border-0 shadow-sm">
                 <div class="card-body text-center">
@@ -114,6 +115,7 @@
                 </div>
             </div>
         </div>
+        {% endif %}
     </div>
 
     <!-- Aktivitas Terbaru -->

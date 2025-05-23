@@ -28,17 +28,16 @@
                         <span class="input-group-text  border-end-0">
                             <i class="bi bi-search text-muted"></i>
                         </span>
-                        <input type="text" class="form-control border-start-0" id="searchInput"
-                            placeholder="Cari username atau email...">
+                        <input type="text" class="form-control border-start-0" id="searchInput" name="search"
+                            placeholder="Cari username, email atau nama..." value="{{ current_search }}">
                     </div>
                 </div>
                 <div class="col-md-3">
-                    <select class="form-select" id="roleFilter">
-                        <option value="all" selected>Semua Role</option>
-                        <option value="admin">Admin</option>
-                        <option value="petani">Petani</option>
-                        <option value="ahli">Ahli</option>
-                        <option value="personal">Personal</option>
+                    <select class="form-select" id="sortOrder" name="sort">
+                        <option value="newest" {% if current_sort=='newest' %}selected{% endif %}>Terbaru</option>
+                        <option value="oldest" {% if current_sort=='oldest' %}selected{% endif %}>Terlama</option>
+                        <option value="username" {% if current_sort=='username' %}selected{% endif %}>Username (A-Z)
+                        </option>
                     </select>
                 </div>
                 <div class="col-md-3">
@@ -78,6 +77,12 @@
                         </tr>
                     </thead>
                     <!-- include partial pertama kali -->
+                    {% set table_context = {
+                    'users': users,
+                    'pagination': pagination,
+                    'pending_upgrade_user_ids': pending_upgrade_user_ids,
+                    'user_req': user_req
+                    } %}
                     {% include 'admin/_users_table.html' %}
                 </table>
             </div>
@@ -458,134 +463,112 @@
 {% block scripts %}
 <script>
     document.addEventListener('DOMContentLoaded', function () {
+        // Get DOM elements
+        const searchInput = document.getElementById('searchInput');
+        const sortOrder = document.getElementById('sortOrder');
+        const roleFilter = document.getElementById('roleFilter');
+        const resetFilters = document.getElementById('resetFilters');
         const tableBody = document.getElementById('users-table-body');
         const pagination = document.getElementById('users-pagination');
-        const searchInput = document.getElementById('searchInput');
-        const roleFilter = document.getElementById('roleFilter');
-        const sortOrder = document.getElementById('sortOrder');
-        const resetFilters = document.getElementById('resetFilters');
 
-        // Handle pagination
-        pagination.addEventListener('click', function (e) {
-            e.preventDefault();
-            const link = e.target.closest('a.page-link');
-            if (!link) return;
-            const page = link.dataset.page;
+        let currentPage = {{ pagination.page }};
 
-            // Get current filter values
-            const search = searchInput.value;
-            const role = roleFilter.value;
-            const sort = sortOrder.value;
+    // Check if elements exist before adding event listeners
+    if (!searchInput || !sortOrder || !resetFilters || !tableBody || !pagination) {
+        console.error('Required DOM elements not found');
+        return;
+    }
 
-            // Build query string
-            let queryParams = `page=${page}`;
-            if (search) queryParams += `&search=${encodeURIComponent(search)}`;
-            if (role !== 'all') queryParams += `&role=${role}`;
-            if (sort) queryParams += `&sort=${sort}`;
+    // Handle pagination
+    function fetchUsers(page = 1) {
+        currentPage = page;
+        const search = searchInput.value.trim();
+        const sort = sortOrder.value;
+        const role = roleFilter ? roleFilter.value : 'all';
 
-            fetch(`{{ url_for('admin.users_management_table') }}?${queryParams}`, {
-                headers: { 'X-Requested-With': 'XMLHttpRequest' }
+        let queryParams = `page=${page}&search=${encodeURIComponent(search)}&sort=${sort}&role=${role}`;
+
+        // Update URL for bookmarking/sharing
+        const newUrl = `{{ url_for('admin.users_management') }}?${queryParams}`;
+        window.history.pushState({ path: newUrl }, '', newUrl);
+
+        // Show a loading indicator
+        tableBody.innerHTML = '<tr><td colspan="5" class="text-center py-4"><div class="spinner-border spinner-border-sm me-2" role="status"></div>Memuat pengguna...</td></tr>';
+
+        fetch(`{{ url_for('admin.users_management_table') }}?${queryParams}`, {
+            headers: { 'X-Requested-With': 'XMLHttpRequest' }
+        })
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error('Network response was not ok');
+                }
+                return response.text();
             })
-                .then(resp => resp.text())
-                .then(html => {
-                    // Update table content
-                    tableBody.innerHTML = html;
-
-                    // Update active class in pagination
-                    document.querySelectorAll('#users-pagination .page-item').forEach(li => li.classList.remove('active'));
-                    link.parentElement.classList.add('active');
-
-                    // Apply client-side filtering again (in case server filtering is not implemented yet)
-                    applyClientSideFilters();
-                })
-                .catch(err => console.error('Error loading page', err));
-        });
-
-        // Client-side filtering and search
-        function applyClientSideFilters() {
-            const searchTerm = searchInput.value.toLowerCase();
-            const roleValue = roleFilter.value;
-
-            // Get all user rows
-            const rows = document.querySelectorAll('.user-row');
-
-            rows.forEach(row => {
-                const username = row.dataset.username.toLowerCase();
-                const email = row.dataset.email.toLowerCase();
-                const roles = row.dataset.roles.split(',');
-
-                // Check if row matches search term
-                const matchesSearch = searchTerm === '' ||
-                    username.includes(searchTerm) ||
-                    email.includes(searchTerm);
-
-                // Check if row matches role filter
-                const matchesRole = roleValue === 'all' || roles.includes(roleValue);
-
-                // Show/hide row based on filters
-                if (matchesSearch && matchesRole) {
-                    row.style.display = '';
-                } else {
-                    row.style.display = 'none';
-                }
+            .then(html => {
+                // Replace table body content
+                tableBody.innerHTML = html;
+                updatePaginationUI(page);
+            })
+            .catch(err => {
+                console.error('Error loading page:', err);
+                tableBody.innerHTML = '<tr><td colspan="5" class="text-center py-4 text-danger"><i class="bi bi-exclamation-triangle me-2"></i>Terjadi kesalahan saat memuat data</td></tr>';
             });
+    }
 
-            // Check if any rows are visible
-            const visibleRows = document.querySelectorAll('.user-row[style="display: "]');
-            const noResultsRow = document.querySelector('.no-results-row');
+    // Event listeners for filters
+    searchInput.addEventListener('input', debounce(() => fetchUsers(1), 500));
+    sortOrder.addEventListener('change', () => fetchUsers(1));
 
-            if (visibleRows.length === 0 && !noResultsRow) {
-                // Add "no results" row if none exists
-                const tbody = document.getElementById('users-table-body');
-                const tr = document.createElement('tr');
-                tr.className = 'no-results-row';
-                tr.innerHTML = `
-                    <td colspan="5" class="text-center py-4">
-                        <div class="text-muted">
-                            <i class="bi bi-search fs-3 d-block mb-2"></i>
-                            Tidak ada pengguna yang ditemukan
-                        </div>
-                    </td>
-                `;
-                tbody.appendChild(tr);
-            } else if (visibleRows.length > 0 && noResultsRow) {
-                // Remove "no results" row if results exist
-                noResultsRow.remove();
-            }
+    // Add role filter event listener if element exists
+    if (roleFilter) {
+        roleFilter.addEventListener('change', () => fetchUsers(1));
+    }
+
+    // Handle pagination clicks (delegated)
+    pagination.addEventListener('click', function (e) {
+        e.preventDefault();
+        const link = e.target.closest('a.page-link');
+        if (!link || link.parentElement.classList.contains('disabled') || link.parentElement.classList.contains('active')) {
+            return;
         }
-
-        // Add event listeners for filters
-        searchInput.addEventListener('input', applyClientSideFilters);
-        roleFilter.addEventListener('change', applyClientSideFilters);
-
-        // Reset filters
-        resetFilters.addEventListener('click', function () {
-            searchInput.value = '';
-            roleFilter.value = 'all';
-            sortOrder.value = 'newest';
-            applyClientSideFilters();
-        });
-
-        // Sort functionality
-        sortOrder.addEventListener('change', function () {
-            const sortValue = this.value;
-            const tbody = document.getElementById('users-table-body');
-            const rows = Array.from(tbody.querySelectorAll('.user-row'));
-
-            // Sort rows based on selected option
-            rows.sort((a, b) => {
-                if (sortValue === 'username') {
-                    return a.dataset.username.localeCompare(b.dataset.username);
-                } else {
-                    // For now, we'll just use the row order as a proxy for creation date
-                    // In a real implementation, you'd want to sort by actual date
-                    return sortValue === 'oldest' ? 1 : -1;
-                }
-            });
-
-            // Reorder rows in the DOM
-            rows.forEach(row => tbody.appendChild(row));
-        });
+        const page = link.dataset.page;
+        if (page) {
+            fetchUsers(parseInt(page));
+        }
     });
+
+    function updatePaginationUI(activePage) {
+        document.querySelectorAll('#users-pagination .page-item').forEach(li => {
+            li.classList.remove('active');
+            const link = li.querySelector('a.page-link');
+            if (link && parseInt(link.dataset.page) === activePage) {
+                li.classList.add('active');
+            }
+        });
+    }
+
+    // Reset filters
+    resetFilters.addEventListener('click', function () {
+        searchInput.value = '';
+        sortOrder.value = 'newest';
+        if (roleFilter) {
+            roleFilter.value = 'all';
+        }
+        fetchUsers(1);
+    });
+
+    // Debounce function
+    function debounce(func, wait) {
+        let timeout;
+        return function executedFunction(...args) {
+            const later = () => {
+                clearTimeout(timeout);
+                func(...args);
+            };
+            clearTimeout(timeout);
+            timeout = setTimeout(later, wait);
+        };
+    }
+});
 </script>
 {% endblock %}

@@ -649,7 +649,7 @@
             if (!groupedData[dateStr][item.komoditas]) {
                 groupedData[dateStr][item.komoditas] = 0;
             }
-            groupedData[dateStr][item.komoditas] += item.hasil_panen;
+            groupedData[dateStr][item.komoditas] += item.hasil_panen / 1000; // Convert grams to kg
         });
 
         // Sort dates
@@ -726,7 +726,7 @@
         const commodityTotals = {};
         data.forEach((item) => {
             if (item.hasil_panen) {
-                if (!commodityTotals[item.komoditas]) {
+                if (!commodityTotals[item.komoditas]) { // Use original item.komoditas name
                     commodityTotals[item.komoditas] = 0;
                 }
                 commodityTotals[item.komoditas] += item.hasil_panen;
@@ -789,7 +789,7 @@
                 const csvContent = [['Kebun', 'Komoditas', 'Tanggal Bibit', 'Jumlah Bibit', 'Tanggal Panen', 'Jumlah Panen']];
 
                 data.forEach((item) => {
-                    csvContent.push([item.kebun, item.komoditas, item.tanggal_bibit || '', item.jml_bibit || '', item.tanggal_panen || '', item.hasil_panen || '']);
+                    csvContent.push([item.kebun, item.komoditas, item.tanggal_bibit || '', item.jml_bibit || '', item.tanggal_panen || '', (item.hasil_panen / 1000) || '']); // Convert grams to kg
                 });
 
                 // Convert to CSV string
@@ -816,8 +816,8 @@
                 .sort((a, b) => new Date(a.tanggal_panen) - new Date(b.tanggal_panen));
 
             if (commodityData.length >= 2) {
-                const current = commodityData[commodityData.length - 1].hasil_panen;
-                const previous = commodityData[commodityData.length - 2].hasil_panen;
+                const current = commodityData[commodityData.length - 1].hasil_panen; // Productivity change is relative, no need to convert here
+                const previous = commodityData[commodityData.length - 2].hasil_panen; // Productivity change is relative, no need to convert here
                 const change = ((current - previous) / previous * 100);
 
                 changes[commodity] = {

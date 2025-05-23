@@ -162,48 +162,90 @@ def index():
 @login_required
 @roles_required('admin')
 def users_management():
-    # halaman default = 1
     page = request.args.get('page', 1, type=int)
-    pagination = User.query \
-                        .filter(User.username != 'admin') \
-                        .order_by(User.id) \
-                        .paginate(page=page, per_page=PER_PAGE, error_out=False)
+    search_term = request.args.get('search', '')
+    role_filter = request.args.get('role', 'all')
+    sort_order = request.args.get('sort', 'newest')
 
-    users = pagination.items
-    user_req = UpgradeRequest.query.all()
+    users_query = _get_filtered_users_query(search_term, role_filter, sort_order)
+    pagination = users_query.paginate(page=page, per_page=PER_PAGE, error_out=False)
+
+    # Optimize fetching users with pending upgrade requests
+    pending_upgrade_user_ids = {
+        req.user_id for req in UpgradeRequest.query.filter_by(status='pending').with_entities(UpgradeRequest.user_id).all()
+    }
+
+    processed_users = []
+    for user_obj in pagination.items:
+        user_obj.has_pending_upgrade = user_obj.id in pending_upgrade_user_ids
+        processed_users.append(user_obj)
 
     return render_template(
         'admin/users_management.html',
-        users=users,
-        user_req=user_req,
+        users=processed_users, # Pass processed users for the initial load
         pagination=pagination,
+        pending_upgrade_user_ids=pending_upgrade_user_ids, # Pass this for the initial _users_table include
         min=min,
-        max=max
+        max=max,
+        current_search=search_term,
+        current_role=role_filter,
+        current_sort=sort_order
     )
+
+def _get_filtered_users_query(search_term, role_filter, sort_order):
+    query = User.query.filter(User.username != 'admin', User.is_deleted == False)
+
+    if search_term:
+        query = query.filter(
+            User.username.ilike(f'%{search_term}%') |
+            User.email.ilike(f'%{search_term}%') |
+            User.nama_lengkap.ilike(f'%{search_term}%')
+        )
+
+    if role_filter != 'all':
+        query = query.join(User.roles).filter(Role.name == role_filter)
+
+    if sort_order == 'oldest':
+        query = query.order_by(User.created_at.asc())
+    elif sort_order == 'username':
+        query = query.order_by(User.username.asc())
+    else:  # newest or default
+        query = query.order_by(User.created_at.desc())
+    
+    return query
 
 @admin.route('/admin/users-management/_table')
 @login_required
 @roles_required('admin')
 def users_management_table():
-    # route ini hanya render <tbody> untuk AJAX
     page = request.args.get('page', 1, type=int)
-    pagination = User.query \
-                        .filter(User.username != 'admin') \
-                        .order_by(User.id) \
-                        .paginate(page=page, per_page=PER_PAGE, error_out=False)
-    users = pagination.items
-    user_req = UpgradeRequest.query.all()
+    search_term = request.args.get('search', '')
+    role_filter = request.args.get('role', 'all')
+    sort_order = request.args.get('sort', 'newest')
+
+    users_query = _get_filtered_users_query(search_term, role_filter, sort_order)
+    pagination = users_query.paginate(page=page, per_page=PER_PAGE, error_out=False)
+
+    pending_upgrade_user_ids = {
+        req.user_id for req in UpgradeRequest.query.filter_by(status='pending').with_entities(UpgradeRequest.user_id).all()
+    }
+
+    processed_users = []
+    for user_obj in pagination.items:
+        user_obj.has_pending_upgrade = user_obj.id in pending_upgrade_user_ids
+        processed_users.append(user_obj)
+
     return render_template(
         'admin/_users_table.html',
-        users=users,
-        user_req=user_req
+        users=processed_users,
+        pagination=pagination, # Pass pagination for loop.index calculation
+        pending_upgrade_user_ids=pending_upgrade_user_ids
     )
 
 @admin.route('/admin/users-management/new', methods=['GET', 'POST'])
 @login_required
 @roles_required('admin')
 def add_user():
-    users = User.query.filter(User.username!='admin').all()
     roles = Role.query.all()
 
     if request.method == 'POST':
@@ -239,7 +281,7 @@ def add_user():
             flash('User berhasil ditambahkan', 'success')
             return redirect(url_for('admin.users_management'))
 
-    return render_template('admin/User/add_user.html', users=users, roles=roles)
+    return render_template('admin/User/add_user.html', roles=roles)
 
 # In admin_routes.py
 @admin.route('/admin/users-management/edit/<int:user_id>', methods=['GET', 'POST'])
@@ -1193,7 +1235,7 @@ def productions_management():
 
 @admin.route('/api/harvest-data')
 @login_required
-@roles_required('admin')
+@roles_required('admin', 'view_only')
 def get_harvest_data():
     timeframe = request.args.get('timeframe', 'monthly')
 
@@ -1212,39 +1254,90 @@ def get_harvest_data():
     )
 
     # Group by timeframe
+    # The selected DataPangan.tanggal_panen will be a representative date from the group.
     if timeframe == 'weekly':
-        base_query = base_query.group_by(func.yearweek(DataPangan.tanggal_panen), Komoditas.nama)
+        base_query = base_query.group_by(
+            func.year(DataPangan.tanggal_panen),
+            func.weekofyear(DataPangan.tanggal_panen),
+            Komoditas.nama
+        ).order_by(func.year(DataPangan.tanggal_panen), func.weekofyear(DataPangan.tanggal_panen), Komoditas.nama)
     elif timeframe == 'yearly':
-        base_query = base_query.group_by(func.year(DataPangan.tanggal_panen), Komoditas.nama)
+        base_query = base_query.group_by(
+            func.year(DataPangan.tanggal_panen),
+            Komoditas.nama
+        ).order_by(func.year(DataPangan.tanggal_panen), Komoditas.nama)
     else:
-        base_query = base_query.group_by(func.date_format(DataPangan.tanggal_panen, '%Y-%m'), Komoditas.nama)
+        base_query = base_query.group_by(
+            func.date_format(DataPangan.tanggal_panen, '%Y-%m'), # Group by YYYY-MM string
+            Komoditas.nama
+        ).order_by(func.date_format(DataPangan.tanggal_panen, '%Y-%m'), Komoditas.nama)
 
     results = base_query.all()
 
     # Format data for chart
-    datasets = {}
-    labels = sorted(list(set(r[0].strftime('%Y-%m-%d') for r in results)))
+    # datasets_temp stores data as {komoditas: {date_str: value}}
+    datasets_temp = {}
+    # all_labels_set collects unique date strings for the x-axis
+    all_labels_set = set()
 
-    for date, amount, komoditas in results:
-        if komoditas not in datasets:
-            datasets[komoditas] = {label: 0 for label in labels}
-        datasets[komoditas][date.strftime('%Y-%m-%d')] = float(amount)
+    for date_obj, amount, komoditas in results:
+        # Use YYYY-MM-DD as the key for labels and data mapping.
+        # The chart buttons (weekly, monthly, yearly) provide context for the period.
+        date_str = date_obj.strftime('%Y-%m-%d')
+        all_labels_set.add(date_str)
+
+        if komoditas not in datasets_temp:
+            datasets_temp[komoditas] = {}
+        # Sum up amounts, converted to kg
+        datasets_temp[komoditas][date_str] = datasets_temp[komoditas].get(date_str, 0) + (float(amount or 0) / 1000)
+
+    sorted_labels = sorted(list(all_labels_set))
+
+    # Define a color palette with green and red first
+    color_palette = [
+        {'bg': 'rgba(40, 167, 69, 0.7)', 'border': 'rgb(40, 167, 69)'},    # Green
+        {'bg': 'rgba(220, 53, 69, 0.7)', 'border': 'rgb(220, 53, 69)'},    # Red
+        {'bg': 'rgba(0, 123, 255, 0.7)', 'border': 'rgb(0, 123, 255)'},    # Blue
+        {'bg': 'rgba(255, 193, 7, 0.7)', 'border': 'rgb(255, 193, 7)'},    # Yellow
+        {'bg': 'rgba(23, 162, 184, 0.7)', 'border': 'rgb(23, 162, 184)'},   # Teal
+        {'bg': 'rgba(108, 117, 125, 0.7)', 'border': 'rgb(108, 117, 125)'} # Grey
+    ]
+
+    final_datasets = []
+    for i, (komoditas, date_values) in enumerate(datasets_temp.items()):
+        # Assign color from palette, fallback to HSL if more commodities than palette colors
+        if i < len(color_palette):
+            selected_color = color_palette[i]
+            bg_color = selected_color['bg']
+            border_color = selected_color['border']
+        else:
+            # Fallback to dynamic HSL colors for additional commodities
+            # Multiply hash by a prime number for better color distribution
+            hue = (hash(komoditas) * 31) % 360
+            bg_color = f'hsl({hue}, 70%, 60%)'
+            border_color = f'hsl({hue}, 70%, 40%)'
+
+        # Ensure data points align with the sorted labels
+        data_points = [date_values.get(label, 0) for label in sorted_labels]
+
+        final_datasets.append({
+            'label': komoditas,
+            'data': data_points,
+            'backgroundColor': bg_color,
+            'borderColor': border_color,
+            'borderWidth': 1
+        })
 
     chart_data = {
-        'labels': labels,
-        'datasets': [{
-            'label': komoditas,
-            'data': list(data.values()),
-            'borderColor': f'hsl({hash(komoditas) % 360}, 70%, 50%)',
-            'fill': False
-        } for komoditas, data in datasets.items()]
+        'labels': sorted_labels,
+        'datasets': final_datasets
     }
 
     return jsonify(chart_data)
 
 @admin.route('/api/user-production/<int:user_id>')
 @login_required
-@roles_required('admin')
+@roles_required('admin', 'view_only') # Kept for potential direct use, though modal will use paginated one
 def get_user_production(user_id):
     user = User.query.get_or_404(user_id)
 
@@ -1280,7 +1373,7 @@ def get_user_production(user_id):
     for h in harvests:
         if h.commodity_name not in commodity_totals:
             commodity_totals[h.commodity_name] = 0
-        commodity_totals[h.commodity_name] += h.amount
+        commodity_totals[h.commodity_name] += h.amount / 1000 # Convert grams to kg
 
     for commodity, total in commodity_totals.items():
         chart_data['labels'].append(commodity)
@@ -1291,7 +1384,7 @@ def get_user_production(user_id):
 
     return jsonify({
         'user': {
-            'nama_lengkap': user.nama_lengkap,
+            'nama_lengkap': user.nama_lengkap or user.username,
             'total_gardens': len(user.kebun),
             'total_harvest': sum(h.amount for h in harvests)
         },
@@ -1299,7 +1392,7 @@ def get_user_production(user_id):
             {
                 'garden_name': h.garden_name,
                 'commodity_name': h.commodity_name,
-                'amount': h.amount,
+                'amount': (h.amount or 0) / 1000, # Convert grams to kg, ensure not None
                 'harvest_date': h.tanggal_panen.isoformat()
             }
             for h in harvests
@@ -1307,7 +1400,89 @@ def get_user_production(user_id):
         'chartData': chart_data
     })
 
-@admin.route('/api/generate-report/<int:user_id>')
+@admin.route('/api/user-production-paginated/<int:user_id>')
+@login_required
+@roles_required('admin', 'view_only')
+def get_user_production_paginated(user_id):
+    user = User.query.get_or_404(user_id)
+    page = request.args.get('page', 1, type=int)
+    per_page = request.args.get('per_page', 5, type=int) # Items per page in modal
+
+    # Query for paginated harvests
+    harvests_query = db.session.query(
+        Kebun.nama.label('garden_name'),
+        Komoditas.nama.label('commodity_name'),
+        DataPangan.jml_panen.label('amount'),
+        DataPangan.tanggal_panen
+    ).join(
+        Kebun,
+        DataPangan.kebun_id == Kebun.id
+    ).join(
+        Komoditas,
+        DataPangan.komoditas_id == Komoditas.id
+    ).filter(
+        DataPangan.user_id == user_id,
+        DataPangan.is_deleted == False,
+        DataPangan.tanggal_panen.isnot(None) # Only show harvested items
+    ).order_by(DataPangan.tanggal_panen.desc())
+
+    paginated_harvests = harvests_query.paginate(page=page, per_page=per_page, error_out=False)
+
+    harvests_data = [
+        {
+            'garden_name': h.garden_name,
+            'commodity_name': h.commodity_name,
+            'amount': h.amount or 0, # Ensure amount is not None
+            'harvest_date': h.tanggal_panen.isoformat() if h.tanggal_panen else None
+        }
+        for h in paginated_harvests.items
+    ]
+
+    # For the chart, show overall distribution based on all user's harvests
+    all_harvests_for_chart = db.session.query(
+        Komoditas.nama.label('commodity_name'),
+        func.sum(DataPangan.jml_panen).label('total_amount_for_commodity') # Sum per commodity
+    ).join(
+        Komoditas, DataPangan.komoditas_id == Komoditas.id
+    ).filter(
+        DataPangan.user_id == user_id,
+        DataPangan.is_deleted == False,
+        DataPangan.tanggal_panen.isnot(None),
+        DataPangan.jml_panen.isnot(None)
+    ).group_by(Komoditas.nama).all()
+
+    chart_data = {
+        'labels': [h.commodity_name for h in all_harvests_for_chart],
+        'datasets': [{
+            'label': 'Hasil Panen (kg)',
+            'data': [(h.total_amount_for_commodity or 0) / 1000 for h in all_harvests_for_chart], # Convert to kg
+            'backgroundColor': [f'hsl({hash(h.commodity_name) % 360}, 70%, 50%)' for h in all_harvests_for_chart]
+        }]
+    }
+
+    total_harvest_all_user = float(sum((h.total_amount_for_commodity or 0) / 1000 for h in all_harvests_for_chart)) # Convert overall total to kg and ensure float
+
+    return jsonify({
+        'user': {
+            'nama_lengkap': user.nama_lengkap,
+            'total_gardens': Kebun.query.filter_by(user_id=user.id, is_deleted=False).count(),
+            'total_harvest': total_harvest_all_user
+        },
+        'harvests': harvests_data,
+        'pagination': {
+            'page': paginated_harvests.page,
+            'per_page': paginated_harvests.per_page,
+            'total_pages': paginated_harvests.pages,
+            'total_items': paginated_harvests.total,
+            'has_next': paginated_harvests.has_next,
+            'has_prev': paginated_harvests.has_prev,
+            'next_num': paginated_harvests.next_num if paginated_harvests.has_next else None,
+            'prev_num': paginated_harvests.prev_num if paginated_harvests.has_prev else None
+        },
+        'chartData': chart_data
+    })
+
+@admin.route('/api/generate-report/<int:user_id>') # This route is for PDF, already uses kg in template
 @login_required
 @roles_required('admin')
 def generate_production_report(user_id):
@@ -1359,7 +1534,7 @@ def generate_production_report(user_id):
             h.commodity_name,
             str(h.jml_bibit),
             h.tanggal_bibit.strftime('%d/%m/%Y') if h.tanggal_bibit else '-',
-            f"{h.jml_panen}kg" if h.jml_panen else '-',
+            f"{(h.jml_panen or 0) / 1000}kg" if h.jml_panen is not None else '-', # Convert grams to kg
             h.tanggal_panen.strftime('%d/%m/%Y') if h.tanggal_panen else '-'
         ])
 
