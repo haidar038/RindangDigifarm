@@ -9,16 +9,11 @@
                     <div class="h-100 col-12 text-light d-flex flex-column justify-content-center h-100">
                         <h4 class="fw-bold mb-5">Daftar sekarang untuk menjadi bagian dari RINDANG</h4>
                         <ul class="list-unstyled mb-0">
-                            <li class="mb-3"><i class="bi bi-check-circle-fill me-2"></i>Didampingi oleh penyuluh
-                                pertanian</li>
-                            <li class="mb-3"><i class="bi bi-check-circle-fill me-2"></i>Mengembangkan Pertanian
-                                menggunakan teknologi</li>
-                            <li class="mb-3"><i class="bi bi-check-circle-fill me-2"></i>Akses ke bantuan AI untuk
-                                konsultasi masalah pertanian 24/7 melalui Rindang Virtual Assistant</li>
-                            <li class="mb-3"><i class="bi bi-check-circle-fill me-2"></i>Monitoring dan pencatatan
-                                digital untuk meningkatkan produktivitas hasil panen</li>
-                            <li><i class="bi bi-check-circle-fill me-2"></i>Forum diskusi langsung dengan para ahli
-                                pertanian untuk konsultasi dan berbagi pengalaman</li>
+                            <li class="mb-3"><i class="bi bi-check-circle-fill me-2"></i>Didampingi oleh penyuluh pertanian</li>
+                            <li class="mb-3"><i class="bi bi-check-circle-fill me-2"></i>Mengembangkan Pertanian menggunakan teknologi</li>
+                            <li class="mb-3"><i class="bi bi-check-circle-fill me-2"></i>Akses ke bantuan AI untuk konsultasi masalah pertanian 24/7 melalui Rindang Virtual Assistant</li>
+                            <li class="mb-3"><i class="bi bi-check-circle-fill me-2"></i>Monitoring dan pencatatan digital untuk meningkatkan produktivitas hasil panen</li>
+                            <li><i class="bi bi-check-circle-fill me-2"></i>Forum diskusi langsung dengan para ahli pertanian untuk konsultasi dan berbagi pengalaman</li>
                         </ul>
                     </div>
                 </div>
@@ -26,8 +21,7 @@
         </div>
         <div class="col-12 col-lg-6 p-3 p-lg-4 d-flex flex-column">
             <div class="d-flex justify-content-between">
-                <a href="{{ url_for('public.index' ) }}" class="link-color-primary fw-bold nav-link"><i
-                        class="bi bi-arrow-left"></i> Kembali</a>
+                <a href="{{ url_for('public.index' ) }}" class="link-color-primary fw-bold nav-link"><i class="bi bi-arrow-left"></i> Kembali</a>
             </div>
             <div class="flex-fill d-flex flex-column pt-5">
                 <!-- <img class="mb-4" src="{{ url_for('static', filename='img/rindang-logo-green.svg' ) }}" alt="Logo Rindang" width="156px" /> -->
@@ -37,8 +31,7 @@
                     <div class="mb-3">
                         <label for="login_identifier" class="form-label">Alamat Email</label>
                         <!-- <input type="login_identifier" class="form-control" id="emailAddress" name="emailAddress" placeholder="user@email.com" /> -->
-                        {{ form.email(class="form-control", placeholder="user@email.com", id="login_identifier") }} {%
-                        if form.email.errors %} {% for error in form.email.errors %}
+                        {{ form.email(class="form-control", placeholder="user@email.com", id="login_identifier") }} {% if form.email.errors %} {% for error in form.email.errors %}
                         <span class="text-danger">{{ error }}</span>
                         {% endfor %} {% endif %}
                     </div>
@@ -46,13 +39,10 @@
                         <label for="password" class="form-label">Kata Sandi</label>
                         <div class="input-group">
                             <!-- <input type="password" class="form-control" id="userPass" name="userPass" placeholder="••••••••" /> -->
-                            {{ form.password(class="form-control", placeholder="••••••••", id="password") }} {% if
-                            form.password.errors %} {% for error in form.password.errors %}
+                            {{ form.password(class="form-control", placeholder="••••••••", id="password") }} {% if form.password.errors %} {% for error in form.password.errors %}
                             <span class="text-danger">{{ error }}</span>
                             {% endfor %} {% endif %}
-                            <button type="button" class="btn btn-green" id="togglePassword"
-                                onclick="togglePasswordVisibility('userPass')"><i id="passwordIcon"
-                                    class="bi bi-eye-slash text-light"></i></button>
+                            <button type="button" class="btn btn-green" id="togglePassword" onclick="togglePasswordVisibility('password')"><i id="passwordIcon" class="bi bi-eye-slash text-light"></i></button>
                         </div>
                     </div>
                     <div class="d-flex justify-content-between align-items-center mb-4">
@@ -61,15 +51,13 @@
                             {{ form.remember(class="form-check-input", id="remember", value="remember") }}
                             <label class="form-check-label" for="remember"> Ingat saya </label>
                         </div>
-                        <a href="{{ url_for('auth.forgot_password' ) }}"
-                            class="nav-link link-color-primary fw-bold">Lupa Kata Sandi</a>
+                        <a href="{{ url_for('auth.forgot_password' ) }}" class="nav-link link-color-primary fw-bold">Lupa Kata Sandi</a>
                     </div>
                     <button type="submit" class="btn btn-green text-center fw-bold text-light w-100 mb-3">Masuk</button>
                 </form>
                 <div class="d-flex gap-1">
                     <p class="mb-0">Belum punya akun?</p>
-                    <a href="{{ url_for('auth.register' ) }}" class="link-color-primary fw-bold nav-link">Daftar
-                        disini</a>
+                    <a href="{{ url_for('auth.register' ) }}" class="link-color-primary fw-bold nav-link">Daftar disini</a>
                 </div>
             </div>
         </div>

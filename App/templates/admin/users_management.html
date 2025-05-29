@@ -12,7 +12,8 @@
             <h3 class="fw-bold mb-0">Manajemen Pengguna</h3>
             <p class="text-muted">Kelola semua pengguna dalam sistem</p>
         </div>
-        <div>
+        <div class="d-flex gap-2">
+            <a href="{{ url_for('admin.view_upgrade_requests') }}" class="btn btn-secondary">Upgrade Request</a>
             <a href="{{ url_for('admin.add_user') }}" class="btn btn-green">
                 <i class="bi bi-plus-lg me-1"></i> Tambah User Baru
             </a>

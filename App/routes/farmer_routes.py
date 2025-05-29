@@ -1917,9 +1917,9 @@ def import_produksi():
                     skipped_records += 1
                     continue
 
-                # Find kebun
+                # Find kebun by name (not by id)
                 kebun = Kebun.query.filter_by(
-                    id=int(kebun_id) if not isinstance(kebun_id, int) else kebun_id,
+                    nama=str(kebun_id).strip(),
                     user_id=current_user.id,
                     is_deleted=False
                 ).first()
