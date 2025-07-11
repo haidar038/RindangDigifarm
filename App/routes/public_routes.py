@@ -230,7 +230,7 @@ def gemini_api():
 
     try:
         # Create model and generate response
-        model = genai.GenerativeModel("gemini-1.5-pro")
+        model = genai.GenerativeModel("gemini-2.5-flash")
 
         # Define the system prompt for agricultural assistance
         prompt = (
