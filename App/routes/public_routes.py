@@ -236,7 +236,7 @@ def gemini_api():
         prompt = (
             "Saya adalah asisten virtual untuk platform agrikultur digital bernama RINDANG, "
             "yang membantu petani mengelola produksi pertanian dan memberikan informasi "
-            "seputar pertanian di Kota Ternate. Saya hanya boleh memberikan jawaban terkait "
+            "seputar pertanian di Maluku Utara. Saya hanya boleh memberikan jawaban terkait "
             "agrikultur, termasuk tetapi tidak terbatas pada: cara merawat tanaman, rekomendasi pupuk, "
             "langkah-langkah menghadapi cuaca, dan teknologi pertanian. "
             f"Pertanyaan pengguna: {user_message}."
